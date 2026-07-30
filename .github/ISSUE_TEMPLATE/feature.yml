@@ -1,0 +1,40 @@
+name: Feature proposal
+description: Propose a scoped ROOM capability
+title: "[Feature]: "
+labels: []
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the user or developer outcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - Template Scout Agent
+        - Profile Agent
+        - Room Planner Agent
+        - Asset Curator Agent
+        - Exhibit Agent
+        - QA Agent
+        - World runtime
+        - Comments
+        - Schemas
+        - Studio
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Contract impact
+      description: Note any input, output, or schema changes.
+  - type: textarea
+    id: sources
+    attributes:
+      label: External sources and licenses
+      description: List reference code, models, textures, fonts, music, or datasets.
