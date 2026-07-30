@@ -9,10 +9,10 @@
 ## Brand
 - Personality: playful architectural studio, handcrafted digital diorama, personal and discoverable
 - Trust signals: visible résumé-to-exhibit mapping, familiar room names, immediate demo generation
-- Avoid: monochrome gallery minimalism, unnecessary room proliferation, generic SaaS dashboard chrome, an empty public showroom, importing a complete third-party room scene
+- Avoid: unnecessary room proliferation, generic SaaS dashboard chrome, an empty public museum, runtime-generated texture walls, unrestricted free-walk navigation
 
 ## Product goals
-- Goals: perfect one résumé-to-villa demo; make spatial discovery happen through the villa itself; couple every navigation step to a camera transition
+- Goals: perfect one résumé-to-museum demo behind the existing villa entrance; make spatial discovery happen through the architecture; couple every navigation step to a camera transition
 - Non-goals: multiple demo personas, free-walk keyboard controls, photorealism, publishing workflows
 - Success signals: a visitor feels positioned at human eye height, sees the next space revealed by an opening door, follows one continuous camera path across each threshold, and can move closer to a selected résumé exhibit
 
@@ -24,11 +24,11 @@
 ## Information architecture
 - Primary navigation: personal URL, file upload, one featured demo; generated world uses the front door, in-world room doors, a single return-home control, back controls, and exhibit selection
 - Core routes/screens: single intake screen and single generated-house screen
-- Content hierarchy: promise → one demo → villa exterior → public showroom → front résumé wall / side-wall project archive / central four-corner project plinths / visitor corner → password gate → private bedroom diary
+- Content hierarchy: promise → one demo → villa exterior → museum ground floor → geometric résumé exhibits / project objects / visitor corner → stairs → second-floor password gate → private bedroom diary
 - Content-to-object mapping: identity and biography → portrait frame; work and education → chronological timeline; skills and tools → compact capability matrix; achievements and measurable impact → highlight plaque; contact links → contact card; projects → paired side-wall posters and rotating low-plinth image cards; visitor messages → corner board; private text and images → bedroom diary
 
 ## Design principles
-- One small house, two roles: the first shot must read as a small villa facade; the public showroom holds all résumé content while the password-gated private bedroom holds a local personal diary
+- One entrance, two roles: the first shot remains the small villa facade; its door fades into the supplied Mardou museum, whose ground floor holds résumé content and whose second floor contains the password-gated local diary bedroom
 - Spatial navigation first: never begin with a dollhouse overview or room tabs; the door, room thresholds, and exhibits are the primary navigation targets
 - Camera follows intent: entering the villa, entering a room, and selecting an exhibit each produces a progressively closer camera composition
 - Bounded mouse look: desktop pointer movement rotates the visitor's gaze within an authored yaw/pitch envelope so side walls and corners can be inspected without exposing the room shell. Click-driven door and exhibit camera routes always take priority; after arrival, focused exhibits permit only a small observation offset.
@@ -44,11 +44,11 @@
 - Object-level reference boundary: open-source projects supply individually named display-support nodes such as a catalog table, screen, lamp, shelf, books, contact letter, radio, skill object, globe, bench, and lantern. Decorative furniture without an information role is excluded; complete rooms, terrain, vehicles, and original layouts are never inserted.
 - Information before decoration: every retained object must help present, index, illuminate, archive, or navigate résumé content. Empty visual filler is removed even when a suitable model is available.
 - Dense but legible: the doubled public showroom reserves the front wall for résumé reading, hangs each side wall's two project posters at one shared height with generous horizontal spacing, and places four low plinths at the corners of a centered, walkable square. The visitor corner and open archive occupy opposite entrance corners. No standing project frame, table, or room-name sign may rise into the direct entrance-to-résumé-wall sightline.
-- Paired project representation: each project has one rotating flat image card on a low central plinth and one readable side-wall poster. Either object opens the same résumé-backed project detail, but each owns an authored camera focus that matches its physical orientation. Parsed website or résumé images should populate the card first; this demo renders a project-cover image fallback from the parsed title and summary.
+- Geometric project representation: projects use rotating combinations of primitive geometry and semantic color. Project imagery remains in parsed data for compatibility but is never requested by the 3D museum renderer; readable content lives in the HTML detail panel.
 - Résumé becomes architecture: the full résumé remains parsed and traceable inside the public showroom; every authored information surface is clickable and has a fixed close-view camera composition
 - Local personal memory: the private bedroom is not another résumé category. Its diary stores text and optional images in browser local storage, never through the server in this MVP.
 - Private-room first view: the bedroom door is taller than the public-room display furniture and carries no floating placard. After crossing its threshold, the diary desk sits on the doorway's center axis, faces the arriving visitor head-on, and the open book tilts slightly upward for immediate recognition.
-- Parsed project imagery: a source project's own thumbnail or embedded image is the preferred rotating exhibit. Before a source provides one, the demo renders the same parsed project content into a flat cover image; it must never fall back to an abstract 3D sculpture.
+- Texture boundary: the museum adds no ROOM-authored WebGL textures, project image textures, canvas text surfaces, or environment cube maps. The unmodified GLB retains only its own embedded materials.
 - Password boundary: the MVP uses a transparent local demo password to prove the locked-room interaction; it is a spatial concept gate, not production authentication
 - Tradeoffs: use perspective projection and staged cinematic movement rather than free-walk controls; both interiors remain mounted for uninterrupted threshold travel
 
@@ -94,7 +94,7 @@
 ## Implementation constraints
 - Framework/styling system: Next/vinext, React Three Fiber, Three.js, repository-native CSS
 - Design-token constraints: extend existing CSS variables rather than add a second design system
-- Performance constraints: preload and retain the two authored interiors in one canvas for uninterrupted threshold travel, never load complete vendor room scenes, keep the vendor object catalog bounded, cap canvas DPR, and cap diary image uploads at 1 MB
+- Performance constraints: preload the original owner-supplied GLB behind the villa entrance, cap canvas DPR, keep real-time lights at four or fewer, hide bundled demo exhibits at runtime, and cap diary image uploads at 1 MB
 - Compatibility constraints: preserve Cloudflare-compatible build; local-only delivery for this iteration
 - Test/screenshot expectations: pipeline tests, lint, build, rendered HTML smoke test, and desktop browser verification at 1280×720 of exterior → public showroom → wall focus → central project focus → visitor message persistence → password error → password success → diary persistence → return paths
 

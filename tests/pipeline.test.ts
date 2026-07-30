@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import { checkWorld } from "../lib/agents/checker.ts";
 import { runPipeline } from "../lib/agents/pipeline.ts";
 import { sampleResume } from "../lib/data/sample-resume.ts";
 import { extractWebPage } from "../lib/extract-webpage.ts";
 import { validateProfile, validateReport, validateWorld } from "../lib/validate.ts";
+import { MUSEUM_LAYOUT, MUSEUM_RENDER_POINTS } from "../lib/museum-layout.ts";
 
 test("parser keeps line-level evidence for every content item", () => {
   const result = runPipeline(sampleResume);
@@ -19,24 +21,45 @@ test("orchestrator maps every résumé item into the public showroom and keeps r
   const expected = result.profile.items.length + result.profile.skills.length;
   assert.equal(result.world.rooms.length, 2);
   assert.equal(result.world.portals.length, 1);
-  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-lobby")?.size, [21.6, 0.3, 28]);
-  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.size, [16, 0.3, 20]);
-  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.center, [-18.8, 0, -16.25]);
-  assert.deepEqual(result.world.portals[0]?.position, [-10.8, 1, -16.25]);
+  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-lobby")?.size, MUSEUM_LAYOUT.bounds.groundSize);
+  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.size, MUSEUM_LAYOUT.bounds.privateSize);
+  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.center, MUSEUM_LAYOUT.bounds.privateCenter);
+  assert.deepEqual(result.world.portals[0]?.position, MUSEUM_LAYOUT.portal);
+  assert.ok((result.world.rooms.find((room) => room.id === "room-private")?.center[1] || 0) > 2);
   assert.ok(result.world.exhibits.every((item) => item.roomId === "room-lobby"));
   assert.equal(result.world.rooms.find((room) => room.id === "room-private")?.kind, "bedroom");
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.exhibitIds, []);
   assert.equal(result.world.exhibits.length, expected);
   assert.equal(new Set(result.world.exhibits.map((item) => item.sourceItemId)).size, expected);
   const projectPedestals = result.world.exhibits.filter((item) => item.eyebrow === "PROJECT");
-  assert.deepEqual(projectPedestals.map((item) => item.position), [
-    [-4.4, 0, -4.5],
-    [4.4, 0, -4.5],
-    [-4.4, 0, -11.5],
-    [4.4, 0, -11.5],
-  ]);
+  assert.deepEqual(
+    projectPedestals.map((item) => item.position),
+    MUSEUM_RENDER_POINTS.filter((point) => point.mesh === "Floor" && point.position[1] < 1)
+      .slice(1)
+      .slice(0, projectPedestals.length)
+      .map((point) => point.position),
+  );
   assert.equal(validateWorld(result.world).length, 0);
   assert.equal(result.report.checks.find((item) => item.name === "Room graph")?.passed, true);
+});
+
+test("Mardou museum asset keeps required nodes and the runtime creates no ROOM textures", () => {
+  const glb = readFileSync("public/vendor/mardou/MardouMuseumResult.glb");
+  assert.equal(glb.toString("ascii", 0, 4), "glTF");
+  const jsonLength = glb.readUInt32LE(12);
+  const jsonType = glb.readUInt32LE(16);
+  assert.equal(jsonType, 0x4e4f534a);
+  const json = JSON.parse(glb.toString("utf8", 20, 20 + jsonLength).replace(/\u0000+$/g, "")) as {
+    nodes: Array<{ name?: string }>;
+  };
+  const names = new Set(json.nodes.map((node) => node.name));
+  for (const required of ["Floor", "Chrome", "Ceiling", "Walls"]) assert.ok(names.has(required));
+
+  assert.deepEqual(readdirSync("public/vendor/mardou").filter((name) => name.endsWith(".png")), []);
+  const runtime = readFileSync("components/MuseumWorldCanvas.tsx", "utf8");
+  assert.equal(runtime.includes("CanvasTexture"), false);
+  assert.equal(runtime.includes("TextureLoader"), false);
+  assert.equal(runtime.includes("imageUrl"), false);
 });
 
 test("default world passes the deterministic checker", () => {

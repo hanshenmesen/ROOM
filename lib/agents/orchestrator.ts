@@ -7,6 +7,7 @@ import type {
   Vec3,
   WorldPlan,
 } from "../types.ts";
+import { MUSEUM_LAYOUT, museumExhibitPosition, museumProjectPosition } from "../museum-layout.ts";
 
 const roomSpecs: Array<{
   id: string;
@@ -16,33 +17,9 @@ const roomSpecs: Array<{
   center: Vec3;
   size: Vec3;
 }> = [
-  { id: "room-lobby", kind: "lobby", title: "客厅", subtitle: "人物、项目、能力与档案", center: [0, 0, -7], size: [21.6, 0.3, 28] },
-  { id: "room-private", kind: "bedroom", title: "Private Bedroom", subtitle: "需密码进入 · 私人日记", center: [-18.8, 0, -16.25], size: [16, 0.3, 20] },
+  { id: "room-lobby", kind: "lobby", title: "Museum Ground Floor", subtitle: "人物、项目、能力与档案", center: MUSEUM_LAYOUT.bounds.groundCenter, size: MUSEUM_LAYOUT.bounds.groundSize },
+  { id: "room-private", kind: "bedroom", title: "Second-floor Private Bedroom", subtitle: "需密码进入 · 私人日记", center: MUSEUM_LAYOUT.bounds.privateCenter, size: MUSEUM_LAYOUT.bounds.privateSize },
 ];
-
-function positionFor(center: Vec3, size: Vec3, index: number, count: number): Vec3 {
-  const availableColumns = Math.max(2, Math.floor((size[0] - 2) / 2.3));
-  const columns = count === 1 ? 1 : Math.min(count, availableColumns, 5);
-  const row = Math.floor(index / columns);
-  const column = index % columns;
-  const rowCount = Math.ceil(count / columns);
-  const centeredRow = row - (rowCount - 1) / 2;
-  const reservedCenterOffset = centeredRow >= 0 ? centeredRow + 1 : centeredRow - 1;
-  const entryClearanceShift = center[0] < -1 ? -1 : 0;
-  const x = center[0] + entryClearanceShift + (column - (columns - 1) / 2) * 2.25;
-  const z = center[2] + reservedCenterOffset * 3.7;
-  return [x, 0.72, z];
-}
-
-function projectPosition(center: Vec3, index: number): Vec3 {
-  const stations: Vec3[] = [
-    [center[0] - 4.4, 0, center[2] + 2.5],
-    [center[0] + 4.4, 0, center[2] + 2.5],
-    [center[0] - 4.4, 0, center[2] - 4.5],
-    [center[0] + 4.4, 0, center[2] - 4.5],
-  ];
-  return stations[index] || [center[0] + (index - 1.5) * 4, 0, center[2] - 4.5];
-}
 
 function exhibitKind(kind: string): ExhibitPlan["kind"] {
   if (kind === "project") return "pedestal";
@@ -88,8 +65,8 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       id: `exhibit-${index + 1}`,
       ...draft,
       position: draft.eyebrow === "PROJECT"
-        ? projectPosition(room.center, projectIndex)
-        : positionFor(room.center, room.size, siblingIndex, siblings.length),
+        ? museumProjectPosition(projectIndex)
+        : museumExhibitPosition(siblingIndex),
       size: draft.eyebrow === "PROJECT"
         ? [1.72, 1.72, 1.5]
         : draft.kind === "terminal"
@@ -105,7 +82,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
   });
 
   const portals = [
-    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: [-10.8, 1, -16.25] as Vec3, label: "Private Bedroom" },
+    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: MUSEUM_LAYOUT.portal as Vec3, label: "Second-floor Private Bedroom" },
   ];
   const rooms: RoomPlan[] = roomSpecs.map((room) => ({
     ...room,
@@ -127,14 +104,16 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     tour: rooms.map((room) => ({
       roomId: room.id,
       label: room.title,
-      camera: [room.center[0] + 6.8, 7.2, room.center[2] + 8.2],
+      camera: room.kind === "bedroom"
+        ? MUSEUM_LAYOUT.camera.privateRoom.position
+        : MUSEUM_LAYOUT.camera.ground.position,
     })),
     metrics: {
       rooms: rooms.length,
       exhibits: exhibits.length,
-      estimatedDrawCalls: 18 + rooms.length * 5 + exhibits.length,
-      estimatedTriangles: 94_000 + exhibits.length * 520,
-      realtimeLights: 3,
+      estimatedDrawCalls: 30 + exhibits.length,
+      estimatedTriangles: 73_800 + exhibits.length * 320,
+      realtimeLights: 4,
     },
   };
 }

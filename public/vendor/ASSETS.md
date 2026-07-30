@@ -2,6 +2,13 @@
 
 The MVP stores these files locally so the demo does not depend on a deployment or third-party CDN.
 
+## Mardou Museum
+
+- Source: project-owner supplied archive at `/Users/zhanghanshuo/buildathon_1/the-mardou-museum.zip`.
+- Copied: only the original `MardouMuseumResult.glb`; duplicate external PNG exports are excluded because the GLB already embeds its materials.
+- Runtime adaptation: ROOM treats the GLB as a read-only museum shell, hides the sample Picture and Bix nodes, and overlays only ROOM-owned geometry and interactions.
+- Rights: owner-supplied asset; provenance and commercial permissions must be confirmed before distribution. See `mardou/README.md`.
+
 ## Joan Ramos Refusta environment map
 
 - Source: https://github.com/jrefusta/joan-portfolio

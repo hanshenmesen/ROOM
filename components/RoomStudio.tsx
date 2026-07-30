@@ -18,11 +18,13 @@ import { sampleResume } from "@/lib/data/sample-resume";
 import type { PipelineResult } from "@/lib/types";
 
 const WorldCanvas = dynamic(
-  () => import("./WorldCanvas").then((module) => module.WorldCanvas),
+  () => import("./MuseumWorldCanvas").then((module) => module.WorldCanvas),
   { ssr: false },
 );
 
-const PRIVATE_ROOM_ID = "room-private";
+const GROUND_STAGE = "museum-ground";
+const PRIVATE_LANDING_STAGE = "private-landing";
+const PRIVATE_ROOM_STAGE = "private-room";
 const DEMO_PRIVATE_PASSWORD = "room2026";
 const GUESTBOOK_STORAGE_KEY = "room:guestbook:v1";
 const DIARY_STORAGE_KEY = "room:diary:v1";
@@ -79,6 +81,8 @@ export function RoomStudio() {
   const [privatePassword, setPrivatePassword] = useState("");
   const [privatePasswordError, setPrivatePasswordError] = useState("");
   const [privateUnlocked, setPrivateUnlocked] = useState(false);
+  const [worldTransition, setWorldTransition] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [guestbookEntries, setGuestbookEntries] = useState<GuestbookEntry[]>([]);
   const [guestName, setGuestName] = useState("");
   const [guestMessage, setGuestMessage] = useState("");
@@ -148,6 +152,20 @@ export function RoomStudio() {
     return () => window.clearTimeout(hydrationTimer);
   }, []);
 
+  useEffect(() => {
+    if (activeRoom !== PRIVATE_LANDING_STAGE) return;
+    const arrivalTimer = window.setTimeout(() => {
+      if (privateUnlocked) {
+        setActiveRoom(PRIVATE_ROOM_STAGE);
+      } else {
+        setPrivatePassword("");
+        setPrivatePasswordError("");
+        setPrivateGateOpen(true);
+      }
+    }, 2800);
+    return () => window.clearTimeout(arrivalTimer);
+  }, [activeRoom, privateUnlocked]);
+
   function openWorld(text: string, label: string, type: "text" | "url" = "text", media: ExtractedMedia[] = []) {
     const next = runPipeline(text, { label, type, id: type === "url" ? label : undefined, media });
     setResult(next);
@@ -157,17 +175,20 @@ export function RoomStudio() {
     setPrivatePassword("");
     setPrivatePasswordError("");
     setPrivateUnlocked(false);
+    setWorldTransition(false);
+    setDirectoryOpen(false);
     setMessage("");
   }
 
   function requestRoomChange(roomId: string) {
     setSelectedId("");
-    if (roomId === PRIVATE_ROOM_ID && !privateUnlocked) {
-      setPrivatePassword("");
-      setPrivatePasswordError("");
-      setPrivateGateOpen(true);
+    if (roomId === GROUND_STAGE && activeRoom === "exterior") {
+      setWorldTransition(true);
+      window.setTimeout(() => setActiveRoom(GROUND_STAGE), 360);
+      window.setTimeout(() => setWorldTransition(false), 900);
       return;
     }
+    if (roomId === PRIVATE_LANDING_STAGE) setPrivateGateOpen(false);
     setActiveRoom(roomId);
   }
 
@@ -180,7 +201,7 @@ export function RoomStudio() {
     setPrivateUnlocked(true);
     setPrivateGateOpen(false);
     setPrivatePasswordError("");
-    setActiveRoom(PRIVATE_ROOM_ID);
+    setActiveRoom(PRIVATE_ROOM_STAGE);
   }
 
   async function extractUrl() {
@@ -431,6 +452,7 @@ export function RoomStudio() {
           onSelect={selectWorldObject}
           onRoomChange={requestRoomChange}
         />
+        <div className={`world-transition ${worldTransition ? "is-active" : ""}`} aria-hidden="true" />
 
         <div className={`private-gate ${privateGateOpen ? "is-open" : ""}`} aria-hidden={!privateGateOpen}>
           {privateGateOpen ? (
@@ -472,18 +494,43 @@ export function RoomStudio() {
                 type="button"
                 onClick={() => {
                   setSelectedId("");
-                  setActiveRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
+                  setPrivateGateOpen(false);
+                  setActiveRoom(activeRoom === GROUND_STAGE ? "exterior" : GROUND_STAGE);
                 }}
               >
-                ← {activeRoom === "room-lobby" ? "回到别墅外" : "返回客厅"}
+                ← {activeRoom === GROUND_STAGE ? "回到别墅外" : "返回一楼展厅"}
               </button>
-              {activeRoom === "room-lobby" ? (
-                <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
-                  私人卧室 · {privateUnlocked ? "进入" : "输入密码"}
+              {activeRoom === GROUND_STAGE ? (
+                <button type="button" onClick={() => requestRoomChange(PRIVATE_LANDING_STAGE)}>
+                  二楼私人卧室 · {privateUnlocked ? "进入" : "输入密码"}
                 </button>
               ) : null}
             </>
           )}
+        </nav>
+
+        {activeRoom === GROUND_STAGE ? (
+          <button
+            className="directory-toggle"
+            type="button"
+            aria-expanded={directoryOpen}
+            aria-controls="exhibit-directory"
+            onClick={() => setDirectoryOpen((open) => !open)}
+          >
+            {directoryOpen ? "关闭目录" : "展品目录"}
+          </button>
+        ) : null}
+        <nav id="exhibit-directory" className={`exhibit-directory ${activeRoom === GROUND_STAGE && directoryOpen ? "is-open" : ""}`} aria-label="展品目录">
+          <strong>EXHIBITS</strong>
+          <button type="button" onClick={() => selectWorldObject("showroom-profile")}>个人简介</button>
+          <button type="button" onClick={() => selectWorldObject("showroom-journey")}>经历与教育</button>
+          <button type="button" onClick={() => selectWorldObject("showroom-skills")}>技能</button>
+          <button type="button" onClick={() => selectWorldObject("showroom-highlights")}>成就</button>
+          <button type="button" onClick={() => selectWorldObject("showroom-contact")}>联系方式</button>
+          <button type="button" onClick={() => selectWorldObject("showroom-guestbook")}>留言板</button>
+          {result.world.exhibits.map((exhibit) => (
+            <button key={exhibit.id} type="button" onClick={() => selectWorldObject(exhibit.id)}>{exhibit.title}</button>
+          ))}
         </nav>
 
         <div className={`exhibit-detail ${selectedDetail ? "is-open" : ""}`}>
@@ -559,13 +606,15 @@ export function RoomStudio() {
         <div className="world-hint">
           {activeRoom === "exterior"
             ? "打开前门 · 镜头会连续穿过门槛"
-            : activeRoom === "room-lobby"
+            : activeRoom === GROUND_STAGE
               ? selectedId
                 ? "视角已跟随到这件展品"
-                : "移动鼠标环视 · 点击墙面资料、中央项目展架或角落留言板"
+                : "移动鼠标环视 · 点击纯几何展品或楼梯入口"
+              : activeRoom === PRIVATE_LANDING_STAGE
+                ? privateGateOpen ? "已到达二楼 · 输入密码打开卧室" : "正在沿楼梯前往二楼私人卧室"
               : selectedId === "bedroom-diary"
                 ? "日记已打开 · 内容只保存在当前浏览器"
-                : "移动鼠标环视 · 点击桌上的日记本 · 返回客厅继续浏览"}
+                : "移动鼠标环视 · 点击桌上的日记本 · 返回一楼继续浏览"}
         </div>
       </section>
     </main>
