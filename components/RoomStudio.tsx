@@ -187,7 +187,7 @@ export function RoomStudio() {
         <footer className="minimal-footer">
           <span>One source in.</span>
           <span>One world out.</span>
-          <span>1 resume · 1 villa · 5 rooms</span>
+          <span>1 resume · 1 living room · 1 portfolio room</span>
         </footer>
       </main>
     );
@@ -225,7 +225,7 @@ export function RoomStudio() {
 
         <nav className="journey-nav" aria-label="空间导航">
           {activeRoom === "exterior" ? (
-            <button type="button" className="journey-primary" onClick={() => setActiveRoom("room-lobby")}>打开大门 · 进入客厅</button>
+            <span className="journey-primary">点击画面中的大门 · 进入客厅</span>
           ) : (
             <>
               <button
@@ -261,7 +261,7 @@ export function RoomStudio() {
           {activeRoom === "exterior"
             ? "点击大门进入"
             : activeRoom === "room-lobby"
-              ? "选择客厅左右两侧的房间"
+              ? "打开客厅左侧的门 · 进入作品房"
               : selected
                 ? "视角已跟随到这件展品"
                 : "点击房间内的展品继续靠近"}

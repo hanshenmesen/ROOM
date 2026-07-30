@@ -13,10 +13,12 @@ test("parser keeps line-level evidence for every content item", () => {
   assert.equal(result.profile.skills.length, 12);
 });
 
-test("orchestrator maps every source item exactly once into five connected rooms", () => {
+test("orchestrator maps every source item exactly once into one connected portfolio room", () => {
   const result = runPipeline(sampleResume);
   const expected = result.profile.items.length + result.profile.skills.length;
-  assert.equal(result.world.rooms.length, 5);
+  assert.equal(result.world.rooms.length, 2);
+  assert.equal(result.world.portals.length, 1);
+  assert.ok(result.world.exhibits.every((item) => item.roomId === "room-projects"));
   assert.equal(result.world.exhibits.length, expected);
   assert.equal(new Set(result.world.exhibits.map((item) => item.sourceItemId)).size, expected);
   assert.equal(validateWorld(result.world).length, 0);

@@ -40,9 +40,9 @@ export function directWorld(profile: ParsedProfile): CreativeBrief {
     id: `brief-${profile.id}`,
     concept: `${profile.name} 的可追溯创作事务所`,
     narrative:
-      "访客先面对林澈的小别墅，亲自打开正门进入客厅；客厅左右各有两道门，分别通往项目、经历、技能与成就空间。每件展品都能回到履历原文。",
+      "访客先面对林澈的小别墅，亲自打开正门进入客厅；客厅只保留一道门，进入陈列四个精选项目的作品房。每个项目都能回到履历原文。",
     spatialStrategy:
-      "采用中央客厅加左右四房的单栋小别墅。外部阶段展示完整立面与正门；入户后隐藏前立面，以中央客厅为分发空间；进入房间和选择展品时，镜头逐级靠近。",
+      "采用客厅加作品房的两段式小别墅。外部阶段展示完整立面与正门；入户后只呈现当前房间；进入作品房和选择项目时，镜头逐级靠近。",
     mood: ["architectural-diorama", "warm-cyber", "dense-personal", "low-poly"],
     palette: {
       background: "#171720",

@@ -225,8 +225,19 @@ button:disabled { cursor: not-allowed; }
 }
 .minimal-footer button { border: 0; padding: 8px 0; background: transparent; text-decoration: underline; }
 
-.world-page { height: 100vh; padding: 0 24px 24px; background: var(--white); overflow: hidden; }
-.world-header { height: 76px; }
+.world-page { position: relative; height: 100vh; padding: 0; background: #91adbd; overflow: hidden; }
+.world-header {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  height: 54px;
+  padding: 0 16px;
+  border: 1px solid var(--black);
+  background: rgba(245,245,241,.9);
+  backdrop-filter: blur(12px);
+}
 .wordmark-button { border: 0; padding: 0; background: transparent; }
 .world-identity { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .world-identity strong { font-size: 13px; }
@@ -241,12 +252,13 @@ button:disabled { cursor: not-allowed; }
 
 .world-stage {
   position: relative;
-  height: calc(100vh - 100px);
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
-  border: 1px solid var(--black);
-  background: var(--paper);
+  border: 0;
+  background: #91adbd;
 }
-.world-stage canvas { display: block; }
+.world-stage canvas { display: block; width: 100% !important; height: 100% !important; }
 .world-status {
   position: absolute;
   top: 18px;
@@ -324,10 +336,10 @@ button:disabled { cursor: not-allowed; }
   .intake-form { max-width: none; margin-top: 44px; }
   .upload-zone { min-height: 140px; }
   .minimal-footer span:nth-child(2) { display: none; }
-  .world-page { padding: 0 10px 10px; }
-  .world-header { height: 62px; }
+  .world-page { padding: 0; }
+  .world-header { top: 10px; left: 10px; right: 10px; height: 52px; }
   .world-identity span { display: none; }
-  .world-stage { height: calc(100vh - 72px); }
+  .world-stage { width: 100vw; height: 100vh; }
   .world-status { top: 10px; left: 10px; }
   .world-hint { display: none; }
   .journey-nav { left: 10px; right: 10px; bottom: 10px; transform: none; overflow-x: auto; }

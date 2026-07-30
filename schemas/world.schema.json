@@ -7,8 +7,8 @@
   "properties": {
     "version": { "const": "0.1.0" },
     "id": { "type": "string" },
-    "rooms": { "type": "array", "minItems": 5, "items": { "$ref": "#/$defs/room" } },
-    "portals": { "type": "array", "minItems": 4, "items": { "$ref": "#/$defs/portal" } },
+    "rooms": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/room" } },
+    "portals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/portal" } },
     "exhibits": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exhibit" } },
     "tour": { "type": "array" },
     "metrics": {
