@@ -12,7 +12,7 @@ export function validateProfile(profile: ParsedProfile) {
 export function validateWorld(world: WorldPlan) {
   const errors: string[] = [];
   if (world.version !== "0.1.0") errors.push("unsupported world version");
-  if (world.rooms.length < 2) errors.push("the focused MVP requires a living room and one portfolio room");
+  if (world.rooms.length < 2) errors.push("the focused MVP requires one public showroom and one private bedroom");
   if (new Set(world.exhibits.map((item) => item.sourceItemId)).size !== world.exhibits.length) errors.push("source items must map one-to-one");
   return errors;
 }

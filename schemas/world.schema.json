@@ -23,7 +23,7 @@
       "required": ["id", "kind", "title", "center", "size", "portalIds", "exhibitIds"],
       "properties": {
         "id": { "type": "string" },
-        "kind": { "enum": ["lobby", "projects", "experience", "skills", "achievements"] },
+        "kind": { "enum": ["lobby", "bedroom", "experience", "skills", "achievements"] },
         "center": { "$ref": "#/$defs/vec3" },
         "size": { "$ref": "#/$defs/vec3" }
       }

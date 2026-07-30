@@ -2,7 +2,7 @@
 
 The MVP stores these files locally so the demo does not depend on a deployment or third-party CDN.
 
-## Joan Ramos Refusta portfolio room
+## Joan Ramos Refusta environment map
 
 - Source: https://github.com/jrefusta/joan-portfolio
 - Pinned commit: `081030cf5fa0f43e39e7d727789f138d704a211c`
@@ -16,7 +16,15 @@ The MVP stores these files locally so the demo does not depend on a deployment o
 - Pinned commit: `43536e14e7997708dd11bb0b8413e1337f9588ac`
 - License: MIT; the upstream license is preserved at `maxime/LICENSE.txt`.
 - Copied: `scene-final.gltf`, including its embedded geometry and materials.
-- Runtime adaptation: ROOM extracts individually named nodes such as `chair`, `table`, `lamp`, `radio`, and `globe`, normalizes each object independently, and places it in ROOM-owned coordinates. The upstream room shell and its original arrangement are never rendered.
+- Runtime adaptation: ROOM extracts only individually named display-support nodes such as `table`, `screen`, `desk lamp`, `shelve`, `book`, and `letter`, normalizes each independently, and places it in ROOM-owned coordinates. Decorative furniture without an information role, the upstream room shell, and the original arrangement are never rendered.
+
+## Bruno Simon Folio 2025
+
+- Source: https://github.com/brunosimon/folio-2025
+- Pinned commit: `41046b57eeed8d156d9c3fd7fa259900baef7816`.
+- License: MIT; the upstream license is preserved at `bruno/LICENSE.md`.
+- Copied: only the standalone `benches.glb` and `lanterns.glb` prop files.
+- Runtime adaptation: ROOM extracts one named `benchPhysicalDynamic` node for the visitor-message corner and individual `lantern` nodes for the central project display. Bruno's terrain, areas, vehicle, physics, shaders, and complete world are not loaded.
 
 ## Three.js decoders
 

@@ -16,8 +16,8 @@ const roomSpecs: Array<{
   center: Vec3;
   size: Vec3;
 }> = [
-  { id: "room-lobby", kind: "lobby", title: "Living Room", subtitle: "关于林澈与这栋房子", center: [0, 0, 0], size: [10.8, 0.3, 14] },
-  { id: "room-projects", kind: "projects", title: "Portfolio Room", subtitle: "四个精选项目", center: [-13.2, 0, -1], size: [15.5, 0.3, 14] },
+  { id: "room-lobby", kind: "lobby", title: "客厅", subtitle: "人物、项目、能力与档案", center: [0, 0, -7], size: [21.6, 0.3, 28] },
+  { id: "room-private", kind: "bedroom", title: "Private Bedroom", subtitle: "需密码进入 · 私人日记", center: [-18.8, 0, -16.25], size: [16, 0.3, 20] },
 ];
 
 function positionFor(center: Vec3, size: Vec3, index: number, count: number): Vec3 {
@@ -25,20 +25,23 @@ function positionFor(center: Vec3, size: Vec3, index: number, count: number): Ve
   const columns = count === 1 ? 1 : Math.min(count, availableColumns, 5);
   const row = Math.floor(index / columns);
   const column = index % columns;
+  const rowCount = Math.ceil(count / columns);
+  const centeredRow = row - (rowCount - 1) / 2;
+  const reservedCenterOffset = centeredRow >= 0 ? centeredRow + 1 : centeredRow - 1;
   const entryClearanceShift = center[0] < -1 ? -1 : 0;
   const x = center[0] + entryClearanceShift + (column - (columns - 1) / 2) * 2.25;
-  const z = center[2] + (row - Math.max(0, Math.ceil(count / columns) - 1) / 2) * 2.05;
+  const z = center[2] + reservedCenterOffset * 3.7;
   return [x, 0.72, z];
 }
 
-function projectPosition(center: Vec3, index: number, count: number): Vec3 {
-  const twoSidedStations: Vec3[] = [
-    [center[0] + 3, 0.72, center[2] - 2.65],
-    [center[0] + 0.6, 0.72, center[2] - 3.15],
-    [center[0] + 3, 0.72, center[2] + 2.65],
-    [center[0] + 0.6, 0.72, center[2] + 3.15],
+function projectPosition(center: Vec3, index: number): Vec3 {
+  const stations: Vec3[] = [
+    [center[0] - 4.4, 0, center[2] + 2.5],
+    [center[0] + 4.4, 0, center[2] + 2.5],
+    [center[0] - 4.4, 0, center[2] - 4.5],
+    [center[0] + 4.4, 0, center[2] - 4.5],
   ];
-  return twoSidedStations[index] || positionFor(center, [15.5, 0.3, 14], index, count);
+  return stations[index] || [center[0] + (index - 1.5) * 4, 0, center[2] - 4.5];
 }
 
 function exhibitKind(kind: string): ExhibitPlan["kind"] {
@@ -53,7 +56,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
   const drafts = [
     ...profile.items.map((item) => ({
       sourceItemId: item.id,
-      roomId: "room-projects",
+      roomId: "room-lobby",
       title: item.title,
       eyebrow: item.kind.toUpperCase(),
       body: item.summary,
@@ -63,7 +66,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     })),
     ...profile.skills.map((skill) => ({
       sourceItemId: `skill:${skill}`,
-      roomId: "room-projects",
+      roomId: "room-lobby",
       title: skill,
       eyebrow: "SKILL",
       body: `${profile.name} 的履历中明确列出的能力。`,
@@ -83,20 +86,24 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       id: `exhibit-${index + 1}`,
       ...draft,
       position: draft.eyebrow === "PROJECT"
-        ? projectPosition(room.center, projectIndex, projectSiblings.length)
+        ? projectPosition(room.center, projectIndex)
         : positionFor(room.center, room.size, siblingIndex, siblings.length),
-      size: draft.kind === "terminal" ? [0.72, 0.72, 0.48] : [0.82, 0.92, 0.52],
+      size: draft.eyebrow === "PROJECT"
+        ? [1.72, 1.72, 1.5]
+        : draft.kind === "terminal"
+          ? [0.72, 0.72, 0.48]
+          : [0.82, 0.92, 0.52],
       color: brief.palette.rooms[room.kind],
       interaction: {
         clickable: true,
-        hitbox: [1.05, 1.2, 0.9],
+        hitbox: draft.eyebrow === "PROJECT" ? [1.92, 1.82, 1.7] : [1.05, 1.2, 0.9],
         action: "open-detail",
       },
     };
   });
 
   const portals = [
-    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-projects", position: [-5.45, 1, -1] as Vec3, label: "Portfolio Room" },
+    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: [-10.8, 1, -16.25] as Vec3, label: "Private Bedroom" },
   ];
   const rooms: RoomPlan[] = roomSpecs.map((room) => ({
     ...room,

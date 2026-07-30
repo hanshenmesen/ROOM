@@ -1,51 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
 import type { RoomPlan, Vec3 } from "@/lib/types";
 
-const INK = "#19171b";
-const PAPER = "#f3e8d7";
 const DARK_WOOD = "#34231f";
 const BRASS = "#d4a15c";
-
-function RoomSign({ room, position, rotation = [0, 0, 0], width = 4.6 }: {
-  room: RoomPlan;
-  position: Vec3;
-  rotation?: Vec3;
-  width?: number;
-}) {
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 256;
-    const context = canvas.getContext("2d")!;
-    context.fillStyle = PAPER;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.strokeStyle = INK;
-    context.lineWidth = 7;
-    context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
-    context.fillStyle = INK;
-    context.font = "700 68px Arial";
-    context.fillText(room.title.toUpperCase(), 48, 106, 920);
-    context.font = "29px Arial";
-    context.fillStyle = "#6e5c51";
-    context.fillText(room.subtitle, 50, 176, 900);
-    const result = new THREE.CanvasTexture(canvas);
-    result.colorSpace = THREE.SRGBColorSpace;
-    result.anisotropy = 4;
-    return result;
-  }, [room.subtitle, room.title]);
-
-  useEffect(() => () => texture.dispose(), [texture]);
-
-  return (
-    <mesh position={position} rotation={rotation}>
-      <planeGeometry args={[width, 1.15]} />
-      <meshBasicMaterial map={texture} toneMapped={false} />
-    </mesh>
-  );
-}
 
 function Window({ position, rotation = [0, 0, 0], width = 1.7 }: { position: Vec3; rotation?: Vec3; width?: number }) {
   return (
@@ -70,9 +30,22 @@ function RoomEnvelope({ room }: { room: RoomPlan }) {
     return color.getStyle();
   }, [room.color, room.kind]);
   const floorColor = useMemo(() => new THREE.Color(room.color).multiplyScalar(0.72).getStyle(), [room.color]);
+  const lobbyDoorLocalZ = -9.25;
+  const lobbyDoorHalfWidth = 1.3;
   const lobbyLeftSegments = [
-    { z: 3.65, depth: 6.7 },
-    { z: -4.65, depth: 4.7 },
+    {
+      z: (-halfDepth + lobbyDoorLocalZ - lobbyDoorHalfWidth) / 2,
+      depth: lobbyDoorLocalZ - lobbyDoorHalfWidth + halfDepth,
+    },
+    {
+      z: (lobbyDoorLocalZ + lobbyDoorHalfWidth + halfDepth) / 2,
+      depth: halfDepth - lobbyDoorLocalZ - lobbyDoorHalfWidth,
+    },
+  ];
+  const bedroomWallSegmentDepth = (depth - 2.6) / 2;
+  const bedroomRightSegments = [
+    { z: 1.3 + bedroomWallSegmentDepth / 2, depth: bedroomWallSegmentDepth },
+    { z: -1.3 - bedroomWallSegmentDepth / 2, depth: bedroomWallSegmentDepth },
   ];
 
   return (
@@ -87,13 +60,16 @@ function RoomEnvelope({ room }: { room: RoomPlan }) {
           {lobbyLeftSegments.map((segment) => (
             <mesh key={segment.z} receiveShadow position={[-halfWidth + 0.11, wallY, segment.z]}><boxGeometry args={[0.22, wallHeight, segment.depth]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
           ))}
-          <mesh receiveShadow position={[-halfWidth + 0.11, 4, -1]}><boxGeometry args={[0.22, 0.92, 2.6]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
+          <mesh receiveShadow position={[-halfWidth + 0.11, 4, lobbyDoorLocalZ]}><boxGeometry args={[0.22, 0.92, 2.6]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
           <mesh receiveShadow position={[halfWidth - 0.11, wallY, 0]}><boxGeometry args={[0.22, wallHeight, depth]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
         </>
       ) : (
         <>
           <mesh receiveShadow position={[-halfWidth + 0.11, wallY, 0]}><boxGeometry args={[0.22, wallHeight, depth]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
-          <mesh receiveShadow position={[halfWidth - 0.11, wallY, 0]}><boxGeometry args={[0.22, wallHeight, depth]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
+          {bedroomRightSegments.map((segment) => (
+            <mesh key={segment.z} receiveShadow position={[halfWidth - 0.11, wallY, segment.z]}><boxGeometry args={[0.22, wallHeight, segment.depth]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
+          ))}
+          <mesh receiveShadow position={[halfWidth - 0.11, 4, 0]}><boxGeometry args={[0.22, 0.92, 2.6]} /><meshStandardMaterial color={wallColor} roughness={0.96} /></mesh>
         </>
       )}
 
@@ -101,24 +77,12 @@ function RoomEnvelope({ room }: { room: RoomPlan }) {
       <mesh position={[0, 4.16, -halfDepth + 0.24]}><boxGeometry args={[width, 0.2, 0.18]} /><meshStandardMaterial color={BRASS} /></mesh>
       {[-0.32, 0, 0.32].map((ratio) => <mesh key={ratio} position={[ratio * width, 4.2, 0]}><boxGeometry args={[0.16, 0.18, depth]} /><meshStandardMaterial color={ratio === 0 ? DARK_WOOD : BRASS} roughness={0.6} /></mesh>)}
 
-      {room.kind === "lobby" ? (
-        <>
-          <Window position={[-2.55, 1.55, -halfDepth + 0.24]} width={1.9} />
-          <Window position={[2.55, 1.55, -halfDepth + 0.24]} width={1.9} />
-          <RoomSign room={room} position={[0, 3.16, -halfDepth + 0.25]} width={4.2} />
-        </>
-      ) : (
+      {room.kind !== "lobby" ? (
         <>
           <Window position={[-2.75, 1.55, -halfDepth + 0.24]} width={1.9} />
           <Window position={[2.75, 1.55, -halfDepth + 0.24]} width={1.9} />
-          <RoomSign
-            room={room}
-            position={[room.center[0] < 0 ? -halfWidth + 0.24 : halfWidth - 0.24, 3.08, 0]}
-            rotation={[0, room.center[0] < 0 ? Math.PI / 2 : -Math.PI / 2, 0]}
-            width={4.7}
-          />
         </>
-      )}
+      ) : null}
     </group>
   );
 }
@@ -127,7 +91,13 @@ export function AuthoredRoomScene({ room }: { room: RoomPlan }) {
   return (
     <group position={room.center}>
       <RoomEnvelope room={room} />
-      <pointLight position={[0, 3.2, 0]} intensity={7} distance={12} decay={2} color={room.color} />
+      <pointLight
+        position={[0, 3.2, room.kind === "lobby" ? 1 : 0]}
+        intensity={room.kind === "lobby" ? 16 : 9}
+        distance={room.kind === "lobby" ? 28 : 18}
+        decay={2}
+        color={room.color}
+      />
     </group>
   );
 }

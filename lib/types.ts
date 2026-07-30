@@ -7,7 +7,7 @@ export type SectionKind =
 
 export type RoomKind =
   | "lobby"
-  | "projects"
+  | "bedroom"
   | "experience"
   | "skills"
   | "achievements";
