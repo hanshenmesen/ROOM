@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://room.dev/schemas/check-report.schema.json",
+  "title": "ROOM Check Report",
+  "type": "object",
+  "required": ["passed", "score", "summary", "checks", "issues"],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "score": { "type": "number", "minimum": 0, "maximum": 100 },
+    "summary": { "type": "string" },
+    "checks": { "type": "array", "minItems": 5 },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "severity", "message", "entityIds", "suggestion"],
+        "properties": {
+          "category": { "enum": ["content", "overlap", "interaction", "performance", "navigation"] },
+          "severity": { "enum": ["error", "warning", "info"] }
+        }
+      }
+    }
+  }
+}

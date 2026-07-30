@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "purpose": "License-aware reference corpus for ROOM Creative Director",
+  "entries": [
+    {
+      "id": "jrefusta-joan-portfolio",
+      "repo": "jrefusta/joan-portfolio",
+      "url": "https://github.com/jrefusta/joan-portfolio",
+      "description": "",
+      "topics": [],
+      "defaultBranch": "main",
+      "stars": 118,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:22.246Z",
+      "readmeExcerpt": "# Joan Ramos Refusta's Portfolio Welcome! I've always wanted to create a portfolio showcasing my skills with GLSL shaders and Three.js, along with a platform to display all my side projects and experiments. This portfolio serves as a showcase of my journey as a 3D developer and a place to explore my various side projects, including video games. I've included elements that reflect my personal interests, such as my favorite video games, an interactive Rubik's cube, and an arcade machine. You can now explore it [here](https://joanramosrefusta.com/). ## Links ### Joan's Arcade Machine - [Source Code](https://github.com/jrefusta/joan-arcade-machine) - [Live Demo](https://joan-arcade-machine.vercel.app/) ### Joan's OS - [Source Code](https://github.com/jrefusta/joan-os) - [Live Demo](https://joan-os.vercel.app/) ### Joan's Art Gallery - [Source Code](https://github.com/jrefusta/joan-art-gallery) - [Live Demo](https://joan-art-gallery.vercel.app/) ## Setup Download [Node.js](https://nodejs.org/en/download/). Run this followed commands: ``` bash # Install dependencies (only the first time) npm install # Run the local server at localhost:8080 npm run dev # Build for production in the dist/ directory npm run build ``` ## License This project is licensed under the [MIT License](LICENSE). "
+    },
+    {
+      "id": "andrewwoan-sooahs-room-folio",
+      "repo": "andrewwoan/sooahs-room-folio",
+      "url": "https://github.com/andrewwoan/sooahs-room-folio",
+      "description": "A super duper duper cute room portfolio 💖💖💖",
+      "topics": [],
+      "defaultBranch": "main",
+      "stars": 290,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:24.423Z",
+      "readmeExcerpt": "# 💜 수아's Award-Winning Room Folio 💜 **[Live site](http://sooahs-room-folio.com/)** This repo contains code of 수아's Room Folio. If you're interested, learn how to create a porfolio like this [here](https://youtu.be/AB6sulUMRGE)!! It's beginner friendly! ![Page screenshot](public/media/og-image.webp?raw=true \"Page screenshot\") # Instructions ``` npm install npm run dev ``` # Updates & Known Issues!!! - Yes you shouldn't put everything into a single main.js file, I just did it because it was a beginner course and didn't want to move a bunch of stuff around everywhere which might've been more confusing for those just starting out. I definitely recommend a better structure than the one I did. Also the SCSS is a mess do NOT look at it XD. I strongly encourage you to style it in your own unique way! - Don't use .ogg files because they might glitch out on iPhones. If you want to use .ogg files, make sure to also have a fallback .mp3 file that you load instead if they're on an iPhone. If you use .ogg you might not hear anything on iPhones/Safari browser. - There is an issue in the video's code where, at certain angles, when you hover something it starts \"vibrating\" or \"twitching,\" this is because the mesh that we're using to target with our raycaster is no longer being hovered after the animation displaces/rescales the object. This triggers the tween to be \"killed\" and revert to its old state. When it reverts it might be rehovered which triggers the animation to play again, but that animation again makes the object no longer hovered and it keeps going back and forth. If you wanted to fix this with minimal adjustments, you can generate static invisible hitboxes for all hovered items that are passed into the raycaster for testing rather than the object itself (or you can do a combination of both, some you use the object itself, others you use a hitbox). I decided to take a dual approach, some have hitboxes, others use the default object. For the objects with intro animations, you can either create their hitboxes after the intro animation is done playing or you can generate all the hitboxes before the intro is done playing. If you do it after, the user can't interact with them until the intro is done. If you do it before, they can interact with the objects before the intro is done. There are multiple ways to handle this, you can even make the hitboxes in Blender if you want. For me I made all the static ones interactable immediately, whereas those with intro animations have their hitboxes generated after the animations are done. One issue with hitboxes is at certain angles you can't select/hover objects behind another mesh's hitbox because we're only choosing the first thing the raycast intersects. You can fix this by deciding to play a hover animation for all objects the raycaster is intersecting or checking the rotation of the camera to \"guess\" which one the user is actually hovering, or make a highly custom hitbox for each specific mesh that needs one in Blender, or take the dual approach I took in which the raycaster uses generated hitboxes for some objects and the default objects themselves for others. Alternatively, if you don't want a hovered state, you can simply remove the kill flag check and let it play out its animation fully. # Inspo & Credits!!! - [Bruno Simon's Room](https://my-room-in-3d.vercel.app/) - [Rachel Wei's Room](https://rachelqrwei.ca/) - [Nicky Blender](https://www.instagram.com/nicky.blender/?hl=en) - [Denis Wipart's Materials](https://wipart.artstation.com/store). Don't worry I have commercial license hahaha. - [Music](https://youtu.be/eq3C1Uwz6YU) - [Click SFX](https://uppbeat.io/sfx/category/digital-and-ui/ui) - [Piano SFX](https://pixabay.com/sound-effects/all-88-keys-on-a-piano-playing-fast-free-high-quality-sound-effects-71279/) - [Cat Wallpaper](https://wallpapersok.com/wallpapers/kawaii-hd-smiling-cats-vmhjik4wp6ipc6bd.html) - [Peach Panda Wallpaper](https://4kwallpapers.com/cute/peach-cat-kawaii-10081"
+    },
+    {
+      "id": "maxime-mrl-3d-room-portofolio",
+      "repo": "maxime-mrl/3D-room-portofolio",
+      "url": "https://github.com/maxime-mrl/3D-room-portofolio",
+      "description": "3d room portfolio made with three.Js",
+      "topics": [
+        "portfolio",
+        "portfolio-website",
+        "three-js",
+        "threejs"
+      ],
+      "defaultBranch": "master",
+      "stars": 30,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:25.867Z",
+      "readmeExcerpt": "# 3D Room Portfolio using Three.js This is my personal and **actual** portfolio made with Three.js and Blender. The concept is to allow user to interact with most of the elements by clicking or hovering. ## Librairies : - Three.js (obviously) - Thee.interactive ## Usage : This repository include every necessary files, so you just have to clone. **[WARNING]** Three.js wants us to use HTML `importmap` to work without embeded server (eg. vite). This is curently **not well suported** **/!\\ LIBRAIRIES FILE HAVE BEEN MODIFIED SO THE IMPORT WORK WITHOUT IMPORTMAP /!\\\\** => you **MUST** use the given librairies **OR** manually edit all import used (check that all import used are in absolute path and don't forget to also edit imported file) ## website: [maxime-morel.xyz](https://maxime-morel.xyz)"
+    },
+    {
+      "id": "brunosimon-folio-2025",
+      "repo": "brunosimon/folio-2025",
+      "url": "https://github.com/brunosimon/folio-2025",
+      "description": "",
+      "topics": [],
+      "defaultBranch": "main",
+      "stars": 1625,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:27.129Z",
+      "readmeExcerpt": "# Folio 2025 ![image info](./static/social/share-image.png) ## Setup Create `.env` file based on `.env.example` Download and install [Node.js](https://nodejs.org/en/download/) then run this followed commands: ``` bash # Install dependencies npm install --force # Serve at localhost:1234 npm run dev # Build for production in the dist/ directory npm run build ``` ## Game loop #### 0 - Time - Inputs #### 1 - Player:pre-physics (Inputs) #### 2 - PhysicalVehicle:pre-physics (Player:pre-physics) #### 3 - Physics #### 4 - PhysicsWireframe (Physics) - Objects (Physics) #### 5 - PhysicalVehicle:post-physics (Player:pre-physics) #### 6 - Player:post-physics (Physics, PhysicalVehicle:post-physics) #### 7 - View (Inputs, Player:post-physics) #### 8 - Intro - DayCycles - YearCycles - Weather (DayCycles, YearCycles) - Zones (Player:post-physics) - VisualVehicle (PhysicalVehicle:post-physics, Inputs, Player:post-physics, View) #### 9 - Wind (Weather) - Lighting (DayCycles, View) - Tornado (DayCycles, PhysicalVehicle) - InteractivePoints (Player:post-physics) - Tracks (VisualVehicle) #### 10 - Area++ (View, PhysicalVehicle:post-physics, Player:post-physics, Wind) - Foliage (VisualVehicle, View) - Fog (View) - Reveal (DayCycles) - Terrain (Tracks) - Trails (PhysicalVehicle) - Floor (View) - Grass (View, Wind) - Leaves (View, PhysicalVehicle) - Lightnings (View, Weather) - RainLines (View, Weather, Reveal) - Snow (View, Weather, Reveal, Tracks) - VisualTornado (Tornado) - WaterSurface (Weather, View) - Benches (Objects) - Bricks (Objects) - ExplosiveCrates (Objects) - Fences (Objects) - Lanterns (Objects) - Whispers (Player) #### 13 - InstancedGroup (Objects, [SpecificObjects]) #### 14 - Audio (View, Objects) - Notifications - Title (PhysicalVehicle:post-physics) #### 998 - Rendering #### 999 - Monitoring ## Blender ### Export - Mute the palette texture node (loaded and set in Three.js `Material` directly) - Use corresponding export presets - Don't use compression (will be done later) ### Compress Run `npm run compress` Will do the following #### GLB - Traverses the `static/` folder looking for glb files (ignoring already compressed files) - Compresses embeded texture with `etc1s --quality 255` (lossy, GPU friendly) - Generates new files to preserve originals #### Texture files - Traverses the `static/` folder looking for `png|jpg` files (ignoring non-model related folders) - Compresses with default preset to `--encode etc1s --qlevel 255` (lossy, GPU friendly) or specific preset according to path - Generates new files to preserve originals #### UI files - Traverses the `static/ui.` folder looking for `png|jpg` files - Compresses to WebP #### Resources - https://gltf-transform.dev/cli - https://github.com/KhronosGroup/KTX-Software?tab=readme-ov-file - https://github.khronos.org/KTX-Software/ktxtools/toktx.html"
+    },
+    {
+      "id": "ladunjexa-reactjs18-3d-portfolio",
+      "repo": "ladunjexa/reactjs18-3d-portfolio",
+      "url": "https://github.com/ladunjexa/reactjs18-3d-portfolio",
+      "description": "incredible 3D developer portfolio website with awesome graphics - built with React & Three.js 🪄",
+      "topics": [
+        "3d-portfolio",
+        "3d-web",
+        "emailjs-browser",
+        "framer-motion",
+        "portfolio-website",
+        "react",
+        "tailwindcss",
+        "threejs"
+      ],
+      "defaultBranch": "main",
+      "stars": 743,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:28.505Z",
+      "readmeExcerpt": "# 3D Portfolio [![Latest release](https://img.shields.io/github/v/release/ladunjexa/reactjs18-3d-portfolio?label=Latest%20release&style=social)](https://github.com/ladunjexa/reactjs18-3d-portfolio/releases/tag/v0.1.0) [![Stars](https://img.shields.io/github/stars/ladunjexa/reactjs18-3d-portfolio?style=social)](https://github.com/ladunjexa/reactjs18-3d-portfolio/stargazers) [![Fork](https://img.shields.io/github/forks/ladunjexa/reactjs18-3d-portfolio?style=social)](https://github.com/ladunjexa/reactjs18-3d-portfolio/forks) [![GitHub commits](https://img.shields.io/github/commit-activity/t/ladunjexa/reactjs18-3d-portfolio?style=social&logo=github)](https://github.com/ladunjexa/reactjs18-3d-portfolio/commits) [![Pull requests](https://img.shields.io/github/issues-pr/ladunjexa/reactjs18-3d-portfolio?style=social&logo=github)](https://github.com/ladunjexa/reactjs18-3d-portfolio/pulls) ![demo](.github/README_ASSETS/3d-portfolio.png) [![ladunjexa](https://custom-icon-badges.demolab.com/badge/made%20by%20-ladunjexa-556bf2?logo=github&logoColor=white&labelColor=101827)](https://github.com/luadnjexa) [![License](https://img.shields.io/github/license/ladunjexa/reactjs18-3d-portfolio?color=dddddd&labelColor=000000)](https://github.com/ladunjexa/reactjs18-3d-portfolio/blob/main/LICENSE) [![Top Language](https://img.shields.io/github/languages/top/ladunjexa/reactjs18-3d-portfolio?logo=github&logoColor=%23007ACC&label=TypeScript)](https://www.typescriptlang.org/) [![Contributors](https://img.shields.io/github/contributors/ladunjexa/reactjs18-3d-portfolio?style=flat&color=orange&label=Contributors)](https://github.com/ladunjexa/reactjs18-3d-portfolio/graphs/contributors) ![Release](https://img.shields.io/github/release/ladunjexa/reactjs18-3d-portfolio.svg) ![PRs](https://img.shields.io/badge/PRs-welcome-ff69b4.svg?style=shields) ![deployment](https://img.shields.io/github/deployments/ladunjexa/reactjs18-3d-portfolio/Production?logo=vercel&label=Website) [![Known Vulnerabilities](https://snyk.io/test/github/ladunjexa/reactjs18-3d-portfolio/badge.svg)](https://snyk.io/test/github/ladunjexa/reactjs18-3d-portfolio) ## 🌐 Live Demo Explore the live demonstration of the project: [reactjs18-3d-portfolio](https://reactjs18-3-d-portfolio.vercel.app/) ## 📝 Description **3D Portfolio** is a well-designed and fully functional portfolio website that is built with React.js and Three.js. It is a fully responsive website that works well on all devices. Folder Structure ```bash reactjs18-3d-portfolio/ ├── src/ ├ ├── App.tsx ├ ├── globals.css ├ ├── main.tsx ├ ├── vite.env.d.ts ├ ├── components/ ├ ├ ├── atoms/ ├ ├ ├ └── Header.tsx ├ ├ ├── canvas/ ├ ├ ├ ├── Ball.tsx ├ ├ ├ ├── Computers.tsx ├ ├ ├ ├── Earth.tsx ├ ├ ├ ├── Stars.tsx ├ ├ ├ └── index.ts ├ ├ ├── layout/ ├ ├ ├ ├── Loader.tsx ├ ├ ├ └── Navbar.tsx ├ ├ ├── sections/ ├ ├ ├ ├── About.tsx ├ ├ ├ ├── Contact.tsx ├ ├ ├ ├── Experience.tsx ├ ├ ├ ├── Feedbacks.tsx ├ ├ ├ ├── Hero.tsx ├ ├ ├ ├── Tech.tsx ├ ├ ├ ├── Works.tsx ├ ├ ├ └── page.tsx ├ ├ └── index.ts ├ ├── constants/ ├ ├ ├── config.ts ├ ├ ├── styles.ts ├ ├ └── index.ts ├ ├── hoc/ ├ ├ ├── SectionWrapper.tsx ├ ├ └── index.ts ├ ├── utils/ ├ ├ └── motion.ts ├ ├── types/ ├ ├ └── index.d.ts ├ └── assets/ ├ ├── company/ ├ ├ └── [[...]].{svg,png} ├ ├── tech/ ├ ├ └── [[...]].{svg,png} ├ ├── [[...]].{svg,png} ├ └── index.ts ├── public/ ├ ├── desktop_pc ├ ├ ├── textures/[[...]].png ├ ├ ├── license.txt ├ ├ ├── scene.bin ├ ├ └── scene.gltf ├ ├── planet ├ ├ ├── textures/[[...]].png ├ ├ ├── license.txt ├ ├ ├── scene.bin ├ ├ └── scene.gltf ├ ├── logo.png ├ └── logo.svg ├── .env ├── .eslintignore ├── .eslintrc.cjs ├── .gitignore ├── .prettierignore ├── .prettierrc.cjs ├── index.html ├── LICENSE ├── README.md ├── package.json ├── postcss.config.cjs ├── tailwind.config.cjs ├── tsconfig.json ├── tsconfig.node.json └── vite.config.js ``` ## 📖 Table of Contents Table of Contents - [Live Demo](#-live-demo) - [Description](#-description) - [Technologies Used](#-technologies-used) "
+    },
+    {
+      "id": "sanidhyy-3d-portfolio",
+      "repo": "sanidhyy/3D_Portfolio",
+      "url": "https://github.com/sanidhyy/3d_portfolio",
+      "description": "Amazing 3D Portfolio in React using Three.js",
+      "topics": [
+        "3d",
+        "3d-portfolio",
+        "3d-website",
+        "css",
+        "html",
+        "javascript",
+        "js",
+        "modern-ui",
+        "modern-ui-ux",
+        "portfolio",
+        "react",
+        "reactjs",
+        "three",
+        "threejs",
+        "website"
+      ],
+      "defaultBranch": "main",
+      "stars": 37,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:29.955Z",
+      "readmeExcerpt": " # Amazing 3D Portfolio in React using Three.js ![Amazing 3D Portfolio in React using Three.js](/.github/images/img_main.png \"Amazing 3D Portfolio in React using Three.js\") [![Ask Me Anything!](https://flat.badgen.net/static/Ask%20me/anything?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy \"Ask Me Anything!\") [![GitHub license](https://flat.badgen.net/github/license/sanidhyy/3d_portfolio?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy/3d_portfolio/blob/main/LICENSE \"GitHub license\") [![Maintenance](https://flat.badgen.net/static/Maintained/yes?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy/3d_portfolio/commits/main \"Maintenance\") [![GitHub branches](https://flat.badgen.net/github/branches/sanidhyy/3d_portfolio?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy/3d_portfolio/branches \"GitHub branches\") [![Github commits](https://flat.badgen.net/github/commits/sanidhyy/3d_portfolio?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy/3d_portfolio/commits \"Github commits\") [![Netlify Status](https://api.netlify.com/api/v1/badges/7a5537f4-c52f-4f51-b503-9dd5a54853f9/deploy-status)](https://3-dportfolio.netlify.app/ \"Netlify Status\") [![GitHub issues](https://flat.badgen.net/github/issues/sanidhyy/3d_portfolio?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy/3d_portfolio/issues \"GitHub issues\") [![GitHub pull requests](https://flat.badgen.net/github/prs/sanidhyy/3d_portfolio?icon=github&color=black&scale=1.01)](https://github.com/sanidhyy/3d_portfolio/pulls \"GitHub pull requests\") # :notebook_with_decorative_cover: Table of Contents - [Folder Structure](#bangbang-folder-structure) - [Getting Started](#toolbox-getting-started) - [Screenshots](#camera-screenshots) - [Tech Stack](#gear-tech-stack) - [Stats](#wrench-stats) - [Contribute](#raised_hands-contribute) - [Acknowledgements](#gem-acknowledgements) - [Buy Me a Coffee](#coffee-buy-me-a-coffee) - [Follow Me](#rocket-follow-me) - [Give A Star](#star-give-a-star) - [Star History](#star2-star-history) - [Give A Star](#star-give-a-star) ## :bangbang: Folder Structure Here is the folder structure of 3D Portfolio. ```bash 3d_portfolio/ |- dev-dist/ |-- registerSW.js |-- sw.js |-- workbox-16108a29.js |- public/ |- src/ |-- assets/ |-- components/ |--- Alert.jsx |--- Cta.jsx |--- HomeInfo.jsx |--- index.js |--- Loader.jsx |--- Navbar.jsx |-- constants/ |--- index.js |-- hooks/ |--- useAlert.js |-- models/ |--- Bird.jsx |--- Fox.jsx |--- index.js |--- island.jsx |--- Plane.jsx |--- Sky.jsx |-- pages/ |--- About.jsx |--- Contact.jsx |--- Home.jsx |--- index.js |--- Projects.jsx |-- App.jsx |-- index.css |-- main.jsx |- .env.example |- .env/.env.local |- .eslintrc.cjs |- .gitignore |- index.html |- netlify.toml |- package-lock.json |- package.json |- pnpm-lock.yaml |- pnpm-workspace.yaml |- postcss.config.js |- tailwind.config.js |- vite.config.js ``` ## :toolbox: Getting Started 1. Make sure **Git** and **NodeJS** is installed. 2. Clone this repository to your local computer. 3. Create `.env.local` file in root folder. 4. Contents of `.env.local`: ```bash # .env.local file VITE_APP_EMAILJS_SERVICE_ID=service_xxxxxxxxxxxxx VITE_APP_EMAILJS_TEMPLATE_ID=template_xxxxxxxxxxxx VITE_APP_EMAILJS_PUBLIC_KEY=XXXXXXXXXXXXXXXXXXXXX VITE_APP_EMAILJS_TO_EMAIL= ``` 5. Open terminal in root directory. Run `npm install` or `yarn install`. 6. Create new account in [EmailJS](emailjs.com \"EmailJS\") 7. From dashboard Choose Email Services > Add New Service and connect your mail to emailjs. **NOTE:** Make Sure you type same email in `VITE_APP_EMAILJS_TO_EMAIL` in `.env.local` 8. Once, New service is configured, copy your **service id** to `VITE_APP_EMAILJS_SERVICE_ID` 9. Now, go to Email Templates > Create New Template to create your mail template. Once it is done, you can copy **Template ID** to `VITE_APP_EMAILJS_TEMPLATE_ID` 10. To get your **Public Key**, click on your username on navbar and go to account settings >"
+    },
+    {
+      "id": "jayant-1-3d-portfolio",
+      "repo": "Jayant-1/3D-Portfolio",
+      "url": "https://github.com/Jayant-1/3D-Portfolio",
+      "description": "This project is a modern, interactive 3D portfolio website built with React, Three.js,Tailwind CSS. It features animated 3D models, an elastic cursor, smooth GSAP/Framer Motion transitions, and responsive design. Sections include Hero, About, Skills , Projects, Achievements, Testimonials, and Contact, all presented in a space-themed UI.",
+      "topics": [
+        "3d-portfolio-website",
+        "developer-portfolio",
+        "interactive-ui",
+        "personal-portfolio",
+        "portfolio",
+        "portfolio-website",
+        "project",
+        "spline"
+      ],
+      "defaultBranch": "main",
+      "stars": 34,
+      "license": "MIT",
+      "fetchedAt": "2026-07-30T13:50:31.190Z",
+      "readmeExcerpt": "# 🚀 3D Portfolio Website Welcome to my immersive 3D portfolio website! This project showcases my skills, projects, and creativity through stunning 3D animations, interactive elements, and smooth motion design. Experience a cosmic journey through space-themed design with cutting-edge web technologies. ![Portfolio Preview](https://github.com/Jayant-1/3D-Portfolio/blob/main/public/assets/nav-link-previews/home.png?raw=true) ## ✨ Features ### 🎮 Interactive 3D Elements - **Custom 3D Keyboard**: Interactive Spline-powered keyboard with skills as keycaps that reveal titles and descriptions on hover - **3D Models**: Desktop PC, Earth, and other 3D assets using Three.js and React Three Fiber - **Particle Systems**: Dynamic star field background creating an immersive space environment - **Elastic Cursor**: Custom cursor with physics-based animations for enhanced interactivity ### 🎨 Visual & Animation - **Smooth Animations**: Powered by GSAP and Framer Motion for fluid scroll animations, hover effects, and element reveals - **Space Theme**: Dark cosmic background with particle effects and stellar animations - **Preloader**: Engaging loading screen with custom animations - **Easter Eggs**: Hidden interactive elements for curious visitors ### 📱 Responsive Design - **Mobile-First**: Fully responsive across all devices and screen sizes - **Touch Optimized**: Smooth interactions on touch devices - **Performance Optimized**: Optimized 3D rendering and animations ### 🎯 Sections - **Hero**: Eye-catching introduction with 3D elements - **About**: Personal story and background - **Skills**: Interactive 3D keyboard showcasing technical skills - **Projects**: Portfolio of work with 3D project cards - **Achievements**: Timeline of accomplishments and certifications - **Contact**: Interactive contact form with 3D elements ## 🛠️ Tech Stack ### Frontend & Framework - **React 18** - Modern React with hooks and functional components - **Vite** - Lightning-fast build tool and development server - **React Router DOM** - Client-side routing ### 3D & Graphics - **Three.js** - 3D graphics library - **React Three Fiber** - React renderer for Three.js - **React Three Drei** - Useful helpers for React Three Fiber - **Spline Runtime** - Interactive 3D design tool integration - **Maath** - Mathematical utilities for 3D graphics ### Styling & UI - **Tailwind CSS** - Utility-first CSS framework - **PostCSS** - CSS processing - **Autoprefixer** - CSS vendor prefixing ### Animations & Interactions - **GSAP** - Professional-grade animations - **Framer Motion** - Production-ready motion library - **React Tilt** - 3D tilt effects - **React Vertical Timeline Component** - Timeline animations ### Utilities & Tools - **React Icons** - Icon library - **EmailJS** - Email functionality - **Clsx & Tailwind Merge** - Conditional styling utilities - **Devtools Detector** - Development tools detection ## 🚀 Getting Started ### Prerequisites - **Node.js** (v16 or higher) - **npm** or **yarn** package manager ### Installation 1. **Clone the repository:** ```bash git clone https://github.com/Jayant-1/3D-Portfolio.git cd 3d-portfolio ``` 2. **Install dependencies:** ```bash npm install # or yarn install ``` 3. **Start the development server:** ```bash npm run dev # or yarn dev ``` 4. **Open your browser:** Navigate to [http://localhost:5173](http://localhost:5173) to see the magic! ### Build for Production ```bash npm run build # or yarn build ``` ### Preview Production Build ```bash npm run preview # or yarn preview ``` ## 📁 Project Structure ``` src/ ├── components/ # React components │ ├── canvas/ # 3D canvas components │ │ ├── Ball.jsx │ │ ├── Computers.jsx │ │ ├── Earth.jsx │ │ └── Stars.jsx │ ├── preloader/ # Loading screen │ ├── ui/ # UI components │ ├── About.jsx │ ├── Achievement.jsx │ ├── Contact.jsx │ ├── ElasticCursor.jsx │ ├── Feedbacks.jsx │ ├── Hero.jsx │ ├── Navbar.jsx │ ├── SkillKeyboard.jsx │ └── Works.jsx ├── assets/ # Static assets │ ├── achievement/ # Achiev"
+    }
+  ]
+}

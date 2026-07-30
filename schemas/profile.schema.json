@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://room.dev/schemas/profile.schema.json",
+  "title": "ROOM Parsed Profile",
+  "type": "object",
+  "required": ["id", "name", "headline", "summary", "contacts", "skills", "skillEvidence", "items", "source"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "headline": { "type": "string" },
+    "summary": { "type": "string" },
+    "contacts": { "type": "array", "items": { "type": "string" } },
+    "skills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "skillEvidence": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/evidence" } } },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "title", "summary", "bullets", "tags", "evidence"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "enum": ["summary", "project", "experience", "education", "achievement"] },
+          "title": { "type": "string" },
+          "summary": { "type": "string" },
+          "bullets": { "type": "array", "items": { "type": "string" } },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["id", "type", "label", "lineCount"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "enum": ["text", "url"] },
+        "label": { "type": "string" },
+        "lineCount": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["sourceId", "locator", "excerpt"],
+      "properties": {
+        "sourceId": { "type": "string" },
+        "locator": { "type": "string", "pattern": "^(line|lines):" },
+        "excerpt": { "type": "string" }
+      }
+    }
+  }
+}

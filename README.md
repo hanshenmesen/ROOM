@@ -2,7 +2,27 @@
 
 > Turn a portfolio into a world people can walk through.
 
-ROOM is an agent-driven system that converts an existing personal website or résumé into a multi-room Three.js portfolio. Visitors walk through connected rooms, explore projects and achievements as spatial exhibits, and leave comments on specific items.
+ROOM is an agent-driven system that converts an existing personal website or résumé into a traceable multi-room Three.js portfolio. The first demo compiles source text into a five-room 3D world, maps every item to an exhibit, and checks the result before it is shown.
+
+## Demo
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`, keep the included Chinese sample résumé or paste your own, then run the four-agent pipeline.
+
+The demo supports:
+
+- Pasted résumé text and `.txt`, `.md`, or `.html` uploads.
+- Extraction of public HTML pages through a guarded server route.
+- Five connected rooms rendered with React Three Fiber.
+- Clickable exhibits with line-level source evidence.
+- Deterministic checks for omissions, overlap, dead click targets, room connectivity, and mobile budgets.
+- A license-aware reference catalog plus a syncable local RAG corpus.
+
+This version deliberately does not include racing navigation, generative Blender assets, accounts, or persistent visitor comments. Those remain follow-up iterations.
 
 ## Phase 1: Multi-room portfolio
 
@@ -14,7 +34,7 @@ ROOM deliberately starts with one experience model:
 - Visitors can leave comments on a room, exhibit, or project.
 - Racing and other game modes are deferred until the room pipeline is stable.
 
-Suggested first world:
+Implemented first world:
 
 | Space | Purpose |
 | --- | --- |
@@ -23,7 +43,6 @@ Suggested first world:
 | Experience Corridor | Work and education timeline |
 | Skills Lab | Skills, tools, and capabilities |
 | Achievement Room | Awards, milestones, publications |
-| Guest Lounge | Global comments and contact links |
 
 ## Core principle
 
@@ -32,11 +51,11 @@ Agents do not generate arbitrary Three.js applications. Agents produce validated
 ```text
 Portfolio URL / résumé
         ↓
-Profile Agent
+Parser Agent
         ↓
 Structured profile.json
         ↓
-Room Planner + Asset Curator + Exhibit Agent
+Creative Director + World Orchestrator
         ↓
 Validated world.json
         ↓
@@ -47,27 +66,21 @@ QA Agent
 Published personal world
 ```
 
-## Agent modules
+## Demo agents
 
-- **Template Scout Agent** — discovers existing Three.js room portfolios, records interaction patterns, technical approaches, and licensing.
-- **Profile Agent** — extracts and normalizes facts from websites, PDFs, and user input.
-- **Room Planner Agent** — turns a structured profile into a connected room graph.
-- **Asset Curator Agent** — selects approved reusable assets from the catalog.
-- **Exhibit Agent** — maps projects and achievements to interactive spatial objects.
-- **QA Agent** — checks content fidelity, navigation, accessibility, performance budgets, and broken interactions.
-- **Comment Guardian Agent** — optional online agent for moderation and comment summarization.
+- **Parser Agent** — extracts identity, projects, experience, education, skills, and achievements while retaining source locators.
+- **Creative Director** — retrieves room patterns from the license-aware reference catalog and creates a spatial brief.
+- **World Orchestrator** — maps each source item exactly once into the central lobby or one of four connected rooms.
+- **World Checker** — checks content parity, collisions, click targets, room connectivity, and mobile rendering budgets.
 
 The renderer, database, authentication, deployment, and comment persistence remain deterministic services rather than agents.
 
-## Proposed stack
+## Stack
 
-- React + TypeScript + Vite
-- Three.js + React Three Fiber + Drei
-- Rapier for collision and movement
-- GSAP for guided camera transitions
-- JSON Schema for all agent contracts
-- Supabase for auth, comments, and realtime updates
-- Playwright for end-to-end verification
+- React 19 + TypeScript + vinext
+- Three.js + React Three Fiber
+- JSON Schema contracts plus deterministic validators
+- Node test runner for the pipeline and server-rendered shell
 
 ## Repository map
 
@@ -82,11 +95,22 @@ docs/
   pull_request_template.md
 ```
 
-Implementation packages will be added after the first architecture review so contributors do not prematurely couple agents to the renderer.
+Key implementation paths:
+
+```text
+lib/agents/        Four-agent pipeline
+lib/rag/           Curated reference patterns
+research/rag/      Synced repository metadata and README excerpts
+schemas/           Profile, world, and checker contracts
+components/        3D world and product workbench
+tests/             Pipeline and rendered output checks
+```
+
+Refresh the compact reference corpus with `npm run rag:sync`. Only repositories explicitly classified for reuse may contribute implementation patterns; research-only and visual-only references remain quarantined.
 
 ## Status
 
-Early architecture and research phase. See [ROADMAP](docs/ROADMAP.md) and [CONTRIBUTING](CONTRIBUTING.md).
+Runnable demo. Run `npm test` for pipeline tests, a production build, and server-render checks. See [ROADMAP](docs/ROADMAP.md) and [CONTRIBUTING](CONTRIBUTING.md) for follow-up work.
 
 ## License
 
