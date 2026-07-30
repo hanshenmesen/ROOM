@@ -24,7 +24,7 @@ export function RoomStudio() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [activeRoom, setActiveRoom] = useState("overview");
+  const [activeRoom, setActiveRoom] = useState("exterior");
   const [selectedId, setSelectedId] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const selected = useMemo(
@@ -36,7 +36,7 @@ export function RoomStudio() {
     const next = runPipeline(text, { label, type, id: type === "url" ? label : undefined });
     setResult(next);
     setSelectedId("");
-    setActiveRoom("overview");
+    setActiveRoom("exterior");
     setMessage("");
   }
 
@@ -109,7 +109,7 @@ export function RoomStudio() {
             <p className="overline">A portfolio you can walk into.</p>
             <h1>把你的经历，<br />变成一个世界。</h1>
             <p className="intro">
-              给我们你的个人网页或简历。ROOM 会把项目、经历和技能编排成一座可以探索的 3D 房间。
+              给我们你的个人网页或简历。ROOM 会把项目、经历和技能编排成一栋可以走进去探索的 3D 小别墅。
             </p>
           </div>
 
@@ -131,7 +131,7 @@ export function RoomStudio() {
                   placeholder="https://yourname.com"
                   autoComplete="url"
                 />
-                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成房间">
+                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成别墅">
                   <span>生成</span><span aria-hidden="true">→</span>
                 </button>
               </div>
@@ -165,14 +165,29 @@ export function RoomStudio() {
               {loading ? <span className="loading-mark" aria-hidden="true" /> : null}
               {message}
             </div>
-            <button className="demo-result-button" type="button" onClick={() => openWorld(sampleResume, "ROOM Demo 简历")}>没有简历？直接查看生成结果 <span aria-hidden="true">→</span></button>
+            <section className="demo-resumes" aria-labelledby="demo-resume-title">
+              <div className="demo-heading">
+                <span id="demo-resume-title">FEATURED DEMO · 从简历到别墅</span>
+                <small>第一版唯一样例</small>
+              </div>
+              <div className="demo-panel demo-single">
+                <div className="demo-person">
+                  <span>林</span>
+                  <div><strong>林澈</strong><small>Creative Technologist / AI Experience Designer</small></div>
+                </div>
+                <p>4 个项目 · 5 段经历与教育 · 12 项技能 · 3 项成就</p>
+                <button type="button" onClick={() => openWorld(sampleResume, "林澈 Demo 简历")}>
+                  进入林澈的别墅 <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </section>
           </div>
         </section>
 
         <footer className="minimal-footer">
           <span>One source in.</span>
           <span>One world out.</span>
-          <span>25 exhibits · 5 rooms</span>
+          <span>1 resume · 1 villa · 5 rooms</span>
         </footer>
       </main>
     );
@@ -197,6 +212,10 @@ export function RoomStudio() {
           activeRoom={activeRoom}
           selectedExhibit={selectedId}
           onSelect={setSelectedId}
+          onRoomChange={(roomId) => {
+            setSelectedId("");
+            setActiveRoom(roomId);
+          }}
         />
 
         <div className="world-status">
@@ -204,18 +223,26 @@ export function RoomStudio() {
           {result.report.passed ? `已检查 · ${mappedCount}` : "需要调整"}
         </div>
 
-        <nav className="room-nav" aria-label="房间导航">
-          <button type="button" className={activeRoom === "overview" ? "active" : ""} onClick={() => setActiveRoom("overview")}>全屋</button>
-          {result.world.rooms.map((room) => (
-            <button
-              type="button"
-              className={activeRoom === room.id ? "active" : ""}
-              key={room.id}
-              onClick={() => setActiveRoom(room.id)}
-            >
-              {room.title}
-            </button>
-          ))}
+        <nav className="journey-nav" aria-label="空间导航">
+          {activeRoom === "exterior" ? (
+            <button type="button" className="journey-primary" onClick={() => setActiveRoom("room-lobby")}>打开大门 · 进入客厅</button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedId("");
+                  setActiveRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
+                }}
+              >
+                ← {activeRoom === "room-lobby" ? "回到别墅外" : "返回客厅"}
+              </button>
+              <span>
+                {result.world.rooms.find((room) => room.id === activeRoom)?.title || "Living Room"}
+                {selected ? ` / ${selected.title}` : ""}
+              </span>
+            </>
+          )}
         </nav>
 
         <div className={`exhibit-detail ${selected ? "is-open" : ""}`}>
@@ -230,7 +257,15 @@ export function RoomStudio() {
           ) : null}
         </div>
 
-        <div className="world-hint">点击展品查看内容</div>
+        <div className="world-hint">
+          {activeRoom === "exterior"
+            ? "点击大门进入"
+            : activeRoom === "room-lobby"
+              ? "选择客厅左右两侧的房间"
+              : selected
+                ? "视角已跟随到这件展品"
+                : "点击房间内的展品继续靠近"}
+        </div>
       </section>
     </main>
   );

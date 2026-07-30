@@ -27,7 +27,7 @@ export function runPipeline(text: string, source?: ParseSource): PipelineResult 
         id: "director",
         name: "Creative Director",
         status: "complete",
-        summary: `从许可分层参考库检索 ${brief.references.length} 个模式，产出十字形多房间创意简报。`,
+        summary: `从许可分层参考库检索 ${brief.references.length} 个模式，产出连续建筑式多房间创意简报。`,
         artifacts: ["creative-brief.json", "retrieval-trace.json"],
       },
       {
