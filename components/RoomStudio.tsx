@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
-  useMemo,
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -18,27 +18,43 @@ const WorldCanvas = dynamic(
   { ssr: false },
 );
 
+const CAMERA_JOURNEY = [
+  { label: "全景", title: "The Great Drawing Room", note: "从空间全貌开始，建立第一眼的尺度与气氛。" },
+  { label: "织毯", title: "A room that remembers", note: "靠近墙面，让巨幅织物成为空间的记忆层。" },
+  { label: "藏品柜", title: "Collected details", note: "转向陈列与装饰，让器物和生活痕迹成为叙事。" },
+  { label: "穹顶", title: "Look above", note: "抬头看天花与金色线脚，感受建筑包裹视线。" },
+  { label: "会客区", title: "Inside the salon", note: "降低视点，像真正站在家具之间结束这段参观。" },
+];
+
 export function RoomStudio() {
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [activeRoom, setActiveRoom] = useState("exterior");
-  const [selectedId, setSelectedId] = useState("");
+  const [activeShot, setActiveShot] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
-  const selected = useMemo(
-    () => result?.world.exhibits.find((item) => item.id === selectedId),
-    [result, selectedId],
-  );
 
   function openWorld(text: string, label: string, type: "text" | "url" = "text") {
     const next = runPipeline(text, { label, type, id: type === "url" ? label : undefined });
     setResult(next);
-    setSelectedId("");
-    setActiveRoom("exterior");
+    setActiveShot(0);
     setMessage("");
   }
+
+  useEffect(() => {
+    if (!result) return;
+    function navigateCamera(event: KeyboardEvent) {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      setActiveShot((current) => {
+        const direction = event.key === "ArrowRight" ? 1 : -1;
+        return (current + direction + CAMERA_JOURNEY.length) % CAMERA_JOURNEY.length;
+      });
+    }
+    window.addEventListener("keydown", navigateCamera);
+    return () => window.removeEventListener("keydown", navigateCamera);
+  }, [result]);
 
   async function extractUrl() {
     const value = url.trim();
@@ -207,64 +223,55 @@ export function RoomStudio() {
       </header>
 
       <section className="world-stage" aria-label={`${result.profile.name} 的 3D 个人世界`}>
-        <WorldCanvas
-          world={result.world}
-          activeRoom={activeRoom}
-          selectedExhibit={selectedId}
-          onSelect={setSelectedId}
-          onRoomChange={(roomId) => {
-            setSelectedId("");
-            setActiveRoom(roomId);
-          }}
-        />
+        <WorldCanvas activeShot={activeShot} />
+
+        <div className="shot-vignette" aria-hidden="true" />
 
         <div className="world-status">
           <span className="status-dot" />
-          {result.report.passed ? `已检查 · ${mappedCount}` : "需要调整"}
+          {result.report.passed ? `原始模型预览已就绪 · ${mappedCount}` : "需要调整"}
         </div>
 
         <nav className="journey-nav" aria-label="空间导航">
-          {activeRoom === "exterior" ? (
-            <button type="button" className="journey-primary" onClick={() => setActiveRoom("room-lobby")}>打开大门 · 进入客厅</button>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedId("");
-                  setActiveRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
-                }}
-              >
-                ← {activeRoom === "room-lobby" ? "回到别墅外" : "返回客厅"}
-              </button>
-              <span>
-                {result.world.rooms.find((room) => room.id === activeRoom)?.title || "Living Room"}
-                {selected ? ` / ${selected.title}` : ""}
-              </span>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={() => setActiveShot((activeShot - 1 + CAMERA_JOURNEY.length) % CAMERA_JOURNEY.length)}
+            aria-label="上一个镜头"
+          >
+            ←
+          </button>
+          <span>{String(activeShot + 1).padStart(2, "0")} / {String(CAMERA_JOURNEY.length).padStart(2, "0")}</span>
+          {CAMERA_JOURNEY.map((shot, index) => (
+            <button
+              key={shot.label}
+              type="button"
+              className={index === activeShot ? "is-active" : ""}
+              onClick={() => setActiveShot(index)}
+              aria-current={index === activeShot ? "step" : undefined}
+            >
+              {shot.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="journey-next"
+            onClick={() => setActiveShot((activeShot + 1) % CAMERA_JOURNEY.length)}
+            aria-label="下一个镜头"
+          >
+            NEXT&nbsp; →
+          </button>
         </nav>
 
-        <div className={`exhibit-detail ${selected ? "is-open" : ""}`}>
-          {selected ? (
-            <>
-              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭详情">×</button>
-              <p>{selected.eyebrow}</p>
-              <h2>{selected.title}</h2>
-              <div className="detail-text">{selected.body}</div>
-              <small>{selected.evidence[0]?.locator} · 来自原始简历</small>
-            </>
-          ) : null}
+        <div className="world-hint" aria-live="polite">
+          <span>SCENE {String(activeShot + 1).padStart(2, "0")}</span>
+          <strong>{CAMERA_JOURNEY[activeShot].title}</strong>
+          <p>{CAMERA_JOURNEY[activeShot].note}</p>
+          <small>移动鼠标感受视差 · ← → 切换镜头</small>
         </div>
 
-        <div className="world-hint">
-          {activeRoom === "exterior"
-            ? "点击大门进入"
-            : activeRoom === "room-lobby"
-              ? "选择客厅左右两侧的房间"
-              : selected
-                ? "视角已跟随到这件展品"
-                : "点击房间内的展品继续靠近"}
+        <div className="model-credit">
+          3D model: <a href="https://sketchfab.com/3d-models/the-great-drawing-room-feb9ad17e042418c8e759b81e3b2e5d7" target="_blank" rel="noreferrer">The Great Drawing Room</a>
+          {" · "}The Hallwyl Museum{" · "}<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>
         </div>
       </section>
     </main>
