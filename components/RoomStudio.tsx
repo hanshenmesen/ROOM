@@ -13,6 +13,7 @@ import {
   type FormEvent,
 } from "react";
 import { runPipeline } from "@/lib/agents/pipeline";
+import type { ExtractedMedia } from "@/lib/extract-webpage";
 import { sampleResume } from "@/lib/data/sample-resume";
 import type { PipelineResult } from "@/lib/types";
 
@@ -147,8 +148,8 @@ export function RoomStudio() {
     return () => window.clearTimeout(hydrationTimer);
   }, []);
 
-  function openWorld(text: string, label: string, type: "text" | "url" = "text") {
-    const next = runPipeline(text, { label, type, id: type === "url" ? label : undefined });
+  function openWorld(text: string, label: string, type: "text" | "url" = "text", media: ExtractedMedia[] = []) {
+    const next = runPipeline(text, { label, type, id: type === "url" ? label : undefined, media });
     setResult(next);
     setSelectedId("");
     setActiveRoom("exterior");
@@ -196,10 +197,11 @@ export function RoomStudio() {
       const data = (await response.json()) as {
         text?: string;
         title?: string;
+        media?: ExtractedMedia[];
         error?: string;
       };
       if (!response.ok || !data.text) throw new Error(data.error || "读取失败，请换一个公开网址。 ");
-      openWorld(data.text, data.title || value, "url");
+      openWorld(data.text, data.title || value, "url", data.media || []);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "读取失败，请稍后重试。 ");
     } finally {

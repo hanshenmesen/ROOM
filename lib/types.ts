@@ -28,6 +28,8 @@ export interface ProfileItem {
   summary: string;
   bullets: string[];
   tags: string[];
+  imageUrl?: string;
+  sourceUrl?: string;
   evidence: SourceEvidence[];
 }
 
@@ -113,6 +115,8 @@ export interface ExhibitPlan {
   eyebrow: string;
   body: string;
   tags: string[];
+  imageUrl?: string;
+  sourceUrl?: string;
   kind: "panel" | "pedestal" | "timeline" | "terminal" | "trophy";
   position: Vec3;
   size: Vec3;

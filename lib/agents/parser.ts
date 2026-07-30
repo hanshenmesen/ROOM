@@ -4,20 +4,22 @@ import type {
   SectionKind,
   SourceEvidence,
 } from "../types.ts";
+import type { ExtractedMedia } from "../extract-webpage.ts";
 
 export interface ParseSource {
   id?: string;
   type?: "text" | "url";
   label?: string;
+  media?: ExtractedMedia[];
 }
 
 const headings: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /^(简介|关于我|个人简介|summary|about)$/i, key: "summary" },
-  { pattern: /^(项目|项目经历|projects?|work)$/i, key: "project" },
-  { pattern: /^(经历|工作经历|experience|employment)$/i, key: "experience" },
-  { pattern: /^(教育|教育经历|education)$/i, key: "education" },
+  { pattern: /^(项目|项目经历|projects?|work|latest publications?|selected publications?|research)$/i, key: "project" },
+  { pattern: /^(经历|工作经历|experience|employment|internships?)$/i, key: "experience" },
+  { pattern: /^(教育|教育经历|educations?)$/i, key: "education" },
   { pattern: /^(技能|skills?|toolbox)$/i, key: "skills" },
-  { pattern: /^(成就|荣誉|获奖|achievements?|awards?)$/i, key: "achievement" },
+  { pattern: /^(成就|荣誉|获奖|achievements?|awards?|honou?rs?( and awards?)?)$/i, key: "achievement" },
   { pattern: /^(联系|联系方式|contact)$/i, key: "contact" },
 ];
 
@@ -32,6 +34,18 @@ function stableId(value: string) {
 
 function cleanLine(line: string) {
   return line.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function headingText(line: string) {
+  return line
+    .replace(/^[^\p{L}\p{N}\u4e00-\u9fff]+/u, "")
+    .replace(/[:：]+$/, "")
+    .trim();
+}
+
+function findHeading(line: string) {
+  const normalized = headingText(line);
+  return headings.find(({ pattern }) => pattern.test(normalized));
 }
 
 function evidence(
@@ -128,9 +142,7 @@ export function parseProfile(text: string, source: ParseSource = {}): ParsedProf
     .map((line, index) => ({ text: line, line: index }))
     .filter(({ text }) => Boolean(text));
   const sourceId = source.id || `source-${stableId(normalized)}`;
-  const firstHeadingIndex = rows.findIndex(({ text }) =>
-    headings.some(({ pattern }) => pattern.test(text)),
-  );
+  const firstHeadingIndex = rows.findIndex(({ text }) => Boolean(findHeading(text)));
   const identityRows = rows.slice(0, firstHeadingIndex < 0 ? Math.min(2, rows.length) : firstHeadingIndex);
   const name = identityRows[0]?.text || "Untitled profile";
   const headline = identityRows[1]?.text || "Creative professional";
@@ -138,7 +150,7 @@ export function parseProfile(text: string, source: ParseSource = {}): ParsedProf
   let active = "summary";
 
   for (const row of rows.slice(firstHeadingIndex < 0 ? identityRows.length : firstHeadingIndex)) {
-    const heading = headings.find(({ pattern }) => pattern.test(row.text));
+    const heading = findHeading(row.text);
     if (heading) {
       active = heading.key;
       if (!sections.has(active)) sections.set(active, []);
@@ -162,13 +174,21 @@ export function parseProfile(text: string, source: ParseSource = {}): ParsedProf
       ? [evidence(sourceId, allLines, summaryRows[0].line, summaryRows.at(-1)!.line)]
       : [evidence(sourceId, allLines, identityRows[1]?.line || 0)],
   };
-  const items = [
+  const rawItems = [
     summaryItem,
     ...groupedItems("project", sections.get("project") || [], sourceId),
     ...groupedItems("experience", sections.get("experience") || [], sourceId),
     ...groupedItems("education", sections.get("education") || [], sourceId),
     ...groupedItems("achievement", sections.get("achievement") || [], sourceId),
   ];
+  const projectMedia = (source.media || []).filter((item) => item.kind === "project");
+  let projectIndex = 0;
+  const items = rawItems.map((item) => {
+    if (item.kind !== "project") return item;
+    const media = projectMedia.find((entry) => entry.title === item.title) || projectMedia[projectIndex];
+    projectIndex += 1;
+    return media ? { ...item, imageUrl: media.url, sourceUrl: media.linkUrl } : item;
+  });
   const skillRows = sections.get("skills") || [];
   const skillEvidence = skillRows.length
     ? [evidence(sourceId, allLines, skillRows[0].line, skillRows.at(-1)!.line)]

@@ -38,6 +38,8 @@
       "required": ["id", "sourceItemId", "roomId", "position", "size", "interaction", "evidence"],
       "properties": {
         "sourceItemId": { "type": "string", "minLength": 1 },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "sourceUrl": { "type": "string", "format": "uri" },
         "position": { "$ref": "#/$defs/vec3" },
         "size": { "$ref": "#/$defs/vec3" },
         "interaction": {

@@ -808,7 +808,7 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
   );
 }
 
-function VillaExterior({ open, interactive, onEnter }: { open: boolean; interactive: boolean; onEnter: () => void }) {
+function VillaExterior({ name, open, interactive, onEnter }: { name: string; open: boolean; interactive: boolean; onEnter: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [doorOpen, setDoorOpen] = useState(open);
   const [showExterior, setShowExterior] = useState(true);
@@ -862,7 +862,7 @@ function VillaExterior({ open, interactive, onEnter }: { open: boolean; interact
         </group>
         <mesh position={[0, 3.35, -0.06]}><boxGeometry args={[4.8, 0.28, 1.25]} /><meshStandardMaterial color={DARK_WOOD} /></mesh>
         {[-2.05, 2.05].map((x) => <mesh key={x} position={[x, 1.75, -0.05]}><boxGeometry args={[0.18, 3.15, 0.18]} /><meshStandardMaterial color={BRASS} /></mesh>)}
-        <TextPanel title="LIN CHEN" subtitle="OPEN THE DOOR" position={[0, 4.02, 0.03]} width={3.5} />
+        <TextPanel title={name} subtitle="OPEN THE DOOR" position={[0, 4.02, 0.03]} width={3.5} />
         {hovered ? <mesh position={[0, 1.4, 0.35]}><planeGeometry args={[3, 3.45]} /><meshBasicMaterial color={CORAL} transparent opacity={0.12} toneMapped={false} /></mesh> : null}
       </group>
 
@@ -932,6 +932,7 @@ function LowPolyPlant({ position, scale = 1 }: { position: Vec3; scale?: number 
 
 function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; index: number; selected: boolean }) {
   const artwork = useRef<THREE.Group>(null);
+  const [sourceTexture, setSourceTexture] = useState<THREE.Texture | null>(null);
   useFrame((state, delta) => {
     if (!artwork.current) return;
     if (selected) {
@@ -970,6 +971,35 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
 
   useEffect(() => () => texture.dispose(), [texture]);
 
+  useEffect(() => {
+    if (!exhibit.imageUrl) {
+      setSourceTexture(null);
+      return;
+    }
+    let active = true;
+    let loadedTexture: THREE.Texture | null = null;
+    new THREE.TextureLoader().load(
+      exhibit.imageUrl,
+      (nextTexture) => {
+        loadedTexture = nextTexture;
+        nextTexture.colorSpace = THREE.SRGBColorSpace;
+        nextTexture.anisotropy = 4;
+        if (active) setSourceTexture(nextTexture);
+        else nextTexture.dispose();
+      },
+      undefined,
+      () => {
+        if (active) setSourceTexture(null);
+      },
+    );
+    return () => {
+      active = false;
+      loadedTexture?.dispose();
+    };
+  }, [exhibit.imageUrl]);
+
+  const displayTexture = sourceTexture || texture;
+
   return (
     <group ref={artwork} position={[0, 1.02, 0]}>
       <mesh castShadow>
@@ -978,11 +1008,11 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
       </mesh>
       <mesh position={[0, 0, 0.051]}>
         <planeGeometry args={[1.56, 1]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
+        <meshBasicMaterial map={displayTexture} toneMapped={false} />
       </mesh>
       <mesh position={[0, 0, -0.051]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={[1.56, 1]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
+        <meshBasicMaterial map={displayTexture} toneMapped={false} />
       </mesh>
     </group>
   );
@@ -1071,7 +1101,7 @@ export function WorldCanvas({ world, activeRoom, selectedExhibit, guestbookMessa
       <RendererLook />
       <PortfolioEnvironment />
       <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} world={world} />
-      <VillaExterior open={activeRoom !== "exterior"} interactive={activeRoom === "exterior"} onEnter={() => onRoomChange("room-lobby")} />
+      <VillaExterior name={world.profile.name} open={activeRoom !== "exterior"} interactive={activeRoom === "exterior"} onEnter={() => onRoomChange("room-lobby")} />
       {world.rooms.map((room) => <AuthoredRoomScene key={`architecture-${room.id}`} room={room} />)}
       <Suspense fallback={world.rooms.map((room) => <ModelLoadingStage key={`loading-${room.id}`} room={room} />)}>
         {world.rooms.map((room) => <OpenSourceRoomDressing key={`dressing-${room.id}`} room={room} />)}

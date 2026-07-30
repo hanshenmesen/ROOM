@@ -61,6 +61,8 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       eyebrow: item.kind.toUpperCase(),
       body: item.summary,
       tags: item.tags,
+      imageUrl: item.imageUrl,
+      sourceUrl: item.sourceUrl,
       kind: exhibitKind(item.kind),
       evidence: item.evidence,
     })),

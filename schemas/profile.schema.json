@@ -24,6 +24,8 @@
           "summary": { "type": "string" },
           "bullets": { "type": "array", "items": { "type": "string" } },
           "tags": { "type": "array", "items": { "type": "string" } },
+          "imageUrl": { "type": "string", "format": "uri" },
+          "sourceUrl": { "type": "string", "format": "uri" },
           "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
         }
       }

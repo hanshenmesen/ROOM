@@ -3,6 +3,7 @@ import test from "node:test";
 import { checkWorld } from "../lib/agents/checker.ts";
 import { runPipeline } from "../lib/agents/pipeline.ts";
 import { sampleResume } from "../lib/data/sample-resume.ts";
+import { extractWebPage } from "../lib/extract-webpage.ts";
 import { validateProfile, validateReport, validateWorld } from "../lib/validate.ts";
 
 test("parser keeps line-level evidence for every content item", () => {
@@ -58,4 +59,40 @@ test("checker catches overlap, dead interaction, omissions, and mobile budget", 
   assert.ok(report.issues.some((item) => item.category === "interaction"));
   assert.ok(report.issues.some((item) => item.category === "content"));
   assert.ok(report.issues.some((item) => item.category === "performance"));
+});
+
+test("academic homepage extraction keeps semantic sections and maps real project images", () => {
+  const html = `<!doctype html>
+    <html><head><title>韩晨（Chen Han） - Homepage</title></head><body>
+      <div class="profile_box">
+        <img src="images/photo.png" alt="韩晨（Chen Han）">
+        <h3 class="author__name">韩晨（Chen Han）</h3>
+        <p class="author__bio">AMSS/SAIS, UCAS</p>
+        <ul class="author__urls"><li><div>CS Phd Student</div></li><li><a href="mailto:hanshenmesen@163.com">Email</a></li></ul>
+      </div>
+      <article><section class="page__content">
+        <p>I study <strong>Large Language Models</strong> and <strong>Multi-Agent Systems</strong> for trustworthy information systems.</p>
+        <h1>📝 Latest Publications</h1>
+        <div class="paper-box"><div class="paper-box-image"><div class="badge">AAAI 2026 (Oral)</div><img src="images/aaai2026.png" alt="paper overview"></div></div>
+          <div class="paper-box-text"><p><a href="https://arxiv.org/abs/2511.07267">Beyond Detection</a></p><p>Chen Han, et al.</p><ul><li>Proposed an evidence-based debate framework.</li></ul></div>
+        </div>
+        <h1>🎖 Honors and Awards</h1><ul><li>2026 Top Intern</li></ul>
+        <h1>📖 Educations</h1><ul><li>2025 – 2028, Ph.D., UCAS</li></ul>
+        <h1>💻 Internships</h1><ul><li>2026, Xiaohongshu, Data Engineer Agent R&amp;D</li></ul>
+      </section></article>
+    </body></html>`;
+  const page = extractWebPage(html, "https://hanshenmesen.github.io/");
+  const result = runPipeline(page.text, { type: "url", label: page.title, media: page.media });
+  const projects = result.profile.items.filter((item) => item.kind === "project");
+
+  assert.equal(result.profile.name, "韩晨（Chen Han）");
+  assert.equal(result.profile.headline, "CS Phd Student · AMSS/SAIS, UCAS");
+  assert.deepEqual(result.profile.skills, ["Large Language Models", "Multi-Agent Systems"]);
+  assert.deepEqual(result.profile.contacts, ["Email: hanshenmesen@163.com"]);
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0]?.title, "Beyond Detection");
+  assert.equal(projects[0]?.subtitle, "AAAI 2026 (Oral)");
+  assert.equal(projects[0]?.imageUrl, "https://hanshenmesen.github.io/images/aaai2026.png");
+  assert.equal(projects[0]?.sourceUrl, "https://arxiv.org/abs/2511.07267");
+  assert.equal(result.world.exhibits.find((item) => item.sourceItemId === projects[0]?.id)?.imageUrl, projects[0]?.imageUrl);
 });
