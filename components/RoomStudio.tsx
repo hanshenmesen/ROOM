@@ -955,12 +955,12 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "移动鼠标环视 · 点击资料物件、圆形项目展岛或访客签到台"
+                : "WASD 第一人称移动 · 移动鼠标环视 · 点击楼梯上二楼"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "移动鼠标环视 · 点击桌上的日记本 · 返回主展厅继续浏览"}
+                : "WASD 第一人称移动 · 移动鼠标环视 · 点击桌上的日记本"}
         </div>
       </section>
     </main>

@@ -14,17 +14,32 @@ function prepareMuseum(root: THREE.Object3D) {
     if (!(object instanceof THREE.Mesh)) return;
     object.castShadow = true;
     object.receiveShadow = true;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    materials.forEach((material) => {
+      material.side = THREE.DoubleSide;
+    });
   });
   return root;
+}
+
+function isStairwayPoint(point: THREE.Vector3) {
+  return point.x >= 3.5
+    && point.x <= 8.5
+    && point.y >= 0.3
+    && point.y <= 5.6
+    && point.z >= -18.5
+    && point.z <= -11;
 }
 
 export function MardouMuseumScene({
   activeRoom,
   onEnter,
+  onGoUpstairs,
   onBackgroundClick,
 }: {
   activeRoom: string;
   onEnter: () => void;
+  onGoUpstairs: () => void;
   onBackgroundClick: () => void;
 }) {
   const gltf = useLoader(SceneGltfLoader, MUSEUM_URL) as GLTF;
@@ -40,9 +55,23 @@ export function MardouMuseumScene({
       scale={MARDOU_SCALE}
       position={MARDOU_POSITION}
       onClick={(event) => {
-        event.stopPropagation();
-        if (activeRoom === "exterior") onEnter();
-        else onBackgroundClick();
+        if (activeRoom === "exterior") {
+          event.stopPropagation();
+          onEnter();
+        } else if (activeRoom === "room-lobby" && isStairwayPoint(event.point)) {
+          event.stopPropagation();
+          onGoUpstairs();
+        } else {
+          onBackgroundClick();
+        }
+      }}
+      onPointerMove={(event) => {
+        document.body.style.cursor = activeRoom === "room-lobby" && isStairwayPoint(event.point)
+          ? "pointer"
+          : "default";
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = "default";
       }}
     >
       <primitive object={museum} />

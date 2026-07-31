@@ -83,6 +83,12 @@ function sceneMediaUrl(url: string) {
 const PROJECT_CARD_SIZE = [1.68, 1.12, 0.09] as const;
 const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
 const PROJECT_ISLAND_RADIUS = 0.92;
+const FIRST_PERSON_SPEED = 2.7;
+const FIRST_PERSON_COLLISION_RADIUS = 0.42;
+const FIRST_PERSON_BOUNDS = {
+  "room-lobby": { minX: -9.2, maxX: 7, minZ: -25.5, maxZ: 4 },
+  "room-private": { minX: -5.5, maxX: 5.5, minZ: -25.5, maxZ: -14.5 },
+} as const;
 
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
   "showroom-guestbook": MARDOU_GUESTBOOK_PLACEMENT.focus,
@@ -99,7 +105,7 @@ type CameraRoute = {
 };
 
 function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan }) {
-  const { camera, pointer } = useThree();
+  const { camera, pointer, scene } = useThree();
   const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
   const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
   const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
@@ -108,11 +114,49 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
   const viewDirection = useMemo(() => new THREE.Vector3(), []);
   const viewRight = useMemo(() => new THREE.Vector3(), []);
   const viewUp = useMemo(() => new THREE.Vector3(), []);
+  const movement = useMemo(() => new THREE.Vector3(), []);
+  const movementForward = useMemo(() => new THREE.Vector3(), []);
+  const movementRight = useMemo(() => new THREE.Vector3(), []);
+  const movementProbe = useMemo(() => new THREE.Vector3(), []);
+  const movementRaycaster = useMemo(() => new THREE.Raycaster(), []);
   const desiredFov = useRef(activeRoom === "room-lobby" ? MARDOU_LOBBY_FOCUS.fov : MARDOU_EXTERIOR_FOCUS.fov);
   const previousRoom = useRef(activeRoom);
   const previousExhibit = useRef(selectedExhibit);
   const lobbyIntroPending = useRef(activeRoom === "room-lobby");
+  const pressedMovementKeys = useRef(new Set<string>());
   const route = useRef<CameraRoute | null>(null);
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      return target instanceof HTMLElement
+        && (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT");
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      if (!FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS] || !["w", "a", "s", "d"].includes(key) || isTypingTarget(event.target)) return;
+      event.preventDefault();
+      pressedMovementKeys.current.add(key);
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      pressedMovementKeys.current.delete(event.key.toLowerCase());
+    }
+
+    function clearKeys() {
+      pressedMovementKeys.current.clear();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", clearKeys);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", clearKeys);
+      clearKeys();
+    };
+  }, [activeRoom]);
 
   useEffect(() => {
     if (lobbyIntroPending.current && activeRoom === "room-lobby" && !selectedExhibit && !sceneReady) return;
@@ -303,6 +347,46 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
       return;
     }
 
+    const walkBounds = FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS];
+    if (walkBounds && !selectedExhibit && pressedMovementKeys.current.size) {
+      const forwardInput = Number(pressedMovementKeys.current.has("w")) - Number(pressedMovementKeys.current.has("s"));
+      const rightInput = Number(pressedMovementKeys.current.has("d")) - Number(pressedMovementKeys.current.has("a"));
+      movementForward.copy(lookAt).sub(camera.position).setY(0);
+      if (movementForward.lengthSq() < 0.0001) movementForward.set(0, 0, -1);
+      else movementForward.normalize();
+      movementRight.crossVectors(movementForward, camera.up).normalize();
+      movement
+        .copy(movementForward)
+        .multiplyScalar(forwardInput)
+        .addScaledVector(movementRight, rightInput);
+
+      if (movement.lengthSq() > 0) {
+        movement.normalize().multiplyScalar(FIRST_PERSON_SPEED * Math.min(delta, 0.05));
+        const nextX = destination.x + movement.x;
+        const nextZ = destination.z + movement.z;
+        const insideFloorBounds = nextX >= walkBounds.minX
+          && nextX <= walkBounds.maxX
+          && nextZ >= walkBounds.minZ
+          && nextZ <= walkBounds.maxZ;
+        movementProbe.copy(movement).normalize();
+        movementRaycaster.set(camera.position, movementProbe);
+        movementRaycaster.near = 0;
+        movementRaycaster.far = movement.length() + FIRST_PERSON_COLLISION_RADIUS;
+        const blocked = movementRaycaster.intersectObjects(scene.children, true).some((hit) => {
+          if (!(hit.object instanceof THREE.Mesh) || hit.object.userData.ignoreCameraCollision) return false;
+          const materials = Array.isArray(hit.object.material) ? hit.object.material : [hit.object.material];
+          return materials.some((material) => material.visible && (!material.transparent || material.opacity >= 0.05));
+        });
+
+        if (insideFloorBounds && !blocked) {
+          destination.add(movement);
+          lookAtTarget.add(movement);
+          mouseLookTarget.add(movement);
+          lookAt.add(movement);
+        }
+      }
+    }
+
     frameDestination.copy(destination);
     const positionAlpha = 1 - Math.exp(-delta * 2.1);
     const targetAlpha = 1 - Math.exp(-delta * 4.2);
@@ -334,6 +418,34 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
     }
   });
   return null;
+}
+
+function StairwayClickTarget({ interactive, onGoUpstairs }: { interactive: boolean; onGoUpstairs: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  if (!interactive) return null;
+  return (
+    <group position={[2.5, 2.5, -12]}>
+      <mesh
+        userData={{ ignoreCameraCollision: true }}
+        onClick={(event) => {
+          event.stopPropagation();
+          onGoUpstairs();
+        }}
+        onPointerOver={(event) => {
+          event.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          document.body.style.cursor = "default";
+        }}
+      >
+        <boxGeometry args={[3, 4, 6]} />
+        <meshBasicMaterial color="#65d7c3" transparent opacity={hovered ? 0.035 : 0.001} depthWrite={false} toneMapped={false} />
+      </mesh>
+    </group>
+  );
 }
 
 function TextPanel({ title, subtitle, position, width = 4.4, height = 1.08, rotation = [0, 0, 0] }: {
@@ -1611,7 +1723,12 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
           <MardouMuseumScene
             activeRoom={activeRoom}
             onEnter={() => onRoomChange("room-lobby")}
+            onGoUpstairs={() => onRoomChange("room-private")}
             onBackgroundClick={() => onSelect("")}
+          />
+          <StairwayClickTarget
+            interactive={activeRoom === "room-lobby" && !selectedExhibit}
+            onGoUpstairs={() => onRoomChange("room-private")}
           />
           <OptionalAssetBoundary key={world.id}>
             <Suspense fallback={null}>
