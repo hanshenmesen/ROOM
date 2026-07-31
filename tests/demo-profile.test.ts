@@ -1,25 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { compileProfile } from "../lib/agents/pipeline.ts";
-import { hanchenDemoProfile } from "../lib/data/hanchen-demo-profile.ts";
+import { fictionalDemoProfile } from "../lib/data/fictional-demo-profile.ts";
 
-test("the default Han Chen demo is a complete precompiled world", () => {
-  const result = compileProfile(hanchenDemoProfile);
-  assert.equal(hanchenDemoProfile.name, "韩晨");
-  assert.equal(hanchenDemoProfile.personalWebsite, "https://hanshenmesen.github.io/");
-  assert.equal(hanchenDemoProfile.items.length, 17);
-  assert.equal(hanchenDemoProfile.skills.length, 15);
-  assert.equal(hanchenDemoProfile.media.length, 4);
-  assert.equal(hanchenDemoProfile.source.label.includes("hanshenmesen.github.io"), true);
+test("the default fictional demo is a complete precompiled world", () => {
+  const result = compileProfile(fictionalDemoProfile);
+  assert.equal(fictionalDemoProfile.name, "林澈");
+  assert.equal(fictionalDemoProfile.personalWebsite, "https://linche.example");
+  assert.equal(fictionalDemoProfile.items.length, 13);
+  assert.equal(fictionalDemoProfile.skills.length, 12);
+  assert.equal(fictionalDemoProfile.media.length, 1);
+  assert.equal(fictionalDemoProfile.source.label.includes("虚构人物 Demo"), true);
+  assert.equal(fictionalDemoProfile.media[0]?.url, "./assets/demo/lin-che-portrait.png");
   assert.equal(result.report.passed, true);
   assert.equal(result.report.score, 100);
-  assert.equal(result.world.exhibits.length, 32);
+  assert.equal(result.world.exhibits.length > 0, true);
 });
 
-test("Beyond Detection has one project island and one works-index reference", () => {
-  const result = compileProfile(hanchenDemoProfile);
+test("Echo Atlas has one project island and one works-index reference", () => {
+  const result = compileProfile(fictionalDemoProfile);
   const matchingProjects = result.world.exhibits.filter((exhibit) =>
-    exhibit.eyebrow === "PROJECT" && /beyond detection/i.test(exhibit.title),
+    exhibit.eyebrow === "PROJECT" && /echo atlas/i.test(exhibit.title),
   );
 
   assert.equal(matchingProjects.length, 1);

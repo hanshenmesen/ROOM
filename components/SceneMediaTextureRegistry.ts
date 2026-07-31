@@ -12,6 +12,7 @@ type TextureRegistryEntry = {
 };
 
 const mediaTextures = new Map<string, TextureRegistryEntry>();
+export const SCENE_MEDIA_TEXTURE_RELEASE_DELAY_MS = 3_000;
 
 function cancelRelease(entry: TextureRegistryEntry) {
   if (!entry.releaseTimer) return;
@@ -57,7 +58,7 @@ export function retainSceneMediaTexture(
       mediaTextures.delete(cacheKey);
       latest.texture.dispose();
       latest.clearCache(cacheKey);
-    }, 0);
+    }, SCENE_MEDIA_TEXTURE_RELEASE_DELAY_MS);
     current.releaseTimer = releaseTimer;
   };
 }

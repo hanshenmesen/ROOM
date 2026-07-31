@@ -1,5 +1,7 @@
 "use client";
 
+// Component-only module: keep non-React preload exports in WorldCanvasPreload.
+
 /* eslint-disable react-hooks/immutability -- Three.js render loops intentionally mutate scene objects. */
 
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
@@ -22,6 +24,7 @@ import {
   type CreativeSubject,
 } from "@/lib/agents/creative-subjects";
 import { materialFrameCopy } from "@/lib/exhibit-presentation";
+import { sampleCameraCurve } from "@/lib/camera-route";
 import { SCENE_COMPILE_TIMEOUT_MS } from "@/lib/scene-entry";
 import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
 import {
@@ -175,6 +178,7 @@ type CameraRoute = {
     toDistance: number;
   };
   targetUsesControlTiming?: boolean;
+  targetUsesUniformControlTiming?: boolean;
   roomTransition?: boolean;
 };
 
@@ -476,13 +480,13 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.threshold),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.gallery),
-        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.introApproach),
+        ...MARDOU_LOBBY_INTRO_ROUTE.points.slice(0, -1).map((point) => new THREE.Vector3(...point)),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
         ...MARDOU_ENTRANCE_ROUTE.entryTargets.map((point) => new THREE.Vector3(...point)),
-        lookAtTarget.clone(),
+        ...MARDOU_LOBBY_INTRO_ROUTE.targets.map((point) => new THREE.Vector3(...point)),
       ];
       duration = MARDOU_ENTRANCE_ROUTE.duration;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "room-private") {
@@ -520,7 +524,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     } else if (previousRoom.current === "room-lobby" && activeRoom === "exterior") {
       positionPoints = [
         startPosition,
-        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.introApproach),
+        ...MARDOU_LOBBY_INTRO_ROUTE.points.slice(0, -1).reverse().map((point) => new THREE.Vector3(...point)),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.gallery),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.threshold),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
@@ -528,6 +532,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       ];
       targetPoints = [
         startTarget,
+        ...MARDOU_LOBBY_INTRO_ROUTE.targets.slice(0, -1).reverse().map((point) => new THREE.Vector3(...point)),
         ...MARDOU_ENTRANCE_ROUTE.exitTargets.map((point) => new THREE.Vector3(...point)),
       ];
       duration = MARDOU_ENTRANCE_ROUTE.duration;
@@ -598,9 +603,10 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       focusId: exhibit || selectedSurface ? selectedExhibit : undefined,
       focusView,
       targetUsesControlTiming: roomChanged && (
-        activeRoom === "room-private"
-        || activeRoom === "exterior"
-        || previousRoom.current === "exterior"
+        activeRoom === "room-private" || previousRoom.current === "room-private"
+      ),
+      targetUsesUniformControlTiming: roomChanged && (
+        activeRoom === "exterior" || previousRoom.current === "exterior"
       ),
       roomTransition,
     };
@@ -712,7 +718,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
         camera.position.copy(activeRoute.finalPosition);
         lookAt.copy(activeRoute.finalTarget);
       } else if (activeRoute.focusView) {
-        activeRoute.position.getPointAt(eased, camera.position);
+        sampleCameraCurve(activeRoute.position, eased, camera.position);
         const focusMidpoint = 0.5;
         if (activeRoute.focusView.midDirection && progress < focusMidpoint) {
           viewDirection.lerpVectors(
@@ -740,17 +746,24 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
           eased,
         );
         lookAt.copy(camera.position).addScaledVector(viewDirection, focusDistance);
+      } else if (activeRoute.targetUsesUniformControlTiming) {
+        sampleCameraCurve(activeRoute.position, eased, camera.position);
+        activeRoute.target.getPoint(eased, lookAt);
       } else if (activeRoute.targetUsesControlTiming) {
         // Position is sampled by arc length for constant apparent speed. Map
         // that same travelled distance back to the position curve's control
         // parameter before sampling the paired look curve, so both curves
         // reach the doorway / landing / reveal control points together.
-        activeRoute.position.getPointAt(eased, camera.position);
-        const pairedCurveProgress = activeRoute.position.getUtoTmapping(eased);
-        activeRoute.target.getPoint(pairedCurveProgress, lookAt);
+        sampleCameraCurve(activeRoute.position, eased, camera.position);
+        const pairedCurveProgress = activeRoute.position.getUtoTmapping(eased, 0);
+        if (Number.isFinite(pairedCurveProgress)) {
+          activeRoute.target.getPoint(THREE.MathUtils.clamp(pairedCurveProgress, 0, 1), lookAt);
+        } else {
+          sampleCameraCurve(activeRoute.target, eased, lookAt);
+        }
       } else {
-        activeRoute.position.getPointAt(eased, camera.position);
-        activeRoute.target.getPointAt(eased, lookAt);
+        sampleCameraCurve(activeRoute.position, eased, camera.position);
+        sampleCameraCurve(activeRoute.target, eased, lookAt);
       }
       camera.lookAt(lookAt);
       if (camera instanceof THREE.PerspectiveCamera) {
@@ -1014,10 +1027,63 @@ function AutoOpeningMuseumDoor({ interactive, door }: { interactive: boolean; do
   );
 }
 
-function StairwayClickTarget({ interactive, onGoUpstairs }: { interactive: boolean; onGoUpstairs: () => void }) {
+function StairwayNavigation({ activeRoom, interactive, onNavigate }: {
+  activeRoom: string;
+  interactive: boolean;
+  onNavigate: () => void;
+}) {
   const [hoveredStep, setHoveredStep] = useState<number | null>(null);
+  const label = activeRoom === "room-private" ? "点击下楼" : "点击上楼";
+  const signTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 768;
+    canvas.height = 224;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "rgba(11, 18, 23, .58)";
+    context.beginPath();
+    context.roundRect(8, 8, 752, 208, 30);
+    context.fill();
+    context.strokeStyle = "rgba(161, 229, 216, .78)";
+    context.lineWidth = 4;
+    context.stroke();
+    context.fillStyle = "rgba(255, 255, 255, .78)";
+    context.font = "500 34px Arial";
+    context.textAlign = "center";
+    context.fillText("STAIR / FLOOR NAVIGATION", 384, 68);
+    context.fillStyle = "#ffffff";
+    context.font = "700 64px Arial";
+    context.fillText(label, 384, 151);
+    context.fillStyle = "#65d7c3";
+    context.font = "700 34px Arial";
+    context.fillText(activeRoom === "room-private" ? "↓" : "↑", 384, 194);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
+  }, [activeRoom, label]);
+
+  useEffect(() => () => signTexture.dispose(), [signTexture]);
   if (!interactive) return null;
   return <group name="stairway-click-surfaces">
+    <sprite
+      position={[1, 4.3, -8.68]}
+      scale={[1.45, .43, 1]}
+      renderOrder={30}
+      userData={{ ignoreCameraCollision: true, stairNavigationSign: true }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onNavigate();
+      }}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = "default";
+      }}
+    >
+      <spriteMaterial map={signTexture} transparent depthTest={false} depthWrite={false} toneMapped={false} />
+    </sprite>
     {MARDOU_STAIR_CLICK_TARGETS.map((target, index) => (
       <mesh
         key={index}
@@ -1025,7 +1091,7 @@ function StairwayClickTarget({ interactive, onGoUpstairs }: { interactive: boole
         userData={{ ignoreCameraCollision: true, stairClickSurface: true }}
         onClick={(event) => {
           event.stopPropagation();
-          onGoUpstairs();
+          onNavigate();
         }}
         onPointerOver={(event) => {
           event.stopPropagation();
@@ -1672,23 +1738,21 @@ function LoadedProfilePortrait({ url, position, stylized = false }: { url: strin
 function LoadedPrivateFrameImage({ url }: { url: string }) {
   const mediaUrl = sceneMediaUrl(url);
   const sourceTexture = useLoader(SceneTextureLoader, mediaUrl);
-  const displayTexture = useMemo(() => {
+  const { displayTexture, displaySize } = useMemo(() => {
     const texture = sourceTexture.clone();
     const image = sourceTexture.image as { width?: number; height?: number } | undefined;
     const sourceAspect = image?.width && image?.height ? image.width / image.height : 0.59;
     const frameAspect = 0.59;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-    if (sourceAspect > frameAspect) {
-      texture.repeat.x = frameAspect / sourceAspect;
-      texture.offset.x = (1 - texture.repeat.x) / 2;
-    } else if (sourceAspect < frameAspect) {
-      texture.repeat.y = sourceAspect / frameAspect;
-      texture.offset.y = (1 - texture.repeat.y) / 2;
-    }
     texture.anisotropy = 4;
     texture.needsUpdate = true;
-    return texture;
+    return {
+      displayTexture: texture,
+      displaySize: sourceAspect >= frameAspect
+        ? [1.02, 1.02 / sourceAspect] as const
+        : [1.72 * sourceAspect, 1.72] as const,
+    };
   }, [sourceTexture]);
 
   useEffect(() => retainSceneMediaTexture(mediaUrl, sourceTexture, (cacheKey) => {
@@ -1696,7 +1760,7 @@ function LoadedPrivateFrameImage({ url }: { url: string }) {
   }), [mediaUrl, sourceTexture]);
   useEffect(() => () => displayTexture.dispose(), [displayTexture]);
   return <mesh position={[0, 0, 0.071]}>
-    <planeGeometry args={[1.02, 1.72]} />
+    <planeGeometry args={displaySize} />
     <meshBasicMaterial map={displayTexture} toneMapped={false} />
   </mesh>;
 }
@@ -2521,12 +2585,12 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, selectedExhibit, guest
   return (
     <>
       <SceneLoadingReporter onLoadProgress={onLoadProgress} onLoadState={onLoadState} />
-      <Canvas dpr={[1, 1.35]} shadows={{ type: THREE.PCFShadowMap }} camera={{ position: activeRoom === "room-lobby" ? MARDOU_LOBBY_INTRO_ROUTE.spawn : MARDOU_EXTERIOR_FOCUS.camera, fov: activeRoom === "room-lobby" ? MARDOU_LOBBY_FOCUS.fov : MARDOU_EXTERIOR_FOCUS.fov, near: 0.08, far: 120 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => onSelect("")}>
+      <Canvas dpr={[1, 1.2]} shadows={{ type: THREE.PCFShadowMap }} camera={{ position: activeRoom === "room-lobby" ? MARDOU_LOBBY_INTRO_ROUTE.spawn : MARDOU_EXTERIOR_FOCUS.camera, fov: activeRoom === "room-lobby" ? MARDOU_LOBBY_FOCUS.fov : MARDOU_EXTERIOR_FOCUS.fov, near: 0.08, far: 120 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => onSelect("")}>
         <color attach="background" args={["#91adbd"]} />
         <fog attach="fog" args={["#91adbd", 32, 74]} />
         <ambientLight intensity={0.5} color="#ead9c4" />
         <hemisphereLight intensity={0.65} color="#bfd6e8" groundColor="#432f2a" />
-        <directionalLight castShadow position={[14, 22, 12]} intensity={2.35} color="#ffd8ad" shadow-mapSize={[2048, 2048]} shadow-camera-left={-26} shadow-camera-right={26} shadow-camera-top={24} shadow-camera-bottom={-24} />
+        <directionalLight castShadow position={[14, 22, 12]} intensity={2.35} color="#ffd8ad" shadow-mapSize={[1024, 1024]} shadow-camera-left={-26} shadow-camera-right={26} shadow-camera-top={24} shadow-camera-bottom={-24} />
         <pointLight position={[-7, 5, 5]} intensity={activeRoom !== "room-private" ? 12 : 0} distance={12} decay={2} color={CORAL} />
         <pointLight position={[6, 4, -3]} intensity={activeRoom !== "room-private" ? 3.8 : 0} distance={9} decay={2} color="#9fc6b8" />
         <RendererLook />
@@ -2545,9 +2609,10 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, selectedExhibit, guest
             onEnter={() => onRoomChange("room-lobby")}
             onBackgroundClick={() => onSelect("")}
           />
-          <StairwayClickTarget
-            interactive={activeRoom === "room-lobby" && !selectedExhibit}
-            onGoUpstairs={() => onRoomChange("room-private")}
+          <StairwayNavigation
+            activeRoom={activeRoom}
+            interactive={(activeRoom === "room-lobby" || activeRoom === "room-private") && !selectedExhibit}
+            onNavigate={() => onRoomChange(activeRoom === "room-private" ? "room-lobby" : "room-private")}
           />
           <AutoOpeningMuseumDoor door={MARDOU_AUTO_DOOR} interactive={activeRoom === "room-lobby" && !selectedExhibit} />
           <AutoOpeningMuseumDoor door={MARDOU_SIDE_ENTRANCE_DOOR} interactive={activeRoom === "room-lobby" && !selectedExhibit} />

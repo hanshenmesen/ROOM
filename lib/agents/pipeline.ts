@@ -2,6 +2,7 @@ import { checkWorld } from "./checker.ts";
 import { directWorld } from "./creative-director.ts";
 import { orchestrateWorld } from "./orchestrator.ts";
 import { parseProfile, type ParseSource } from "./parser.ts";
+import { normalizeDisplayProfile } from "../display-copy.ts";
 import type { PipelineResult } from "../types.ts";
 
 export function runPipeline(text: string, source?: ParseSource): PipelineResult {
@@ -10,12 +11,13 @@ export function runPipeline(text: string, source?: ParseSource): PipelineResult 
 }
 
 export function compileProfile(profile: PipelineResult["profile"]): PipelineResult {
-  const brief = directWorld(profile);
-  const world = orchestrateWorld(profile, brief);
+  const displayProfile = normalizeDisplayProfile(profile);
+  const brief = directWorld(displayProfile);
+  const world = orchestrateWorld(displayProfile, brief);
   const report = checkWorld(world);
 
   return {
-    profile,
+    profile: displayProfile,
     brief,
     world,
     report,
@@ -24,7 +26,7 @@ export function compileProfile(profile: PipelineResult["profile"]): PipelineResu
         id: "parser",
         name: "Claude Profile Agent",
         status: "complete",
-        summary: `从来源中识别 ${profile.items.length} 个内容条目与 ${profile.skills.length} 项技能，并保留逐项证据。`,
+        summary: `从来源中识别 ${displayProfile.items.length} 个内容条目与 ${displayProfile.skills.length} 项技能，并保留逐项证据。`,
         artifacts: ["profile.json", "source-evidence[]"],
       },
       {

@@ -6,6 +6,7 @@ import { useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
+import { ROOM_COMPANION_NAME } from "@/lib/room-companion";
 import { MARDOU_COMPANION_SAFE_ZONE, MARDOU_COMPANION_SPEED } from "./MardouMuseumLayout";
 
 const BODY_COLOR = "#d8c7a7";
@@ -42,7 +43,7 @@ function waypointVector(index: number) {
 function belongsToCompanion(object: THREE.Object3D | null) {
   let candidate = object;
   while (candidate) {
-    if (candidate.name === "room-neutral-companion") return true;
+    if (candidate.name === "room-companion-xiaobai") return true;
     candidate = candidate.parent;
   }
   return false;
@@ -139,7 +140,6 @@ export function RoomCompanion({
 
   useEffect(() => {
     if (qaOpen) {
-      target.set(...MARDOU_COMPANION_SAFE_ZONE.dialoguePoint);
       pauseUntil.current = 0;
     } else if (welcoming.current) {
       target.set(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome);
@@ -159,20 +159,19 @@ export function RoomCompanion({
     const greetingAtEntrance = !qaOpen && clock.current < entranceGreetingUntil.current;
 
     let walking = false;
-    if (greetingAtEntrance) {
+    if (qaOpen || greetingAtEntrance) {
       direction.copy(state.camera.position).sub(root.current.position);
-      const yaw = Math.atan2(direction.x, direction.z);
-      root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
+      direction.y = 0;
+      if (direction.lengthSq() > 1e-6) {
+        const yaw = Math.atan2(direction.x, direction.z);
+        root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
+      }
     } else if (!paused) {
       direction.copy(target).sub(root.current.position);
       direction.y = 0;
       const distance = direction.length();
 
-      if (distance <= MARDOU_COMPANION_SAFE_ZONE.stoppingRadius && qaOpen) {
-        direction.copy(state.camera.position).sub(root.current.position);
-        const yaw = Math.atan2(direction.x, direction.z);
-        root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
-      } else if (distance <= MARDOU_COMPANION_SAFE_ZONE.stoppingRadius && welcoming.current) {
+      if (distance <= MARDOU_COMPANION_SAFE_ZONE.stoppingRadius && welcoming.current) {
         welcoming.current = false;
         currentIndex.current = startIndex;
         targetIndex.current = chooseNextWaypoint();
@@ -208,8 +207,8 @@ export function RoomCompanion({
     }
 
     const gait = walking ? Math.sin(clock.current * 12) * 0.28 : 0;
-    root.current.position.y = MARDOU_COMPANION_SAFE_ZONE.floorY + Math.sin(clock.current * 3.2) * 0.018;
-    if (head.current) head.current.rotation.x = walking ? -0.04 : Math.sin(clock.current * 2.4) * 0.08;
+    root.current.position.y = MARDOU_COMPANION_SAFE_ZONE.floorY + (qaOpen ? 0 : Math.sin(clock.current * 3.2) * 0.018);
+    if (head.current) head.current.rotation.x = qaOpen ? 0 : walking ? -0.04 : Math.sin(clock.current * 2.4) * 0.08;
     if (tail.current) tail.current.rotation.y = Math.sin(clock.current * 7.5) * 0.34;
     if (leftFrontLeg.current) leftFrontLeg.current.rotation.x = gait;
     if (rightBackLeg.current) rightBackLeg.current.rotation.x = gait;
@@ -229,7 +228,8 @@ export function RoomCompanion({
   return (
     <group
       ref={root}
-      name="room-neutral-companion"
+      name="room-companion-xiaobai"
+      userData={{ companionName: ROOM_COMPANION_NAME }}
       position={[firstPosition[0], firstPosition[1], firstPosition[2]]}
       scale={0.52}
       onClick={handleClick}

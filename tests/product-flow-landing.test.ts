@@ -33,7 +33,8 @@ test("the landing is rebuilt from independently positioned PPT artwork", () => {
 test("the landing uses the editorial world headline and stays overflow-free", () => {
   assert.match(landingSource, /把你的经历，变成你的世界。/);
   assert.match(landingStyles, /@media \(max-width: 760px\)/);
-  assert.match(landingStyles, /\.flow-layout\s*\{[^}]*grid-template-columns: minmax\(0, \.84fr\)/);
+  assert.match(landingStyles, /\.flow-layout\s*\{[^}]*grid-template-columns: minmax\(0, \.82fr\)[^}]*minmax\(0, 1\.18fr\)/);
+  assert.match(landingStyles, /\.flow-agent\s*\{[^}]*min-height: clamp\(58px, 7\.4vh, 72px\)/);
 });
 
 test("the three stages share a frame and normalize artwork around the web notebook", () => {
@@ -66,6 +67,8 @@ test("the landing and intake share one editorial visual system", () => {
   assert.match(studioSource, /className="intake-form-heading"/);
   assert.match(landingStyles, /\.intake-page\s*\{[^}]*--intake-ink: #17202a;[^}]*padding: 0 clamp\(22px, 4vw, 72px\);/);
   assert.match(landingStyles, /\.hero-copy\s*\{[^}]*align-self: start;[^}]*border-top: 1px solid var\(--intake-rule\);/);
+  assert.match(landingStyles, /\.hero-copy h1\s*\{[^}]*font-size: clamp\(48px, 4\.6vw, 76px\)/);
+  assert.match(landingStyles, /@keyframes intake-copy-rise/);
   assert.match(landingStyles, /\.intake-form\s*\{[^}]*align-self: start;[^}]*border-top: 1px solid rgba\(82, 127, 174, \.46\);/);
   assert.match(landingStyles, /\.demo-panel > button\s*\{[^}]*border-radius: 999px;[^}]*background: #1c3348;/);
 });

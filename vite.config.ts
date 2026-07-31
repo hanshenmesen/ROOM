@@ -60,6 +60,21 @@ export default defineConfig(async ({ command, mode }) => {
   const runtimeEnvironment = command === "serve" ? localEnvironment : {};
 
   return {
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                name: "three-runtime",
+                test: /node_modules[\\/]three[\\/]/,
+                priority: 20,
+              },
+            ],
+          },
+        },
+      },
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

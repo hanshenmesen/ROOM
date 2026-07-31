@@ -1,8 +1,8 @@
-export const sampleResume = `林澈
+export const sampleResume = `林澈（虚构人物）
 Creative Technologist / AI Experience Designer
 
 简介
-常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。
+以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。
 
 项目
 Echo Atlas — AI 记忆观测站 | 2026 · 创意总监 / 产品负责人
@@ -36,10 +36,10 @@ Studio Parallel 交互设计师 | 2018—2021
 - 参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。
 
 教育
-同济大学 设计学硕士 | 2018
+河岸设计学院（虚构） 信息体验设计硕士 | 2018
 - 研究方向为信息可视化、交互叙事与数字公共空间。
 
-伦敦艺术大学 交换研究 | 2017
+北港艺术与技术学院（虚构） 交换研究 | 2017
 - 完成 Creative Computing 与 Physical Interaction 联合工作室课程。
 
 技能
@@ -51,6 +51,5 @@ AI Interaction Challenge 2025 — Best Prototype
 四项开源项目累计获得 8,600+ GitHub Stars
 
 联系
-hello@linchen.studio
-https://linchen.studio
-https://github.com/linchen-studio`;
+hello@linche.example
+https://linche.example`;

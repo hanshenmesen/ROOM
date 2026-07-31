@@ -12,10 +12,8 @@ import {
 import { SceneGltfLoader } from "./SceneAssetLoaders";
 
 const MUSEUM_URL = "/vendor/mardou/MardouMuseumResult.glb";
-
-export function preloadMardouMuseum() {
-  useLoader.preload(SceneGltfLoader, MUSEUM_URL);
-}
+const MARDOU_SHADOW_RECEIVER_NAMES = new Set(["Floor", "Walls"]);
+const MARDOU_DOUBLE_SIDED_MESH_NAMES = new Set(["Walls", "Ceiling"]);
 
 // Source coordinates around point 1 from 入场门.txt. This wall faces -X, so
 // the opening is thin on X and spans Z. The baked wall triangles are removed
@@ -61,20 +59,27 @@ function cutAutoDoorOpening(mesh: THREE.Mesh) {
 }
 
 function prepareMuseum(root: THREE.Object3D) {
+  const hiddenMeshes: THREE.Mesh[] = [];
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
+    if ((MARDOU_HIDDEN_MESH_NAMES as readonly string[]).includes(object.name)) {
+      hiddenMeshes.push(object);
+      return;
+    }
     if (object.name === "Walls") cutAutoDoorOpening(object);
-    if ((MARDOU_HIDDEN_MESH_NAMES as readonly string[]).includes(object.name)) object.visible = false;
-    object.castShadow = true;
-    object.receiveShadow = true;
+    object.castShadow = false;
+    object.receiveShadow = MARDOU_SHADOW_RECEIVER_NAMES.has(object.name);
     object.material = Array.isArray(object.material)
       ? object.material.map((material) => material.clone())
       : object.material.clone();
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     materials.forEach((material) => {
-      material.side = THREE.DoubleSide;
+      material.side = MARDOU_DOUBLE_SIDED_MESH_NAMES.has(object.name)
+        ? THREE.DoubleSide
+        : THREE.FrontSide;
     });
   });
+  hiddenMeshes.forEach((object) => object.removeFromParent());
   return root;
 }
 

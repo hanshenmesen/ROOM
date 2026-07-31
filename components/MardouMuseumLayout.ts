@@ -317,7 +317,6 @@ export const MARDOU_ENTRANCE_ROUTE = {
   gallery: [2, 1.5, -2] as Vec3,
   introApproach: MARDOU_LOBBY_INTRO_ROUTE.arrival,
   exitTargets: [
-    [-2.5, 1.5, -14],
     [1.5, 1.5, -6],
     [2, 1.6, 1.7],
     [2, 1.8, 7.2],
@@ -327,12 +326,11 @@ export const MARDOU_ENTRANCE_ROUTE = {
     [2, 1.7, 8],
     [2, 1.55, -2],
     [-1, 1.5, -7],
-    [-2.5, 1.55, -14],
   ] as ReadonlyArray<Vec3>,
-  // This route travels more than 36m from the exterior establishing camera.
-  // The former 5.2s pass peaked at a drone-like speed and made the doorway
-  // turn feel abrupt; 7.4s keeps the reveal responsive while remaining calm.
-  duration: 7.4,
+  // This route travels more than 36m and then performs the authored 90-degree
+  // point-3 reveal. Give both the doorway traverse and final turn enough time
+  // to remain below the camera comfort limits.
+  duration: 14.4,
 };
 
 const privateArrivalFloor = mardouSourcePointToWorld([30.7634, -0.3973, -513.8498]);
@@ -372,7 +370,7 @@ export const MARDOU_PRIVATE_ROUTE = {
     [-2.8, 1.7, -12],
     [-1.5, 1.5, -14],
   ] as ReadonlyArray<Vec3>,
-  duration: 11.6,
+  duration: 18,
 };
 
 // The GLB merges the stairs into the shared Walls mesh, so there is no named

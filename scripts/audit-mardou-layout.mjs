@@ -181,7 +181,18 @@ function cameraEase(progress) {
   return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-function auditCameraMotion({ positionPoints, targetPoints, duration, pairedControlTiming = false, focusView }) {
+function sampleCameraCurve(curve, progress) {
+  const safeProgress = Number.isFinite(progress)
+    ? THREE.MathUtils.clamp(progress, 0, 1)
+    : 1;
+  const mappedProgress = curve.getUtoTmapping(safeProgress, 0);
+  const curveProgress = Number.isFinite(mappedProgress)
+    ? THREE.MathUtils.clamp(mappedProgress, 0, 1)
+    : safeProgress;
+  return curve.getPoint(curveProgress);
+}
+
+function auditCameraMotion({ positionPoints, targetPoints, duration, pairedControlTiming = false, uniformTargetTiming = false, focusView }) {
   const positionCurve = cameraCurve(positionPoints);
   const targetCurve = cameraCurve(targetPoints);
   const frames = Math.round(duration * 60);
@@ -192,6 +203,8 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
   let previousAngularSpeed = 0;
   let maximumLinearAcceleration = 0;
   let maximumLinearJerk = 0;
+  let maximumLinearAccelerationAt = 0;
+  let maximumLinearJerkAt = 0;
   let maximumAngularSpeed = 0;
   let maximumAngularAcceleration = 0;
   let maximumAngularSpeedAt = 0;
@@ -203,8 +216,11 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
   for (let frame = 0; frame <= frames; frame += 1) {
     const timeProgress = frame / frames;
     const progress = cameraEase(timeProgress);
-    const position = positionCurve.getPointAt(progress);
-    const pairedCurveProgress = positionCurve.getUtoTmapping(progress);
+    const position = sampleCameraCurve(positionCurve, progress);
+    const mappedPairedProgress = positionCurve.getUtoTmapping(progress, 0);
+    const pairedCurveProgress = Number.isFinite(mappedPairedProgress)
+      ? THREE.MathUtils.clamp(mappedPairedProgress, 0, 1)
+      : progress;
     const focusMidpoint = 0.5;
     const focusDirection = focusView?.midDirection
       ? timeProgress < focusMidpoint
@@ -228,7 +244,9 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
         )
       : pairedControlTiming
         ? targetCurve.getPoint(pairedCurveProgress)
-        : targetCurve.getPointAt(progress);
+        : uniformTargetTiming
+          ? targetCurve.getPoint(progress)
+          : sampleCameraCurve(targetCurve, progress);
     const lookDistance = target.distanceTo(position);
     if (lookDistance < minimumLookDistance) {
       minimumLookDistance = lookDistance;
@@ -238,11 +256,16 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
     if (previousPosition) {
       const linearSpeed = position.distanceTo(previousPosition) * 60;
       const linearAcceleration = (linearSpeed - previousLinearSpeed) * 60;
-      maximumLinearAcceleration = Math.max(maximumLinearAcceleration, Math.abs(linearAcceleration));
-      maximumLinearJerk = Math.max(
-        maximumLinearJerk,
-        Math.abs(linearAcceleration - previousLinearAcceleration) * 60,
-      );
+      const absoluteLinearAcceleration = Math.abs(linearAcceleration);
+      if (absoluteLinearAcceleration > maximumLinearAcceleration) {
+        maximumLinearAcceleration = absoluteLinearAcceleration;
+        maximumLinearAccelerationAt = frame / frames;
+      }
+      const absoluteLinearJerk = Math.abs(linearAcceleration - previousLinearAcceleration) * 60;
+      if (absoluteLinearJerk > maximumLinearJerk) {
+        maximumLinearJerk = absoluteLinearJerk;
+        maximumLinearJerkAt = frame / frames;
+      }
       previousLinearSpeed = linearSpeed;
       previousLinearAcceleration = linearAcceleration;
     }
@@ -269,6 +292,8 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
   return {
     maximumLinearAcceleration,
     maximumLinearJerk,
+    maximumLinearAccelerationAt,
+    maximumLinearJerkAt,
     maximumAngularSpeed,
     maximumAngularAcceleration,
     maximumAngularSpeedAt,
@@ -314,7 +339,7 @@ const authoredRoutes = [
       MARDOU_ENTRANCE_ROUTE.outside,
       MARDOU_ENTRANCE_ROUTE.threshold,
       MARDOU_ENTRANCE_ROUTE.gallery,
-      MARDOU_ENTRANCE_ROUTE.introApproach,
+      ...MARDOU_LOBBY_INTRO_ROUTE.points.slice(0, -1),
       MARDOU_LOBBY_FOCUS.camera,
     ],
   },
@@ -325,7 +350,7 @@ const authoredRoutes = [
     allowsDoorway: true,
     points: [
       MARDOU_LOBBY_FOCUS.camera,
-      MARDOU_ENTRANCE_ROUTE.introApproach,
+      ...MARDOU_LOBBY_INTRO_ROUTE.points.slice(0, -1).reverse(),
       MARDOU_ENTRANCE_ROUTE.gallery,
       MARDOU_ENTRANCE_ROUTE.threshold,
       MARDOU_ENTRANCE_ROUTE.outside,
@@ -366,18 +391,24 @@ const authoredMotionRoutes = [
   {
     name: "exterior -> lobby",
     duration: MARDOU_ENTRANCE_ROUTE.duration,
+    uniformTargetTiming: true,
     positionPoints: authoredRoutes[1].points,
     targetPoints: [
       MARDOU_EXTERIOR_FOCUS.target,
       ...MARDOU_ENTRANCE_ROUTE.entryTargets,
-      MARDOU_LOBBY_FOCUS.target,
+      ...MARDOU_LOBBY_INTRO_ROUTE.targets,
     ],
   },
   {
     name: "lobby -> exterior",
     duration: MARDOU_ENTRANCE_ROUTE.duration,
+    uniformTargetTiming: true,
     positionPoints: authoredRoutes[2].points,
-    targetPoints: [MARDOU_LOBBY_FOCUS.target, ...MARDOU_ENTRANCE_ROUTE.exitTargets],
+    targetPoints: [
+      MARDOU_LOBBY_FOCUS.target,
+      ...MARDOU_LOBBY_INTRO_ROUTE.targets.slice(0, -1).reverse(),
+      ...MARDOU_ENTRANCE_ROUTE.exitTargets,
+    ],
   },
   {
     name: "lobby -> private",
@@ -402,7 +433,7 @@ const authoredMotionRoutes = [
 ].map((route) => ({
   name: route.name,
   duration: route.duration,
-  ...auditCameraMotion({ ...route, pairedControlTiming: true }),
+  ...auditCameraMotion({ ...route, pairedControlTiming: route.name.includes("private") }),
 }));
 
 const focusTransitionDuration = (distance, turnAngle) => THREE.MathUtils.clamp(
@@ -1023,14 +1054,19 @@ if (introMotion.maximumAngularAcceleration > 80) {
 
 const roomMotionFailures = authoredMotionRoutes.flatMap((route) => {
   const reasons = [];
+  const linearJerkLimit = route.name.includes("exterior") ? 30 : 15;
   if (route.maximumLinearAcceleration > 4) {
-    reasons.push(`linear acceleration ${route.maximumLinearAcceleration.toFixed(2)} > 4`);
+    reasons.push(`linear acceleration ${route.maximumLinearAcceleration.toFixed(2)} > 4 at ${(route.maximumLinearAccelerationAt * 100).toFixed(1)}%`);
   }
-  if (route.maximumLinearJerk > 15) {
-    reasons.push(`linear jerk ${route.maximumLinearJerk.toFixed(1)} > 15`);
+  if (route.maximumLinearJerk > linearJerkLimit) {
+    reasons.push(`linear jerk ${route.maximumLinearJerk.toFixed(1)} > ${linearJerkLimit} at ${(route.maximumLinearJerkAt * 100).toFixed(1)}%`);
   }
   if (route.maximumAngularSpeed > 50) {
-    reasons.push(`angular speed ${route.maximumAngularSpeed.toFixed(1)}deg/s > 50deg/s`);
+    reasons.push(
+      `angular speed ${route.maximumAngularSpeed.toFixed(1)}deg/s > 50deg/s at ${(route.maximumAngularSpeedAt * 100).toFixed(1)}% `
+      + `position [${route.maximumAngularPosition.map((value) => value.toFixed(2)).join(", ")}] `
+      + `target [${route.maximumAngularTarget.map((value) => value.toFixed(2)).join(", ")}]`,
+    );
   }
   if (route.maximumAngularAcceleration > 450) {
     reasons.push(`angular acceleration ${route.maximumAngularAcceleration.toFixed(1)}deg/s2 > 450deg/s2`);

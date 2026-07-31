@@ -25,7 +25,7 @@ test("the first entrance uses one continuous arc-length camera curve", () => {
   assert.match(worldSource, /new THREE\.CatmullRomCurve3\(points, false, "centripetal", 0\.42\)/);
   assert.match(worldSource, /curve\.arcLengthDivisions = 1200/);
   assert.match(worldSource, /curve\.updateArcLengths\(\)/);
-  assert.match(worldSource, /position\.getPointAt\(eased, camera\.position\)/);
+  assert.match(worldSource, /sampleCameraCurve\(activeRoute\.position, eased, camera\.position\)/);
   assert.match(worldSource, /Math\.min\(delta, 1 \/ 24\)/);
 });
 
@@ -152,7 +152,7 @@ test("room navigation stays locked until its camera route settles", () => {
   assert.match(worldSource, /if \(roomTransition\) onTransitionStateChange\(true\)/);
   assert.match(
     worldSource,
-    /position\.getUtoTmapping\(eased\)[\s\S]*target\.getPoint\(pairedCurveProgress, lookAt\)/,
+    /position\.getUtoTmapping\(eased, 0\)[\s\S]*target\.getPoint\(THREE\.MathUtils\.clamp\(pairedCurveProgress, 0, 1\), lookAt\)/,
     "paired room routes must turn toward each landmark when the camera actually reaches it",
   );
 });
@@ -162,19 +162,19 @@ test("the exterior route uses a frontal glass-facade view with synchronized look
   assert.ok(MARDOU_EXTERIOR_FOCUS.camera[0] <= 10);
   assert.ok(MARDOU_EXTERIOR_FOCUS.camera[2] >= 20);
   assert.ok(MARDOU_EXTERIOR_FOCUS.target[0] > 2, "the final frame favors the glass wing");
-  assert.equal(MARDOU_ENTRANCE_ROUTE.exitTargets.length, 5);
-  assert.equal(MARDOU_ENTRANCE_ROUTE.entryTargets.length, 4);
+  assert.equal(MARDOU_ENTRANCE_ROUTE.exitTargets.length, 4);
+  assert.equal(MARDOU_ENTRANCE_ROUTE.entryTargets.length, 3);
   assert.ok(MARDOU_ENTRANCE_ROUTE.duration >= 7.2, "the 36m exterior flight stays comfortably paced");
   assert.ok(
-    MARDOU_ENTRANCE_ROUTE.exitTargets[1][2] < MARDOU_ENTRANCE_ROUTE.gallery[2],
+    MARDOU_ENTRANCE_ROUTE.exitTargets[0][2] < MARDOU_ENTRANCE_ROUTE.gallery[2],
     "the exit camera keeps looking back into the gallery",
   );
   assert.ok(
-    MARDOU_ENTRANCE_ROUTE.exitTargets[2][2] < MARDOU_ENTRANCE_ROUTE.threshold[2],
+    MARDOU_ENTRANCE_ROUTE.exitTargets[1][2] < MARDOU_ENTRANCE_ROUTE.threshold[2],
     "the threshold shot keeps the doorway in view instead of empty sky",
   );
   assert.ok(
-    MARDOU_ENTRANCE_ROUTE.exitTargets[3][2] < MARDOU_ENTRANCE_ROUTE.outside[2],
+    MARDOU_ENTRANCE_ROUTE.exitTargets[2][2] < MARDOU_ENTRANCE_ROUTE.outside[2],
     "the exterior reveal begins while the camera still faces the facade",
   );
   assert.match(worldSource, /MARDOU_ENTRANCE_ROUTE\.exitTargets\.map/);

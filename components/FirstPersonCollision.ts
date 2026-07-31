@@ -22,6 +22,13 @@ export function sceneMovementBlocked(
   const direction = movement.clone().normalize();
   const lateral = new THREE.Vector3(-direction.z, 0, direction.x);
   const probeOrigin = new THREE.Vector3();
+  const collisionMeshes: THREE.Mesh[] = [];
+  scene.traverseVisible((object) => {
+    if (object instanceof THREE.Mesh && visibleCollisionMaterial(object)) {
+      collisionMeshes.push(object);
+    }
+  });
+  if (!collisionMeshes.length) return false;
 
   for (const height of HEIGHT_OFFSETS) {
     for (const lateralFactor of LATERAL_FACTORS) {
@@ -32,10 +39,7 @@ export function sceneMovementBlocked(
       raycaster.set(probeOrigin, direction);
       raycaster.near = 0;
       raycaster.far = distance + radius;
-      const blocked = raycaster
-        .intersectObjects(scene.children, true)
-        .some((hit) => hit.object instanceof THREE.Mesh && visibleCollisionMaterial(hit.object));
-      if (blocked) return true;
+      if (raycaster.intersectObjects(collisionMeshes, false).length) return true;
     }
   }
   return false;
