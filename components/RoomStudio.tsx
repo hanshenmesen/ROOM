@@ -528,6 +528,7 @@ export function RoomStudio() {
   const [sceneLoadState, setSceneLoadState] = useState<SceneLoadingSnapshot | null>(null);
   const [dragging, setDragging] = useState(false);
   const [activeRoom, setActiveRoom] = useState("room-lobby");
+  const [cameraTransitioning, setCameraTransitioning] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [focusPhase, setFocusPhase] = useState<ExhibitFocusPhase>("idle");
   const [privateGateOpen, setPrivateGateOpen] = useState(false);
@@ -979,12 +980,14 @@ export function RoomStudio() {
   }
 
   const requestRoomChange = useCallback((roomId: string) => {
+    if (cameraTransitioning) return;
     setSelectedId("");
     setFocusPhase("idle");
     setActiveRoom(roomId);
-  }, []);
+  }, [cameraTransitioning]);
 
   function leavePrivateRoom(nextRoom: string) {
+    if (cameraTransitioning) return;
     setSelectedId("");
     setFocusPhase("idle");
     setActiveRoom(nextRoom);
@@ -1231,8 +1234,12 @@ export function RoomStudio() {
   }
 
   function selectHeatItem(item: ExhibitHeatItem) {
-    routeToWorldObject(item.id);
-    if (window.matchMedia("(max-width: 680px)").matches) setHeatPanelOpen(false);
+    // Close the DOM overlay before selecting the 3D object. R3F dispatches
+    // its canvas-miss cleanup during the same native click; deferring the
+    // selection by one frame prevents that cleanup from immediately
+    // cancelling the newly requested camera focus.
+    setHeatPanelOpen(false);
+    window.requestAnimationFrame(() => routeToWorldObject(item.id));
   }
 
   const handleExhibitFocusSettled = useCallback((id: string) => {
@@ -1637,7 +1644,12 @@ export function RoomStudio() {
   return (
     <main className="world-page">
       <BackgroundMusicController ref={musicController} enabled={sceneReady} />
-      <section className={`world-stage ${sceneReady ? "is-ready" : "is-loading"}`} aria-label={`${result.profile.name} 的 3D 个人世界`}>
+      <section
+        className={`world-stage ${sceneReady ? "is-ready" : "is-loading"}`}
+        aria-label={`${result.profile.name} 的 3D 个人世界`}
+        data-selected-world-object={selectedId || undefined}
+        data-focus-phase={focusPhase}
+      >
         <div className="scene-loading-screen" aria-live="polite" aria-hidden={sceneReady}>
           <div className="scene-loading-brand">ROOM / BUILD</div>
           {sceneReady
@@ -1672,6 +1684,7 @@ export function RoomStudio() {
           onLoadState={handleSceneLoadState}
           onReady={handleSceneReady}
           onFocusSettled={handleExhibitFocusSettled}
+          onTransitionStateChange={setCameraTransitioning}
           onOpenPetQa={openPetQa}
         />
         <audio
@@ -1761,6 +1774,7 @@ export function RoomStudio() {
             <>
               <button
                 type="button"
+                disabled={cameraTransitioning}
                 onClick={() => {
                   leavePrivateRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
                 }}
@@ -1768,12 +1782,12 @@ export function RoomStudio() {
                 ← {activeRoom === "room-lobby" ? "回到展馆外" : "返回主展厅"}
               </button>
               {activeRoom === PRIVATE_ROOM_ID ? (
-                <button type="button" onClick={() => { setSelectedId(PRIVATE_FRAME_SLOTS[0]); setPrivateFrameMessage(""); }}>
+                <button type="button" disabled={cameraTransitioning} onClick={() => { setSelectedId(PRIVATE_FRAME_SLOTS[0]); setPrivateFrameMessage(""); }}>
                   管理二楼自由相框
                 </button>
               ) : null}
               {activeRoom === "room-lobby" ? (
-                <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
+                <button type="button" disabled={cameraTransitioning} onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
                   二层展区 · 直接进入
                 </button>
               ) : null}
@@ -2112,12 +2126,12 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "WASD 移动 · Q / E 单击 10°、长按持续旋转 · R 广角后退 · 移动鼠标环视 · 右键锁定/解除视角 · 点击展品或楼梯"
+                : "WASD 移动 · Q / E 单击 90°、长按持续旋转 · R 广角后退 · 鼠标靠近边缘持续环视 · 右键锁定/解除视角 · 点击展品或楼梯"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "WASD 移动 · Q / E 单击 10°、长按持续旋转 · R 广角后退 · 移动鼠标环视 · 右键锁定/解除视角 · 点击桌上的日记本"}
+                : "WASD 移动 · Q / E 单击 90°、长按持续旋转 · R 广角后退 · 鼠标靠近边缘持续环视 · 右键锁定/解除视角 · 点击桌上的日记本"}
         </div>
       </section>
     </main>

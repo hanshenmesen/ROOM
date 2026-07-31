@@ -22,6 +22,9 @@ export function preloadMardouMuseum() {
 // before the independent animated door is inserted in WorldCanvas.
 const AUTO_DOOR_CUTS = [
   { minX: -4.55, maxX: -4.05, minY: -16.35, maxY: -5.9, minZ: 6.35, maxZ: 14.65 },
+  // Point 45 lies on the opposite X-facing wall at local z ~= 10.59. Reuse
+  // the entrance opening dimensions so the matching double door fits cleanly.
+  { minX: 7.5, maxX: 8.1, minY: -16.35, maxY: -5.9, minZ: 6.35, maxZ: 14.65 },
   { minX: -13.55, maxX: -4.85, minY: -16.35, maxY: -7.8, minZ: -51.48, maxZ: -50.92 },
 ] as const;
 

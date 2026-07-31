@@ -3,21 +3,22 @@
 /* eslint-disable react-hooks/immutability -- Three.js render loops intentionally mutate refs and object transforms. */
 
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
-import { MARDOU_COMPANION_SAFE_ZONE } from "./MardouMuseumLayout";
+import { MARDOU_COMPANION_SAFE_ZONE, MARDOU_COMPANION_SPEED } from "./MardouMuseumLayout";
 
 const BODY_COLOR = "#d8c7a7";
 const ACCENT_COLOR = "#6fd6c9";
 const INK_COLOR = "#17151a";
 const SHADOW_COLOR = "#7a6b58";
-const COMPANION_SPEED = 0.72;
 const TURN_SPEED = 8;
 const TWO_PI = Math.PI * 2;
+const COMPANION_COLLISION_RADIUS = 0.24;
 
 export type RoomCompanionProps = {
   activeRoom: string;
+  sceneReady?: boolean;
   qaOpen?: boolean;
   seed?: string;
   visible?: boolean;
@@ -33,18 +34,45 @@ function hashSeed(seed: string) {
   return hash >>> 0;
 }
 
-function seededStartIndex(seed: string, count: number) {
-  if (count <= 0) return 0;
-  return hashSeed(seed) % count;
-}
-
 function waypointVector(index: number) {
   const waypoint = MARDOU_COMPANION_SAFE_ZONE.waypoints[index % MARDOU_COMPANION_SAFE_ZONE.waypoints.length];
   return new THREE.Vector3(waypoint[0], waypoint[1], waypoint[2]);
 }
 
+function belongsToCompanion(object: THREE.Object3D | null) {
+  let candidate = object;
+  while (candidate) {
+    if (candidate.name === "room-neutral-companion") return true;
+    candidate = candidate.parent;
+  }
+  return false;
+}
+
+function companionMovementBlocked(
+  scene: THREE.Scene,
+  position: THREE.Vector3,
+  movement: THREE.Vector3,
+  raycaster: THREE.Raycaster,
+) {
+  const distance = movement.length();
+  if (distance < 0.0001) return false;
+  const forward = movement.clone().normalize();
+  const side = new THREE.Vector3(-forward.z, 0, forward.x);
+  const origin = position.clone();
+  origin.y = MARDOU_COMPANION_SAFE_ZONE.floorY + 0.28;
+  return [-COMPANION_COLLISION_RADIUS, 0, COMPANION_COLLISION_RADIUS].some((offset) => {
+    raycaster.set(origin.clone().addScaledVector(side, offset), forward);
+    raycaster.near = 0.01;
+    raycaster.far = distance + COMPANION_COLLISION_RADIUS;
+    return raycaster.intersectObjects(scene.children, true).some((hit) => (
+      hit.object.visible && !belongsToCompanion(hit.object)
+    ));
+  });
+}
+
 export function RoomCompanion({
   activeRoom,
+  sceneReady = true,
   qaOpen = false,
   seed = "room-neutral-companion",
   visible = true,
@@ -58,49 +86,84 @@ export function RoomCompanion({
   const leftBackLeg = useRef<THREE.Mesh>(null);
   const rightBackLeg = useRef<THREE.Mesh>(null);
   const signalRing = useRef<THREE.Mesh>(null);
+  const collisionRaycaster = useRef(new THREE.Raycaster());
   const clock = useRef(0);
   const pauseUntil = useRef(0);
-  const startIndex = useMemo(
-    () => seededStartIndex(seed, MARDOU_COMPANION_SAFE_ZONE.waypoints.length),
-    [seed],
-  );
+  const entranceGreetingUntil = useRef(0);
+  const welcoming = useRef(true);
+  const randomState = useRef(hashSeed(seed) || 1);
+  // Point 52 is immediately beside patrol point 55, so the logical route must
+  // begin at waypoint 0. Randomness controls direction only after that; a
+  // random logical start could make the first segment cut across the ring.
+  const startIndex = 0;
   const currentIndex = useRef(startIndex);
   const targetIndex = useRef((startIndex + 1) % MARDOU_COMPANION_SAFE_ZONE.waypoints.length);
-  const target = useMemo(
-    () => waypointVector((startIndex + 1) % MARDOU_COMPANION_SAFE_ZONE.waypoints.length),
-    [startIndex],
-  );
+  const target = useMemo(() => new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome), []);
   const direction = useMemo(() => new THREE.Vector3(), []);
-  const firstPosition = MARDOU_COMPANION_SAFE_ZONE.waypoints[startIndex];
+  const firstPosition = MARDOU_COMPANION_SAFE_ZONE.entranceSpawn;
+
+  const nextRandom = useCallback(() => {
+    let value = randomState.current;
+    value ^= value << 13;
+    value ^= value >>> 17;
+    value ^= value << 5;
+    randomState.current = value >>> 0;
+    return randomState.current / 0x1_0000_0000;
+  }, []);
+
+  const chooseNextWaypoint = useCallback((excludedIndex?: number) => {
+    const count = MARDOU_COMPANION_SAFE_ZONE.waypoints.length;
+    if (count <= 1) return 0;
+    const clockwise = (currentIndex.current + 1) % count;
+    const counterclockwise = (currentIndex.current - 1 + count) % count;
+    if (clockwise === excludedIndex) return counterclockwise;
+    if (counterclockwise === excludedIndex) return clockwise;
+    return nextRandom() < 0.5 ? clockwise : counterclockwise;
+  }, [nextRandom]);
+
+  const setPatrolTarget = useCallback((index: number) => {
+    target.copy(waypointVector(index));
+  }, [target]);
 
   useEffect(() => {
+    randomState.current = hashSeed(seed) || 1;
     currentIndex.current = startIndex;
     targetIndex.current = (startIndex + 1) % MARDOU_COMPANION_SAFE_ZONE.waypoints.length;
-    target.copy(waypointVector(targetIndex.current));
+    welcoming.current = true;
+    entranceGreetingUntil.current = 0;
+    target.set(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome);
     if (root.current) {
       root.current.position.set(firstPosition[0], firstPosition[1], firstPosition[2]);
     }
-  }, [firstPosition, startIndex, target]);
+  }, [firstPosition, seed, target]);
 
   useEffect(() => {
     if (qaOpen) {
       target.set(...MARDOU_COMPANION_SAFE_ZONE.dialoguePoint);
       pauseUntil.current = 0;
-    } else {
-      target.copy(waypointVector(targetIndex.current));
+    } else if (welcoming.current) {
+      target.set(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome);
+      pauseUntil.current = clock.current + 0.25;
+    } else if (!welcoming.current) {
+      setPatrolTarget(targetIndex.current);
       pauseUntil.current = clock.current + 0.75;
     }
-  }, [qaOpen, target]);
+  }, [qaOpen, setPatrolTarget, target]);
 
   useFrame((state, delta) => {
-    if (!root.current || activeRoom !== "room-lobby" || !visible) return;
+    if (!root.current || activeRoom !== "room-lobby" || !visible || !sceneReady) return;
 
     const stepDelta = Math.min(delta, 1 / 24);
     clock.current += stepDelta;
     const paused = !qaOpen && clock.current < pauseUntil.current;
+    const greetingAtEntrance = !qaOpen && clock.current < entranceGreetingUntil.current;
 
     let walking = false;
-    if (!paused) {
+    if (greetingAtEntrance) {
+      direction.copy(state.camera.position).sub(root.current.position);
+      const yaw = Math.atan2(direction.x, direction.z);
+      root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
+    } else if (!paused) {
       direction.copy(target).sub(root.current.position);
       direction.y = 0;
       const distance = direction.length();
@@ -109,20 +172,38 @@ export function RoomCompanion({
         direction.copy(state.camera.position).sub(root.current.position);
         const yaw = Math.atan2(direction.x, direction.z);
         root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
+      } else if (distance <= MARDOU_COMPANION_SAFE_ZONE.stoppingRadius && welcoming.current) {
+        welcoming.current = false;
+        currentIndex.current = startIndex;
+        targetIndex.current = chooseNextWaypoint();
+        setPatrolTarget(targetIndex.current);
+        pauseUntil.current = clock.current + MARDOU_COMPANION_SAFE_ZONE.entrancePauseSeconds;
+        entranceGreetingUntil.current = pauseUntil.current;
       } else if (distance <= MARDOU_COMPANION_SAFE_ZONE.stoppingRadius) {
         currentIndex.current = targetIndex.current;
-        targetIndex.current = (targetIndex.current + 2) % MARDOU_COMPANION_SAFE_ZONE.waypoints.length;
-        if (targetIndex.current === currentIndex.current) {
-          targetIndex.current = (targetIndex.current + 1) % MARDOU_COMPANION_SAFE_ZONE.waypoints.length;
-        }
-        target.copy(waypointVector(targetIndex.current));
+        targetIndex.current = chooseNextWaypoint();
+        setPatrolTarget(targetIndex.current);
         pauseUntil.current = clock.current + 0.65;
       } else {
-        walking = true;
         direction.normalize();
-        root.current.position.addScaledVector(direction, Math.min(distance, COMPANION_SPEED * stepDelta));
-        const yaw = Math.atan2(direction.x, direction.z);
-        root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
+        const step = Math.min(distance, MARDOU_COMPANION_SPEED * stepDelta);
+        const movement = direction.clone().multiplyScalar(step);
+        if (companionMovementBlocked(
+          state.scene,
+          root.current.position,
+          movement,
+          collisionRaycaster.current,
+        )) {
+          const blockedTarget = targetIndex.current;
+          targetIndex.current = chooseNextWaypoint(blockedTarget);
+          setPatrolTarget(targetIndex.current);
+          pauseUntil.current = clock.current + 0.35;
+        } else {
+          walking = true;
+          root.current.position.add(movement);
+          const yaw = Math.atan2(direction.x, direction.z);
+          root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
+        }
       }
     }
 
@@ -150,7 +231,7 @@ export function RoomCompanion({
       ref={root}
       name="room-neutral-companion"
       position={[firstPosition[0], firstPosition[1], firstPosition[2]]}
-      scale={0.74}
+      scale={0.52}
       onClick={handleClick}
       onPointerOver={(event) => {
         event.stopPropagation();

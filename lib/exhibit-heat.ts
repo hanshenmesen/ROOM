@@ -48,14 +48,24 @@ export function publicHeatTargets(world: WorldPlan, projectsPerPage = 3): Exhibi
     }));
   let projectIndex = 0;
   const exhibits = world.exhibits
-    .filter((exhibit) => exhibit.roomId === "room-lobby" && exhibit.interaction.clickable)
+    // The Mardou scene renders aggregate semantic surfaces plus at most one
+    // visible page of project islands. Raw résumé rows (individual skills,
+    // jobs, awards, etc.) have no independent mesh; routing the camera to
+    // their pipeline coordinates can point through the ceiling or into empty
+    // space. Keep the heat navigator aligned with actual clickable 3D props.
+    .filter((exhibit) => (
+      exhibit.roomId === "room-lobby"
+      && exhibit.interaction.clickable
+      && exhibit.eyebrow === "PROJECT"
+    ))
+    .slice(0, projectsPerPage)
     .map((exhibit) => {
-      const currentProjectIndex = exhibit.eyebrow === "PROJECT" ? projectIndex++ : -1;
+      const currentProjectIndex = projectIndex++;
       return {
         id: exhibit.id,
         label: exhibit.title,
         eyebrow: exhibit.eyebrow,
-        projectPage: currentProjectIndex >= 0 ? Math.floor(currentProjectIndex / projectsPerPage) : undefined,
+        projectPage: Math.floor(currentProjectIndex / projectsPerPage),
       };
     });
   return [...surfaces, ...exhibits];

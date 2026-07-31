@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { createHeatLedger, heatItems, incrementHeatLedger, parseHeatLedger, publicHeatTargets } from "../lib/exhibit-heat.ts";
 import { compileProfile } from "../lib/agents/pipeline.ts";
 import { hanchenDemoProfile } from "../lib/data/hanchen-demo-profile.ts";
+
+const heatPanelSource = await readFile(new URL("../components/ExhibitHeatPanel.tsx", import.meta.url), "utf8");
+const roomStudioSource = await readFile(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
 
 test("heat targets contain public lobby exhibits and exclude private content", () => {
   const world = compileProfile(hanchenDemoProfile).world;
@@ -10,6 +14,14 @@ test("heat targets contain public lobby exhibits and exclude private content", (
   assert.ok(targets.length > 0);
   assert.equal(targets.some((target) => target.id.includes("diary") || target.id.includes("private-frame")), false);
   assert.equal(targets.every((target) => target.id && target.label), true);
+  assert.equal(targets.filter((target) => target.eyebrow === "PROJECT").length, 3);
+  assert.equal(
+    targets.some((target) => target.id === "exhibit-19"),
+    false,
+    "raw skill rows without an independent 3D mesh must not drive the camera",
+  );
+  assert.ok(targets.some((target) => target.id === "showroom-skills"));
+  assert.equal(targets.length, world.displaySurfaces.filter((surface) => surface.roomId === "room-lobby").length + 3);
 });
 
 test("heat uses stable seeded values and increments only the focused target", () => {
@@ -29,4 +41,9 @@ test("stored heat is profile-scoped and malformed storage is ignored", () => {
   assert.deepEqual(parseHeatLedger(stored), stored);
   assert.equal(parseHeatLedger({ version: 2, profileId: "profile-1", entries: {} }), null);
   assert.equal(createHeatLedger("profile-2", targets, stored).entries.a.localViews, 0);
+});
+
+test("heat-panel controls do not bubble into the 3D canvas miss handler", () => {
+  assert.match(heatPanelSource, /onClick=\{\(\) => onSelect\(item\)\}/);
+  assert.match(roomStudioSource, /setHeatPanelOpen\(false\);\s*window\.requestAnimationFrame\(\(\) => routeToWorldObject\(item\.id\)\)/);
 });
