@@ -15,7 +15,7 @@ test("bedroom access exposes separate owner and visitor credentials", () => {
 
 test("visitor mode cannot reach diary write controls or save handlers", () => {
   assert.match(roomStudioSource, /const diaryWritable = canEditPrivateDiary\(privateUnlockedMode\);/);
-  assert.match(roomStudioSource, /if \(!allowDuringCreation && !diaryWritable\) \{[\s\S]*setDiaryError\("参观模式只能浏览日记，不能上传图片。"\);/);
+  assert.match(roomStudioSource, /if \(!diaryWritable\) \{[\s\S]*setDiaryError\("参观模式只能浏览日记，不能上传图片。"\);/);
   assert.match(roomStudioSource, /if \(!diaryWritable\) \{[\s\S]*setDiaryError\("参观模式只能浏览日记，不能保存新内容。"\);/);
   assert.match(roomStudioSource, /\{diaryWritable \? \([\s\S]*<form className="memory-form" onSubmit=\{saveDiaryEntry\}>/);
   assert.match(roomStudioSource, /当前身份：参观 · 只读浏览 · 本地内容不会上传/);

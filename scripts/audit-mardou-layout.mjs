@@ -191,7 +191,7 @@ function sampleCameraCurve(curve, progress) {
   return curve.getPoint(curveProgress);
 }
 
-function auditCameraMotion({ positionPoints, targetPoints, duration, pairedControlTiming = false, uniformTargetTiming = false, focusView }) {
+function auditCameraMotion({ positionPoints, targetPoints, duration, pairedControlTiming = false, uniformTargetTiming = false, lookForwardAlongRoute = false, focusView }) {
   const positionCurve = cameraCurve(positionPoints);
   const targetCurve = cameraCurve(targetPoints);
   const frames = Math.round(duration * 60);
@@ -236,7 +236,7 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
             .lerp(new THREE.Vector3(...focusView.toDirection), progress)
             .normalize()
         : undefined;
-    const target = focusView
+    let target = focusView
       ? position.clone().addScaledVector(
           focusDirection,
           THREE.MathUtils.lerp(focusView.fromDistance, focusView.toDistance, progress),
@@ -246,6 +246,29 @@ function auditCameraMotion({ positionPoints, targetPoints, duration, pairedContr
         : uniformTargetTiming
           ? targetCurve.getPoint(progress)
           : sampleCameraCurve(targetCurve, progress);
+    if (lookForwardAlongRoute) {
+      const routeLookAhead = 0.34;
+      const routeAhead = sampleCameraCurve(positionCurve, Math.min(1, progress + routeLookAhead));
+      routeAhead.y = position.y;
+      const forwardDirection = routeAhead.sub(position);
+      if (forwardDirection.lengthSq() < 0.0001) {
+        forwardDirection.copy(targetPoints.at(-1)).sub(position);
+        forwardDirection.y = 0;
+      }
+      forwardDirection.normalize();
+      const arrivalTurnStart = 0.45;
+      const arrivalTurn = THREE.MathUtils.smoothstep(timeProgress, arrivalTurnStart, 1);
+      if (arrivalTurn > 0) {
+        const finalDirection = new THREE.Vector3(...targetPoints.at(-1))
+          .sub(new THREE.Vector3(...positionPoints.at(-1)))
+          .normalize();
+        const turnAngle = Math.acos(THREE.MathUtils.clamp(forwardDirection.dot(finalDirection), -1, 1));
+        const turnAxis = new THREE.Vector3().crossVectors(forwardDirection, finalDirection);
+        if (turnAxis.lengthSq() < 0.0001) turnAxis.set(0, 1, 0);
+        forwardDirection.applyAxisAngle(turnAxis.normalize(), turnAngle * arrivalTurn).normalize();
+      }
+      target = position.clone().addScaledVector(forwardDirection, 4);
+    }
     const lookDistance = target.distanceTo(position);
     if (lookDistance < minimumLookDistance) {
       minimumLookDistance = lookDistance;
@@ -412,6 +435,7 @@ const authoredMotionRoutes = [
   {
     name: "lobby -> private",
     duration: MARDOU_PRIVATE_ROUTE.duration,
+    lookForwardAlongRoute: true,
     positionPoints: authoredRoutes[3].points,
     targetPoints: [
       MARDOU_LOBBY_FOCUS.target,
@@ -421,7 +445,7 @@ const authoredMotionRoutes = [
   },
   {
     name: "private -> lobby",
-    duration: MARDOU_PRIVATE_ROUTE.duration,
+    duration: MARDOU_PRIVATE_ROUTE.descentDuration,
     positionPoints: authoredRoutes[4].points,
     targetPoints: [
       MARDOU_PRIVATE_FOCUS.target,

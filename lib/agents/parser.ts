@@ -15,7 +15,7 @@ export interface ParseSource {
   media?: ProfileMedia[];
 }
 
-type SectionKey = SectionKind | "skills" | "contact";
+type SectionKey = SectionKind | "skills" | "foods" | "hobbies" | "contact";
 type ContentSection = { key: SectionKey; family?: ContentFamily };
 
 const headings: Array<{ pattern: RegExp; key: ContentSection }> = [
@@ -39,6 +39,8 @@ const headings: Array<{ pattern: RegExp; key: ContentSection }> = [
   { pattern: /^(经历|工作经历|experience|employment|internships?)$/i, key: { key: "experience" } },
   { pattern: /^(教育|教育经历|educations?)$/i, key: { key: "education" } },
   { pattern: /^(技能|skills?|toolbox)$/i, key: { key: "skills" } },
+  { pattern: /^(喜欢的食物|食物|饮食偏好|favorite foods?|food preferences?)$/i, key: { key: "foods" } },
+  { pattern: /^(兴趣爱好|个人爱好|兴趣|爱好|interests?|hobbies|personal interests?)$/i, key: { key: "hobbies" } },
   { pattern: /^(成就|荣誉|获奖|achievements?|awards?|honou?rs?( and awards?)?)$/i, key: { key: "achievement" } },
   { pattern: /^(news|updates?|动态|新闻动态|最新动态)$/i, key: { key: "achievement" } },
   { pattern: /^(演讲|讲座|talks?|invited talks?)$/i, key: { key: "achievement", family: "talk" } },
@@ -858,6 +860,23 @@ export function parseProfile(text: string, source: ParseSource = {}): ParsedProf
     : Object.fromEntries(
       [...projectSkillFallback.values()].map((entry) => [entry.value, entry.evidence]),
     );
+  const sectionValues = (kind: "foods" | "hobbies") => {
+    const valueRows = sections.find((section) => section.kind === kind)?.rows || [];
+    const values = valueRows
+      .flatMap(({ text }) => text.replace(/^[-•·]\s*/, "").split(/[,，、|]/))
+      .map(cleanLine)
+      .filter(Boolean);
+    const uniqueValues = Array.from(new Map(values.map((value) => [value.toLocaleLowerCase(), value])).values());
+    const valueEvidence = valueRows.length
+      ? Object.fromEntries(uniqueValues.map((value) => [
+        value,
+        [evidence(sourceId, allLines, valueRows[0].line, valueRows.at(-1)!.line)],
+      ]))
+      : {};
+    return { values: uniqueValues, evidence: valueEvidence };
+  };
+  const foods = sectionValues("foods");
+  const hobbies = sectionValues("hobbies");
 
   return {
     id: `profile-${stableId(`${name}:${headline}`)}`,
@@ -869,6 +888,10 @@ export function parseProfile(text: string, source: ParseSource = {}): ParsedProf
     identityEvidence,
     contactEvidence,
     media: sourceMedia,
+    foods: foods.values,
+    foodEvidence: foods.evidence,
+    hobbies: hobbies.values,
+    hobbyEvidence: hobbies.evidence,
     skills,
     skillEvidence,
     items,

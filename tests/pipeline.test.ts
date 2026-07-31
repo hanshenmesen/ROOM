@@ -32,6 +32,27 @@ test("parser extracts location for identity rows when available", () => {
   assert.equal(result.profile.identityEvidence.headline?.[0]?.locator, "line:2");
 });
 
+test("parser preserves explicit foods and hobbies with source evidence for future exhibits", () => {
+  const profile = parseProfile([
+    "林遥",
+    "交互设计师",
+    "食物",
+    "寿司、意面",
+    "个人爱好",
+    "摄影、爵士乐",
+    "- 城市徒步",
+    "技能",
+    "Three.js, Figma",
+  ].join("\n"));
+
+  assert.deepEqual(profile.foods, ["寿司", "意面"]);
+  assert.equal(profile.foodEvidence?.寿司?.[0]?.locator, "line:4");
+  assert.deepEqual(profile.hobbies, ["摄影", "爵士乐", "城市徒步"]);
+  assert.equal(profile.hobbyEvidence?.摄影?.[0]?.locator, "lines:6-7");
+  assert.equal(profile.hobbyEvidence?.["城市徒步"]?.[0]?.excerpt, "摄影、爵士乐 - 城市徒步");
+  assert.equal(validateProfile(profile).length, 0);
+});
+
 test("location inference prefers explicit location phrases and rejects organization names", () => {
   const cases: Array<{ lines: string[]; expected?: string }> = [
     { lines: ["Lina Zhou", "Senior Product @ Boston Dynamics"] },

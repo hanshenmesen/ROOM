@@ -100,6 +100,10 @@ export interface ParsedProfile {
   media: ProfileMedia[];
   identityEvidence: Partial<Record<"name" | "headline" | "location" | "summary", SourceEvidence[]>>;
   contactEvidence: Record<string, SourceEvidence[]>;
+  foods?: string[];
+  foodEvidence?: Record<string, SourceEvidence[]>;
+  hobbies?: string[];
+  hobbyEvidence?: Record<string, SourceEvidence[]>;
   skills: string[];
   skillEvidence: Record<string, SourceEvidence[]>;
   items: ProfileItem[];

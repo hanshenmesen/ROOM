@@ -424,8 +424,10 @@ export const MARDOU_PRIVATE_ROUTE = {
     [-1.5, 1.5, -14],
   ] as ReadonlyArray<Vec3>,
   // Traverse the same authored stair path in half the former 18-second time.
-  // This makes both ascent and descent exactly twice as fast.
+  // Keep the ascent exactly twice as fast. The reverse trip gets another half
+  // second so its final lobby turn stays inside the camera comfort threshold.
   duration: 9,
+  descentDuration: 9.6,
 };
 
 // The GLB merges the stairs into the shared Walls mesh, so there is no named

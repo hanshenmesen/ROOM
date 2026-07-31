@@ -103,19 +103,25 @@ test("the entrance greeting includes a petting hand, happy face, fast tail, and 
   assert.match(companionSource, /pettingHand\.current\.visible = entrancePetting/);
 });
 
-test("room companion is neutral, procedural, and does not consume parsed pet material", () => {
+test("room companion stays procedural while consuming only validated profile-space customization", () => {
   assert.match(companionSource, /name="room-companion-xiaobai"/);
-  assert.match(companionSource, /companionName: ROOM_COMPANION_NAME/);
+  assert.match(companionSource, /companionName: appearance\.name/);
   assert.match(companionSource, /icosahedronGeometry/);
   assert.match(companionSource, /capsuleGeometry/);
   assert.match(companionSource, /coneGeometry/);
+  assert.match(companionSource, /normalizePetCustomization/);
+  assert.match(companionSource, /appearance\.earStyle/);
+  assert.match(companionSource, /appearance\.markingStyle/);
+  assert.match(worldCanvasSource, /customization=\{petCustomization\}/);
+  assert.match(worldCanvasSource, /<PetBed companionName=\{companionName\}/);
+  assert.match(worldCanvasSource, /subtitle="ROOM COMPANION"/);
 
   assert.doesNotMatch(companionSource, /useLoader/);
   assert.doesNotMatch(companionSource, /\.glb|\.gltf|imageUrl|profile\.media|CreativePetFigure/);
   assert.doesNotMatch(companionSource, /petName|petAsset|parsedPet|sourcePet/i);
 });
 
-test("room companion freezes and faces the camera during Xiaobai QA, then resumes through frame refs", () => {
+test("room companion freezes and faces the camera during named companion QA, then resumes through frame refs", () => {
   assert.match(companionSource, /qaOpen/);
   assert.match(companionSource, /else if \(qaOpen\) \{[\s\S]{0,260}state\.camera\.position/);
   assert.match(companionSource, /MARDOU_COMPANION_SAFE_ZONE\.floorY[\s\S]{0,80}\+ \(qaOpen \? 0/);
@@ -126,5 +132,5 @@ test("room companion freezes and faces the camera during Xiaobai QA, then resume
   assert.match(companionSource, /root\.current\.position\.add\(movement\)/);
   assert.match(studioSource, /className="companion-qa-launch"/);
   assert.match(studioSource, /aria-controls="pet-qa-panel"/);
-  assert.match(studioSource, /问问\{ROOM_COMPANION_NAME\}/);
+  assert.match(studioSource, /问问\{companionName\}/);
 });

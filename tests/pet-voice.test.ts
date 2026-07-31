@@ -136,8 +136,8 @@ test("a completed Qwen3 session without PCM is treated as a recoverable failure"
 });
 
 test("pet QA exposes automatic voice, replay, stop, fallback, and ambient ducking", () => {
-  assert.match(panelSource, /<h2>\{ROOM_COMPANION_NAME\}<\/h2>/);
-  assert.match(panelSource, /我是小白/);
+  assert.match(panelSource, /<h2>\{companionName\}<\/h2>/);
+  assert.match(panelSource, /我是\{companionName\}/);
   assert.match(panelSource, /aria-label="宠物语音控制"/);
   assert.match(panelSource, /aria-pressed=\{voicePreference\.enabled\}/);
   assert.match(panelSource, /disabled=\{!ttsConfig\.enabled\}/);

@@ -27,8 +27,17 @@ import {
 import { materialFrameCopy } from "@/lib/exhibit-presentation";
 import { displayStandTitle } from "@/lib/display-copy";
 import { sampleCameraCurve } from "@/lib/camera-route";
+import type { PetCustomization } from "@/lib/profile-space-customization";
+import { normalizeRoomCompanionName } from "@/lib/room-companion";
 import { SCENE_COMPILE_TIMEOUT_MS } from "@/lib/scene-entry";
-import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
+import type {
+  ContentFamily,
+  DisplaySurfacePlan,
+  ExhibitPlan,
+  ProfileItem,
+  Vec3,
+  WorldPlan,
+} from "@/lib/types";
 import {
   PortfolioEnvironment,
   RendererLook,
@@ -576,7 +585,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
         ...MARDOU_PRIVATE_ROUTE.descentTargets.map((point) => new THREE.Vector3(...point)),
         lookAtTarget.clone(),
       ];
-      duration = MARDOU_PRIVATE_ROUTE.duration;
+      duration = MARDOU_PRIVATE_ROUTE.descentDuration;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "exterior") {
       positionPoints = [
         startPosition,
@@ -714,6 +723,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
   }, [selectedExhibit]);
 
   useFrame((_, delta) => {
+    const cameraAspect = camera instanceof THREE.PerspectiveCamera ? camera.aspect : viewportAspect;
     if (lobbyIntroPending.current) {
       camera.position.set(...MARDOU_LOBBY_INTRO_ROUTE.spawn);
       lookAt.set(...MARDOU_LOBBY_INTRO_ROUTE.lookAt);
@@ -732,17 +742,17 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       const wideFocus = activeRoom === "room-private" ? MARDOU_PRIVATE_WIDE_FOCUS : MARDOU_LOBBY_WIDE_FOCUS;
       destination.set(...(
         activeRoom === "room-lobby"
-          ? responsiveMuseumCamera(wideFocus.camera, camera.aspect)
+          ? responsiveMuseumCamera(wideFocus.camera, cameraAspect)
           : wideFocus.camera
       ));
       lookAtTarget.set(...(
         activeRoom === "room-lobby"
-          ? responsiveMuseumTarget(wideFocus.target, camera.aspect)
+          ? responsiveMuseumTarget(wideFocus.target, cameraAspect)
           : wideFocus.target
       ));
       desiredFov.current = wideFocus.fov;
       lobbyOverviewMode.current = activeRoom === "room-lobby" ? "wide" : "default";
-      responsiveAspect.current = camera.aspect;
+      responsiveAspect.current = cameraAspect;
       route.current = {
         position: silkyCameraCurve([camera.position.clone(), destination.clone()]),
         target: silkyCameraCurve([lookAt.clone(), lookAtTarget.clone()]),
@@ -768,15 +778,15 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       && activeRoom === "room-lobby"
       && !selectedExhibit
       && !userAdjustedView.current
-      && Math.abs(camera.aspect - responsiveAspect.current) > 0.015
+      && Math.abs(cameraAspect - responsiveAspect.current) > 0.015
     ) {
       const overview = lobbyOverviewMode.current === "wide"
         ? MARDOU_LOBBY_WIDE_FOCUS
         : MARDOU_LOBBY_FOCUS;
-      destination.set(...responsiveMuseumCamera(overview.camera, camera.aspect));
-      lookAtTarget.set(...responsiveMuseumTarget(overview.target, camera.aspect));
+      destination.set(...responsiveMuseumCamera(overview.camera, cameraAspect));
+      lookAtTarget.set(...responsiveMuseumTarget(overview.target, cameraAspect));
       desiredFov.current = overview.fov;
-      responsiveAspect.current = camera.aspect;
+      responsiveAspect.current = cameraAspect;
       route.current = {
         position: silkyCameraCurve([camera.position.clone(), destination.clone()]),
         target: silkyCameraCurve([lookAt.clone(), lookAtTarget.clone()]),
@@ -833,7 +843,8 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
         lookAt.copy(camera.position).addScaledVector(viewDirection, focusDistance);
       } else if (activeRoute.lookForwardAlongRoute) {
         sampleCameraCurve(activeRoute.position, eased, camera.position);
-        const forwardProgress = Math.min(1, eased + 0.055);
+        const routeLookAhead = 0.34;
+        const forwardProgress = Math.min(1, eased + routeLookAhead);
         sampleCameraCurve(activeRoute.position, forwardProgress, routeAhead);
         // Keep the stair climb level and aligned with the direction of travel.
         // The former authored targets sat several metres beside the stair run,
@@ -845,9 +856,16 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
           viewDirection.y = 0;
         }
         viewDirection.normalize();
+        const arrivalTurnStart = 0.45;
+        const arrivalTurn = THREE.MathUtils.smoothstep(progress, arrivalTurnStart, 1);
+        if (arrivalTurn > 0) {
+          viewRight.copy(activeRoute.finalTarget).sub(activeRoute.finalPosition).normalize();
+          const turnAngle = Math.acos(THREE.MathUtils.clamp(viewDirection.dot(viewRight), -1, 1));
+          routeAhead.crossVectors(viewDirection, viewRight);
+          if (routeAhead.lengthSq() < 0.0001) routeAhead.copy(camera.up);
+          viewDirection.applyAxisAngle(routeAhead.normalize(), turnAngle * arrivalTurn).normalize();
+        }
         lookAt.copy(camera.position).addScaledVector(viewDirection, 4);
-        const arrivalTurn = THREE.MathUtils.smoothstep(progress, 0.82, 1);
-        if (arrivalTurn > 0) lookAt.lerp(activeRoute.finalTarget, arrivalTurn);
       } else if (activeRoute.targetUsesUniformControlTiming) {
         sampleCameraCurve(activeRoute.position, eased, camera.position);
         activeRoute.target.getPoint(eased, lookAt);
@@ -1527,7 +1545,7 @@ function WallCouch() {
   );
 }
 
-function PetBed() {
+function PetBed({ companionName }: { companionName: string }) {
   return (
     <group
       name="pet-bed"
@@ -1539,6 +1557,13 @@ function PetBed() {
           <ImportedGltfAsset url={PET_BED_URL} targetSize={PET_BED_SIZE} />
         </Suspense>
       </OptionalAssetBoundary>
+      <TextPanel
+        title={companionName}
+        subtitle="ROOM COMPANION"
+        position={[0, 0.42, 0.58]}
+        width={0.92}
+        height={0.22}
+      />
     </group>
   );
 }
@@ -2791,6 +2816,7 @@ type WorldCanvasProps = {
   selectedExhibit?: string;
   guestbookMessages?: string[];
   privateFrameImages?: Partial<Record<MardouPrivateFrameSlot, string>>;
+  petCustomization?: PetCustomization;
   petQaOpen?: boolean;
   onSelect: (id: string) => void;
   onRoomChange: (roomId: string) => void;
@@ -2815,6 +2841,7 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
     previous.selectedExhibit === next.selectedExhibit &&
     sameStringItems(previous.guestbookMessages, next.guestbookMessages) &&
     previous.privateFrameImages === next.privateFrameImages &&
+    previous.petCustomization === next.petCustomization &&
     previous.petQaOpen === next.petQaOpen &&
     previous.onSelect === next.onSelect &&
     previous.onRoomChange === next.onRoomChange &&
@@ -2828,13 +2855,32 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
   );
 }
 
-function WorldCanvasImpl({ world, activeRoom, sceneReady, selectedExhibit, guestbookMessages = [], privateFrameImages = {}, petQaOpen = false, onSelect, onRoomChange, onLoadProgress, onLoadState, onReady, onFocusSettled, onTransitionStateChange, onOpenPetQa, onStairProximityChange }: WorldCanvasProps) {
+function WorldCanvasImpl({
+  world,
+  activeRoom,
+  sceneReady,
+  selectedExhibit,
+  guestbookMessages = [],
+  privateFrameImages = {},
+  petCustomization,
+  petQaOpen = false,
+  onSelect,
+  onRoomChange,
+  onLoadProgress,
+  onLoadState,
+  onReady,
+  onFocusSettled,
+  onTransitionStateChange,
+  onOpenPetQa,
+  onStairProximityChange,
+}: WorldCanvasProps) {
   const [stairNearby, setStairNearby] = useState(false);
   const [entranceGreetingReady, setEntranceGreetingReady] = useState(false);
   const projectExhibits = world.exhibits.filter((exhibit) => exhibit.eyebrow === "PROJECT");
   const visibleProjectExhibits = projectExhibits.slice(0, PROJECTS_PER_PAGE);
   const visibleProjectPlacements = mardouProjectPlacementsForCount(visibleProjectExhibits.length);
   const creativeSubjects = useMemo(() => planCreativeSubjects(world.profile), [world.profile]);
+  const companionName = normalizeRoomCompanionName(petCustomization?.name);
 
   useEffect(() => {
     document.body.style.cursor = "default";
@@ -2911,7 +2957,7 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, selectedExhibit, guest
           />
           <ShowroomDetails lit={activeRoom === "room-lobby"} />
           {activeRoom === "room-lobby" ? <WallCouch /> : null}
-          {activeRoom === "room-lobby" ? <PetBed /> : null}
+          {activeRoom === "room-lobby" ? <PetBed companionName={companionName} /> : null}
           {activeRoom === "room-lobby" ? <EntranceCartoonStatue /> : null}
           <GramophoneExhibit
             interactive={activeRoom === "room-lobby"}
@@ -2929,6 +2975,7 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, selectedExhibit, guest
             sceneReady={sceneReady}
             entranceGreetingReady={entranceGreetingReady}
             qaOpen={petQaOpen}
+            customization={petCustomization}
             onOpenQa={onOpenPetQa}
           />
           <MuseumLifeFillers

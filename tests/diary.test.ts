@@ -8,7 +8,7 @@ import {
   diaryEntryFromDraft,
 } from "../lib/diary.ts";
 
-test("a move-in diary entry accepts text, image, or both", () => {
+test("an in-world diary entry accepts text, image, or both", () => {
   assert.equal(diaryEntryFromDraft({ id: "empty", text: "  ", createdAt: "now" }), null);
   assert.deepEqual(
     diaryEntryFromDraft({ id: "image", text: "", imageDataUrl: "data:image/png;base64,x", createdAt: "now" }),
@@ -30,11 +30,15 @@ test("the local diary keeps only the latest bounded entries", () => {
   assert.equal(next[0]?.id, "1");
 });
 
-test("the parsing wait screen exposes local text and image capture", () => {
-  const source = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
-  assert.match(source, /!result && \(loading \|\| pendingProfile\)/);
-  assert.match(source, /idPrefix="creation-diary"/);
-  assert.match(source, /onImageChange=\{\(event\) => readDiaryImage\(event, true\)\}/);
-  assert.match(source, /不会交给 Agent 或上传服务器/);
-  assert.match(source, /enterPendingWorld/);
+test("the parsing wait screen customizes Xiaobai and frame photos without writing the diary", () => {
+  const studioSource = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
+  const moveInSource = readFileSync(new URL("../components/MoveInStudio.tsx", import.meta.url), "utf8");
+  assert.match(studioSource, /!result && \(loading \|\| pendingProfile\)/);
+  assert.match(studioSource, /<MoveInStudio/);
+  assert.match(studioSource, /writeStoredProfileSpace\(profileSpace\)/);
+  assert.match(moveInSource, /先捏一个属于你的/);
+  assert.match(moveInSource, /选择性格/);
+  assert.match(moveInSource, /multiple onChange=\{onPhotosChange\}/);
+  assert.match(moveInSource, /日记进入世界后再写/);
+  assert.doesNotMatch(moveInSource, /DiaryComposer|diaryText|diaryImage/);
 });

@@ -73,16 +73,26 @@ test("pet QA answers from ParsedProfile with citations and no pet-name inference
   }) as typeof fetch;
 
   try {
-    const answer = await answerPetQaQuestion(profile, "主人做过什么项目？", Array.from({ length: 12 }, (_, index) => ({
-      role: index % 2 ? "assistant" : "user",
-      content: `history ${index}`,
-    })));
+    const answer = await answerPetQaQuestion(
+      profile,
+      "主人做过什么项目？",
+      Array.from({ length: 12 }, (_, index) => ({
+        role: index % 2 ? "assistant" : "user",
+        content: `history ${index}`,
+      })),
+      undefined,
+      "playful",
+      "团子",
+    );
 
     assert.equal(answer.citations[0]?.itemId, "project-beyond-detection");
     assert.match(answer.answer, /Beyond Detection/);
     assert.equal(requestBody?.model, "pet-model");
     assert.ok(requestBody?.output_config);
-    assert.match(requestBody?.system || "", /Do not infer or adopt a pet name/);
+    assert.match(requestBody?.system || "", /named 团子/);
+    assert.match(requestBody?.system || "", /only pet name you may use/);
+    assert.match(requestBody?.system || "", /Use a lively, lightly humorous, and friendly response tone\./);
+    assert.equal((requestBody?.system || "").match(/response tone\./g)?.length, 1);
     assert.match(requestBody?.messages[0]?.content || "", /ParsedProfile JSON/);
     const historyMatch = requestBody?.messages[0]?.content.match(/Recent chat history JSON:\n([\s\S]+)\n\nUser question:/);
     assert.ok(historyMatch);

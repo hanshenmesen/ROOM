@@ -65,6 +65,8 @@ function uniqueCleanValues(values: string[]) {
 
 export function normalizeDisplayProfile(profile: ParsedProfile): ParsedProfile {
   const contacts = uniqueCleanValues(profile.contacts);
+  const foods = uniqueCleanValues(profile.foods || []);
+  const hobbies = uniqueCleanValues(profile.hobbies || []);
   const skills = uniqueCleanValues(profile.skills);
 
   return {
@@ -76,6 +78,10 @@ export function normalizeDisplayProfile(profile: ParsedProfile): ParsedProfile {
     personalWebsite: cleanOptional(profile.personalWebsite),
     contacts,
     contactEvidence: mergeEvidenceMap(profile.contacts, profile.contactEvidence),
+    foods,
+    foodEvidence: mergeEvidenceMap(profile.foods || [], profile.foodEvidence || {}),
+    hobbies,
+    hobbyEvidence: mergeEvidenceMap(profile.hobbies || [], profile.hobbyEvidence || {}),
     skills,
     skillEvidence: mergeEvidenceMap(profile.skills, profile.skillEvidence),
     media: profile.media.map((media) => ({

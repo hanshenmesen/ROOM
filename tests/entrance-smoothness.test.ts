@@ -110,8 +110,13 @@ test("the authored entrance remains wide while responsive reframing stays bounde
     /MARDOU_LOBBY_INTRO_ROUTE\.points\.map/,
     "the first entrance must use the exact authored 1 -> 2 -> 3 route",
   );
-  assert.match(worldSource, /responsiveMuseumCamera\(wideFocus\.camera, camera\.aspect\)/);
-  assert.match(worldSource, /Math\.abs\(camera\.aspect - responsiveAspect\.current\) > 0\.015/);
+  assert.match(
+    worldSource,
+    /const cameraAspect = camera instanceof THREE\.PerspectiveCamera \? camera\.aspect : viewportAspect/,
+    "responsive reframing must keep a safe aspect fallback for non-perspective cameras",
+  );
+  assert.match(worldSource, /responsiveMuseumCamera\(wideFocus\.camera, cameraAspect\)/);
+  assert.match(worldSource, /Math\.abs\(cameraAspect - responsiveAspect\.current\) > 0\.015/);
   assert.match(worldSource, /!userAdjustedView\.current/);
   assert.match(worldSource, /responsiveReframeDuration\(camera\.position\.distanceTo\(destination\)\)/);
   assert.match(worldSource, /lobbyOverviewMode\.current === "wide"/);
@@ -141,10 +146,11 @@ test("the upstairs route looks along the stairs and stays above the treads", () 
   assert.equal(MARDOU_PRIVATE_ROUTE.ascentTargets.length, 5);
   assert.equal(MARDOU_PRIVATE_ROUTE.descentTargets.length, 5);
   assert.equal(MARDOU_PRIVATE_ROUTE.duration, 9, "upstairs and downstairs run at twice the former 18-second speed");
+  assert.equal(MARDOU_PRIVATE_ROUTE.descentDuration, 9.6);
   assert.match(worldSource, /targetUsesControlTiming/);
   assert.match(worldSource, /lookForwardAlongRoute: previousRoom\.current === "room-lobby" && activeRoom === "room-private"/);
   assert.match(worldSource, /routeAhead\.y = camera\.position\.y/);
-  assert.match(worldSource, /smoothstep\(progress, 0\.82, 1\)/);
+  assert.match(worldSource, /smoothstep\(progress, arrivalTurnStart, 1\)/);
   assert.match(worldSource, /MARDOU_PRIVATE_ROUTE\.ascentTargets\.map/);
   assert.match(worldSource, /MARDOU_PRIVATE_ROUTE\.descentTargets\.map/);
 });

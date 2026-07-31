@@ -55,6 +55,10 @@ export function mergeProfiles(primary: ParsedProfile, supplement: ParsedProfile,
   }
   const skills = [...new Map([...primary.skills, ...supplement.skills]
     .map((skill) => [canonical(skill), skill])).values()];
+  const foods = [...new Map([...(primary.foods || []), ...(supplement.foods || [])]
+    .map((food) => [canonical(food), food])).values()];
+  const hobbies = [...new Map([...(primary.hobbies || []), ...(supplement.hobbies || [])]
+    .map((hobby) => [canonical(hobby), hobby])).values()];
   const contacts = [...new Set([...primary.contacts, ...supplement.contacts])];
   const useSupplementSummary = supplement.summary.length > primary.summary.length;
   const merged: ParsedProfile = {
@@ -67,6 +71,10 @@ export function mergeProfiles(primary: ParsedProfile, supplement: ParsedProfile,
       ...(useSupplementSummary ? { summary: supplement.identityEvidence.summary } : {}),
     },
     contactEvidence: { ...supplement.contactEvidence, ...primary.contactEvidence },
+    foods,
+    foodEvidence: { ...supplement.foodEvidence, ...primary.foodEvidence },
+    hobbies,
+    hobbyEvidence: { ...supplement.hobbyEvidence, ...primary.hobbyEvidence },
     skills,
     skillEvidence: { ...supplement.skillEvidence, ...primary.skillEvidence },
     items,
