@@ -9,7 +9,7 @@
 ## Brand
 - Personality: playful architectural studio, handcrafted digital diorama, personal and discoverable
 - Trust signals: visible résumé-to-exhibit mapping, familiar room names, immediate demo generation
-- Avoid: monochrome gallery minimalism, unnecessary room proliferation, generic SaaS dashboard chrome, an empty public showroom, importing a complete third-party room scene
+- Avoid: monochrome gallery minimalism, unnecessary room proliferation, generic SaaS dashboard chrome, an empty public showroom, importing a complete third-party room scene, freestanding human dolls or black memorial-style portrait frames
 
 ## Product goals
 - Goals: perfect one résumé-to-villa demo; make spatial discovery happen through the villa itself; couple every navigation step to a camera transition
@@ -24,8 +24,8 @@
 ## Information architecture
 - Primary navigation: personal URL, file upload, one featured demo; generated world uses the front door, in-world room doors, a single return-home control, back controls, and exhibit selection
 - Core routes/screens: single intake screen and single generated-house screen
-- Content hierarchy: promise → one demo → villa exterior → public showroom → front résumé wall / side-wall project archive / central four-corner project plinths / visitor corner → password gate → private bedroom diary
-- Content-to-object mapping: identity and biography → portrait frame; work and education → chronological timeline; skills and tools → compact capability matrix; achievements and measurable impact → highlight plaque; contact links → contact card; projects → paired side-wall posters and rotating low-plinth image cards; visitor messages → corner board; private text and images → bedroom diary
+- Content hierarchy: promise → one demo → villa exterior → public showroom → front résumé wall / central computer-project stations / visitor corner → password gate → private bedroom diary and personal portrait
+- Content-to-object mapping: identity and biography → text-led profile wall; sourced profile photo → one bedroom tabletop portrait; work and education → chronological timeline; skills and tools → compact capability matrix; achievements and measurable impact → highlight plaque; contact links → contact card; projects → editable computer terminals with source access; visitor messages → corner board; private text and images → bedroom diary
 
 ## Design principles
 - One small house, two roles: the first shot must read as a small villa facade; the public showroom holds all résumé content while the password-gated private bedroom holds a local personal diary
@@ -43,8 +43,10 @@
 - Entry clearance: exhibit layouts leave a walkable buffer between the threshold and the first interactive object so nothing appears pressed against the visitor's face on entry
 - Object-level reference boundary: open-source projects supply individually named display-support nodes such as a catalog table, screen, lamp, shelf, books, contact letter, radio, skill object, globe, bench, and lantern. Decorative furniture without an information role is excluded; complete rooms, terrain, vehicles, and original layouts are never inserted.
 - Information before decoration: every retained object must help present, index, illuminate, archive, or navigate résumé content. Empty visual filler is removed even when a suitable model is available.
-- Dense but legible: the doubled public showroom reserves the front wall for résumé reading, hangs each side wall's two project posters at one shared height with generous horizontal spacing, and places four low plinths at the corners of a centered, walkable square. The visitor corner and open archive occupy opposite entrance corners. No standing project frame, table, or room-name sign may rise into the direct entrance-to-résumé-wall sightline.
-- Paired project representation: each project has one rotating flat image card on a low central plinth and one readable side-wall poster. Either object opens the same résumé-backed project detail, but each owns an authored camera focus that matches its physical orientation. Parsed website or résumé images should populate the card first; this demo renders a project-cover image fallback from the parsed title and summary.
+- Bedroom portrait: the single sourced profile photo lives in a light-oak A-frame on one side of the private diary desk, visible from the bedroom threshold without covering the open book. It uses a narrow rail, deep white mat, recessed vertical photo, restrained glass reflection, rear support panel, and warm desk light. The public profile wall remains text-led, and the photo is never duplicated as a showroom portrait or human doll.
+- Dense but legible: the doubled public showroom reserves the front wall for résumé reading and places four low project plinths at the corners of a centered, walkable square. The visitor corner and open archive occupy opposite entrance corners. No standing project frame, table, or room-name sign may rise into the direct entrance-to-résumé-wall sightline.
+- Editable project terminals: each project has exactly one compact computer station, inspired by Joan Ramos Refusta's monitor-as-deep-exhibit pattern. The monitor presents the parsed or user-replaced cover, sits close enough to the central aisle to invite interaction, and opens a readable detail/editor panel. Users can locally override title, description, cover image, and source URL without deleting the original evidence trail.
+- Source access from the object: project terminals with a valid HTTP(S) project/source URL expose an explicit “open source” action in the computer detail panel. The screen remains useful when no URL exists by showing content and editing controls rather than a dead interaction.
 - Résumé becomes architecture: the full résumé remains parsed and traceable inside the public showroom; every authored information surface is clickable and has a fixed close-view camera composition
 - Local personal memory: the private bedroom is not another résumé category. Its diary stores text and optional images in browser local storage, never through the server in this MVP.
 - Private-room first view: the bedroom door is taller than the public-room display furniture and carries no floating placard. After crossing its threshold, the diary desk sits on the doorway's center axis, faces the arriving visitor head-on, and the open book tilts slightly upward for immediate recognition.
@@ -60,11 +62,12 @@
 - Shape/radius/elevation: architectural hard edges with selectively rounded UI cards; layered podium, facade, roof beams, furniture, and lighting
 - Motion: centripetal spline camera tracking across exterior, living room, doorway, room, and exhibit distances; door motion and camera travel stay synchronized; idle desktop views smoothly follow the pointer while focused views use a reduced range
 - Imagery/iconography: ROOM authors data-driven portrait, timeline, tool matrix, plaques, thematic project posters, walls, doors, cameras, and layout; individually extracted open-source screens and archive objects support the content without competing with it.
+- Gallery framing: wall information remains framed as collected material. Projects use a restrained dark monitor bezel, inset luminous screen, articulated neck, keyboard shelf, and low cable-managed base instead of picture frames. The profile photo uses a separate light-oak bedroom tabletop A-frame with an intentionally oversized white mat and visible rear stand.
 
 ## Components
 - Existing components to reuse: `RoomStudio`, `WorldCanvas`, URL form, upload zone, exhibit detail
-- New/changed components: single featured résumé card, exterior villa facade, animated front door, authored public showroom, portrait/timeline/skill frame variants, information plaques, horizontal side-wall project archive, rotating project-image plinths, open-archive dressing, visitor message board, password gate, private diary desk, contextual back navigation
-- Variants and states: exterior, front-door-opening, public showroom, focused wall/project exhibit, visitor-board editor, password prompt, password error, private-bedroom-opening, private diary editor; idle/hover/selected objects
+- New/changed components: single featured résumé card, exterior villa facade, animated front door, authored public showroom, bedroom tabletop A-frame, timeline/skill frame variants, narrow beveled gallery-frame shell, archival mat and glass layers, information plaques, editable project computer terminals, project editor/source action, open-archive dressing, visitor message board, password gate, private diary desk, contextual back navigation
+- Variants and states: exterior, front-door-opening, public showroom, idle/hover/selected project terminal, project detail/edit/saved/error, visitor-board editor, password prompt, password error, private-bedroom-opening, private diary editor, bedroom portrait focus
 - Token/component ownership: UI tokens in `app/globals.css`; world palette in `lib/agents/creative-director.ts`; spatial geometry in `components/WorldCanvas.tsx`
 
 ## Accessibility
@@ -83,7 +86,7 @@
 - Loading: URL/file parsing uses the inline form message; after a world is generated, an opaque full-viewport architectural loading screen keeps the 3D canvas hidden while local material maps, environment images, GLTF/DRACO objects, and parsed project images load. It shows a rotating mark and monotonic 0–100% progress, reveals the villa only after the Suspense scene has committed, and never exposes partially loaded geometry.
 - Empty: intake screen includes one immediately usable featured résumé
 - Error: concise form message near the input
-- Success: transition directly into the generated house; a correct bedroom password opens the door and starts the camera route; saved guestbook and diary entries reappear after refresh in the same browser
+- Success: transition directly into the generated house; saving a project edit updates its 3D monitor immediately and restores local overrides on the next visit; a correct bedroom password opens the door and starts the camera route; saved guestbook and diary entries reappear after refresh in the same browser
 - Disabled: generation buttons communicate disabled state through opacity
 - Offline/slow network: local demo résumés remain available without network access
 
@@ -95,13 +98,13 @@
 ## Implementation constraints
 - Framework/styling system: Next/vinext, React Three Fiber, Three.js, repository-native CSS
 - Design-token constraints: extend existing CSS variables rather than add a second design system
-- Performance constraints: preload and retain the two authored interiors in one canvas for uninterrupted threshold travel; gate first paint until all scene resources reach 100%; never load complete vendor room scenes; keep the vendor object catalog bounded; cap canvas DPR; and cap diary image uploads at 1 MB
+- Performance constraints: preload and retain the two authored interiors in one canvas for uninterrupted threshold travel; gate first paint until all scene resources reach 100%; never load complete vendor room scenes; keep the vendor object catalog bounded; keep each computer terminal to a small shared mesh/material vocabulary; cap canvas DPR; cap diary image uploads at 1 MB; and resize/compress project-cover uploads before storing them locally
 - Compatibility constraints: preserve Cloudflare-compatible build; local-only delivery for this iteration
 - Test/screenshot expectations: pipeline tests, lint, build, rendered HTML smoke test, and desktop browser verification at 1280×720 of exterior → public showroom → wall focus → central project focus → visitor message persistence → password error → password success → diary persistence → return paths
 
 ## Open questions
 - [ ] Should future themes change only materials/lighting or also the house topology? / product / affects the world schema
-- [ ] Should users edit the parsed résumé before house generation? / product / affects intake flow
-- [ ] Should source project thumbnails always override semantic poster art, or should users choose per project? / product / affects ingestion schema and creative-direction controls
+- [ ] Should non-project résumé sections become editable through the same local override model? / product / affects evidence disclosure and editor scope
+- [ ] Should project overrides eventually sync to an authenticated owner account instead of remaining browser-local? / product / affects publishing and storage
 - [ ] Should production passwords be owner-defined access codes or authenticated sharing links? / product / affects the eventual security boundary
 - [ ] Should guestbook entries remain local per visitor or eventually sync to the portfolio owner's shared backend? / product / affects moderation and ownership

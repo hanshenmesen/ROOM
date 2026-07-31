@@ -82,7 +82,6 @@ test("orchestrator maps every résumé item into the public showroom and keeps r
     "showroom-education",
     "showroom-experience",
     "showroom-highlights",
-    "showroom-works",
     "showroom-skills",
     "showroom-contact",
   ]);
@@ -90,7 +89,11 @@ test("orchestrator maps every résumé item into the public showroom and keeps r
   const nonProjectSourceIds = result.world.exhibits
     .filter((exhibit) => exhibit.eyebrow !== "PROJECT")
     .map((exhibit) => exhibit.sourceItemId);
+  const projectSourceIds = new Set(result.world.exhibits
+    .filter((exhibit) => exhibit.eyebrow === "PROJECT")
+    .map((exhibit) => exhibit.sourceItemId));
   assert.ok(nonProjectSourceIds.every((sourceId) => aggregatedSourceIds.includes(sourceId)));
+  assert.equal(aggregatedSourceIds.some((sourceId) => projectSourceIds.has(sourceId)), false);
   assert.ok(result.world.displaySurfaces.every((surface) => surface.interaction.clickable));
   assert.ok(result.world.displaySurfaces.every((surface) => surface.focusTarget.fov > 0));
   assert.ok(result.world.displaySurfaces.every((surface) => surface.layout?.position.length === 3));
@@ -104,16 +107,13 @@ test("orchestrator builds semantic dynamic wall surfaces from parsed content vol
   const educationIds = result.profile.items.filter((item) => item.kind === "education").map((item) => item.id);
   const experienceIds = result.profile.items.filter((item) => item.kind === "experience").map((item) => item.id);
   const achievementIds = result.profile.items.filter((item) => item.kind === "achievement").map((item) => item.id);
-  const projectIds = result.profile.items.filter((item) => item.kind === "project").map((item) => item.id);
 
   assert.deepEqual(surfaces["showroom-education"]?.sourceItemIds, educationIds);
   assert.deepEqual(surfaces["showroom-experience"]?.sourceItemIds, experienceIds);
   assert.deepEqual(surfaces["showroom-highlights"]?.sourceItemIds, achievementIds);
-  assert.deepEqual(surfaces["showroom-works"]?.sourceItemIds, projectIds);
   assert.equal(surfaces["showroom-education"]?.semanticRole, "education");
   assert.equal(surfaces["showroom-experience"]?.semanticRole, "experience");
-  assert.equal(surfaces["showroom-works"]?.semanticRole, "works");
-  assert.equal(surfaces["showroom-works"]?.layout?.variant, "timeline");
+  assert.equal(surfaces["showroom-works"], undefined);
   assert.ok((surfaces["showroom-profile"]?.layout?.width || 0) > (surfaces["showroom-education"]?.layout?.width || 0));
   assert.equal(surfaces["showroom-skills"]?.presentationMode, "paged");
   assert.equal(surfaces["showroom-skills"]?.pageSize, 10);

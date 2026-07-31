@@ -10,6 +10,8 @@
     "headline": { "type": "string" },
     "location": { "type": "string" },
     "summary": { "type": "string" },
+    "personalWebsite": { "type": "string", "format": "uri" },
+    "personalWebsiteEvidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
     "contacts": { "type": "array", "items": { "type": "string" } },
     "identityEvidence": {
       "type": "object",
@@ -74,7 +76,9 @@
         "id": { "type": "string" },
         "type": { "enum": ["text", "url"] },
         "label": { "type": "string" },
-        "lineCount": { "type": "integer", "minimum": 1 }
+        "lineCount": { "type": "integer", "minimum": 1 },
+        "format": { "enum": ["text", "pdf", "image"] },
+        "locatorUnit": { "enum": ["line", "page", "image"] }
       }
     }
   },
@@ -84,7 +88,7 @@
       "required": ["sourceId", "locator", "excerpt"],
       "properties": {
         "sourceId": { "type": "string" },
-        "locator": { "type": "string", "pattern": "^(line|lines|char|media|img|paper-box|meta-image|profile-img|system):" },
+        "locator": { "type": "string", "pattern": "^(line|lines|page|pages|image|char|media|img|paper-box|meta-image|profile-img|system):" },
         "excerpt": { "type": "string" },
         "origin": { "enum": ["source", "system-generated"] }
       }

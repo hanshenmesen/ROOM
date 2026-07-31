@@ -6,6 +6,10 @@ import type { PipelineResult } from "../types.ts";
 
 export function runPipeline(text: string, source?: ParseSource): PipelineResult {
   const profile = parseProfile(text, source);
+  return compileProfile(profile);
+}
+
+export function compileProfile(profile: PipelineResult["profile"]): PipelineResult {
   const brief = directWorld(profile);
   const world = orchestrateWorld(profile, brief);
   const report = checkWorld(world);
@@ -18,9 +22,9 @@ export function runPipeline(text: string, source?: ParseSource): PipelineResult 
     trace: [
       {
         id: "parser",
-        name: "Parser Agent",
+        name: "Claude Profile Agent",
         status: "complete",
-        summary: `从 ${profile.source.lineCount} 行来源中识别 ${profile.items.length} 个内容条目与 ${profile.skills.length} 项技能。`,
+        summary: `从来源中识别 ${profile.items.length} 个内容条目与 ${profile.skills.length} 项技能，并保留逐项证据。`,
         artifacts: ["profile.json", "source-evidence[]"],
       },
       {

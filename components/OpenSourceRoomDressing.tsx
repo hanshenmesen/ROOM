@@ -99,16 +99,12 @@ const showroomObjects: ObjectPlacement[] = [
   { name: "owl", position: [-8.28, 2.28, 11.54], size: [0.68, 0.76, 0.64], rotation: [0, Math.PI / 2, 0], instance: "showroom-observer" },
   { name: "globe", position: [5.4, 0, 11.15], size: [1.35, 1.85, 1.35], instance: "showroom-world-view" },
   { name: "table", position: [8, 0, 10.85], size: [3.1, 1, 1.55], rotation: [0, Math.PI, 0], instance: "showroom-media-table", tint: "#6a4c3f", tintAmount: 0.48 },
-  { name: "screen", position: [8, 0.88, 10.62], size: [1.3, 0.94, 0.34], rotation: [0, Math.PI, 0], instance: "showroom-media-screen", tint: "#355c5d", tintAmount: 0.22 },
-  { name: "keyboard", position: [7.78, 0.91, 11.26], size: [0.86, 0.12, 0.34], rotation: [0, Math.PI, 0], instance: "showroom-media-keyboard" },
-  { name: "mouse", position: [8.48, 0.91, 11.25], size: [0.22, 0.12, 0.28], rotation: [0, Math.PI, 0], instance: "showroom-media-mouse" },
   { name: "chair", position: [8, 0, 12.25], size: [1.05, 1.45, 1.05], rotation: [0, Math.PI, 0], instance: "showroom-media-chair", tint: "#6b4e42", tintAmount: 0.44 },
   { name: "procedural:plant", position: [-10.15, 0, -12.3], size: [0.92, 1.5, 0.92], rotation: [0, 0.22, 0], instance: "showroom-back-left-plant" },
   { name: "procedural:plant", position: [10.1, 0, -12.2], size: [0.82, 1.28, 0.82], rotation: [0, -0.36, 0], instance: "showroom-back-right-plant" },
   { name: "procedural:floor-lamp", position: [-9.75, 0, -9.2], size: [0.72, 1.9, 0.72], rotation: [0, 0.15, 0], instance: "showroom-reading-floor-lamp" },
   { name: "procedural:storage-basket", position: [-9.25, 0, 6.85], size: [0.78, 0.58, 0.68], rotation: [0, -0.2, 0], instance: "showroom-visitor-throw-basket" },
   { name: "procedural:book-stack", position: [-9.35, 0.52, 6.92], size: [0.56, 0.22, 0.48], rotation: [0, 0.35, 0.02], instance: "showroom-visitor-books" },
-  { name: "procedural:photo-frame", position: [7.2, 1.02, 10.22], size: [0.55, 0.56, 0.16], rotation: [0, Math.PI + 0.12, -0.04], instance: "showroom-desk-family-frame" },
   { name: "cofee-cup", position: [8.92, 0.96, 10.88], size: [0.28, 0.24, 0.28], rotation: [0, Math.PI, 0], instance: "showroom-desk-coffee", tint: "#d8c3a8", tintAmount: 0.28 },
   { name: "pens", position: [7.42, 0.98, 11.48], size: [0.34, 0.38, 0.28], rotation: [0, Math.PI, 0], instance: "showroom-desk-pens", tint: "#5d6f73", tintAmount: 0.32 },
   { name: "rubik cubes", position: [5.8, 0.32, 9.95], size: [0.46, 0.46, 0.46], rotation: [0, -0.45, 0], instance: "showroom-playful-cube" },
@@ -125,7 +121,6 @@ const bedroomObjects: ObjectPlacement[] = [
   { name: "backpack", position: [4.9, 0, -2.8], size: [0.92, 1.28, 0.72], rotation: [0, -0.38, 0], instance: "bedroom-travel-archive", tint: "#70574c", tintAmount: 0.5 },
   { name: "procedural:plant", position: [5.9, 0, 6.7], size: [0.74, 1.18, 0.74], rotation: [0, -0.45, 0], instance: "bedroom-window-plant" },
   { name: "procedural:floor-lamp", position: [-6.7, 0, 5.95], size: [0.62, 1.62, 0.62], rotation: [0, 0.36, 0], instance: "bedroom-bed-floor-lamp" },
-  { name: "procedural:photo-frame", position: [-5.65, 0.92, 2.72], size: [0.42, 0.44, 0.14], rotation: [0, Math.PI / 2 - 0.2, -0.02], instance: "bedroom-nightstand-frame" },
   { name: "headphones", position: [0.38, 0.92, -1.28], size: [0.44, 0.24, 0.36], rotation: [0, -0.28, 0.04], instance: "bedroom-desk-headphones", tint: "#4b4a48", tintAmount: 0.35 },
   { name: "procedural:book-stack", position: [1.28, 0.9, -1.02], size: [0.48, 0.2, 0.42], rotation: [0, -0.32, 0], instance: "bedroom-desk-books" },
 ];
@@ -334,21 +329,117 @@ function buildProceduralPhotoFrame(size: Vec3) {
   const [sizeX, sizeY, sizeZ] = size;
   const resources: NormalizedResources = { materials: [], textures: [], geometries: [] };
   const group = new THREE.Group();
-  const frame = makeStandardMaterial("#7b5a45", { roughness: 0.62, metalness: 0.04 });
-  const matBoard = makeStandardMaterial("#efe3cf", { roughness: 0.9 });
-  const artwork = makeStandardMaterial("#6c8790", { roughness: 0.74, emissive: "#24373b", emissiveIntensity: 0.04 });
+  const centerY = sizeY * 0.5;
+  const rail = Math.max(Math.min(sizeX, sizeY) * 0.105, 0.035);
+  const outerWidth = sizeX;
+  const outerHeight = sizeY;
+  const matWidth = outerWidth - rail * 1.7;
+  const matHeight = outerHeight - rail * 1.7;
+  const imageWidth = matWidth * 0.72;
+  const imageHeight = matHeight * 0.7;
+  const frame = makeStandardMaterial("#5b382d", { roughness: 0.46, metalness: 0.08, envMapIntensity: 0.75 });
+  const frameEdge = makeStandardMaterial("#8d5d44", { roughness: 0.36, metalness: 0.12, envMapIntensity: 0.8 });
+  const matBoard = makeStandardMaterial("#f1e5d2", { roughness: 0.94 });
+  const brass = makeStandardMaterial("#c89b56", { roughness: 0.26, metalness: 0.8, envMapIntensity: 0.9 });
 
-  const back = makeProceduralMesh(new THREE.BoxGeometry(sizeX, sizeY, sizeZ * 0.18), frame, resources);
-  back.position.y = sizeY * 0.5;
-  const mat = makeProceduralMesh(new THREE.BoxGeometry(sizeX * 0.78, sizeY * 0.72, sizeZ * 0.2), matBoard, resources);
-  mat.position.set(0, sizeY * 0.52, sizeZ * 0.12);
-  const image = makeProceduralMesh(new THREE.BoxGeometry(sizeX * 0.5, sizeY * 0.48, sizeZ * 0.22), artwork, resources);
-  image.position.set(0, sizeY * 0.52, sizeZ * 0.22);
+  const artCanvas = document.createElement("canvas");
+  artCanvas.width = 256;
+  artCanvas.height = 256;
+  const artContext = artCanvas.getContext("2d")!;
+  const sky = artContext.createLinearGradient(0, 0, 0, 256);
+  sky.addColorStop(0, "#6b8f99");
+  sky.addColorStop(0.58, "#d9b887");
+  sky.addColorStop(1, "#9a5e47");
+  artContext.fillStyle = sky;
+  artContext.fillRect(0, 0, 256, 256);
+  artContext.fillStyle = "#f0d49a";
+  artContext.beginPath();
+  artContext.arc(184, 72, 31, 0, Math.PI * 2);
+  artContext.fill();
+  artContext.fillStyle = "#314d46";
+  artContext.beginPath();
+  artContext.moveTo(0, 166);
+  artContext.bezierCurveTo(54, 118, 98, 184, 145, 142);
+  artContext.bezierCurveTo(192, 112, 224, 154, 256, 126);
+  artContext.lineTo(256, 256);
+  artContext.lineTo(0, 256);
+  artContext.closePath();
+  artContext.fill();
+  artContext.fillStyle = "#6d3e32";
+  artContext.fillRect(62, 150, 78, 58);
+  artContext.fillStyle = "#d29a68";
+  artContext.beginPath();
+  artContext.moveTo(52, 151);
+  artContext.lineTo(101, 118);
+  artContext.lineTo(150, 151);
+  artContext.closePath();
+  artContext.fill();
+  artContext.fillStyle = "#f0dfbd";
+  artContext.fillRect(92, 168, 20, 40);
+  const artTexture = new THREE.CanvasTexture(artCanvas);
+  artTexture.colorSpace = THREE.SRGBColorSpace;
+  artTexture.anisotropy = 4;
+  resources.textures.push(artTexture);
+  const artwork = makeStandardMaterial("#ffffff", { map: artTexture, roughness: 0.62, emissive: "#33251f", emissiveIntensity: 0.035 });
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: "#fff9ef",
+    transparent: true,
+    opacity: 0.11,
+    roughness: 0.08,
+    clearcoat: 1,
+    clearcoatRoughness: 0.05,
+    depthWrite: false,
+  });
+
+  const back = makeProceduralMesh(new THREE.BoxGeometry(matWidth, matHeight, sizeZ * 0.16), matBoard, resources);
+  back.position.y = centerY;
+  const horizontalRailGeometry = () => new THREE.BoxGeometry(outerWidth, rail, sizeZ * 0.26);
+  const verticalRailGeometry = () => new THREE.BoxGeometry(rail, outerHeight - rail * 2, sizeZ * 0.26);
+  const topRail = makeProceduralMesh(horizontalRailGeometry(), frame, resources);
+  const bottomRail = makeProceduralMesh(horizontalRailGeometry(), frameEdge, resources);
+  const leftRail = makeProceduralMesh(verticalRailGeometry(), frame.clone(), resources);
+  const rightRail = makeProceduralMesh(verticalRailGeometry(), frameEdge.clone(), resources);
+  topRail.position.set(0, centerY + outerHeight / 2 - rail / 2, sizeZ * 0.04);
+  bottomRail.position.set(0, centerY - outerHeight / 2 + rail / 2, sizeZ * 0.04);
+  leftRail.position.set(-outerWidth / 2 + rail / 2, centerY, sizeZ * 0.04);
+  rightRail.position.set(outerWidth / 2 - rail / 2, centerY, sizeZ * 0.04);
+
+  const linerThickness = rail * 0.18;
+  const linerHorizontalGeometry = () => new THREE.BoxGeometry(imageWidth + linerThickness * 2, linerThickness, sizeZ * 0.14);
+  const linerVerticalGeometry = () => new THREE.BoxGeometry(linerThickness, imageHeight, sizeZ * 0.14);
+  const linerTop = makeProceduralMesh(linerHorizontalGeometry(), brass, resources);
+  const linerBottom = makeProceduralMesh(linerHorizontalGeometry(), brass.clone(), resources);
+  const linerLeft = makeProceduralMesh(linerVerticalGeometry(), brass.clone(), resources);
+  const linerRight = makeProceduralMesh(linerVerticalGeometry(), brass.clone(), resources);
+  linerTop.position.set(0, centerY + imageHeight / 2 + linerThickness / 2, sizeZ * 0.17);
+  linerBottom.position.set(0, centerY - imageHeight / 2 - linerThickness / 2, sizeZ * 0.17);
+  linerLeft.position.set(-imageWidth / 2 - linerThickness / 2, centerY, sizeZ * 0.17);
+  linerRight.position.set(imageWidth / 2 + linerThickness / 2, centerY, sizeZ * 0.17);
+
+  const image = makeProceduralMesh(new THREE.PlaneGeometry(imageWidth, imageHeight), artwork, resources);
+  image.position.set(0, centerY, sizeZ * 0.2);
+  const glassPane = makeProceduralMesh(new THREE.PlaneGeometry(imageWidth, imageHeight), glass, resources);
+  glassPane.position.set(0, centerY, sizeZ * 0.215);
+  glassPane.castShadow = false;
+  glassPane.receiveShadow = false;
   const stand = makeProceduralMesh(new THREE.BoxGeometry(sizeX * 0.08, sizeY * 0.7, sizeZ * 0.16), frame.clone(), resources);
   stand.position.set(0, sizeY * 0.32, -sizeZ * 0.42);
   stand.rotation.x = -0.38;
 
-  group.add(back, mat, image, stand);
+  group.add(
+    back,
+    topRail,
+    bottomRail,
+    leftRail,
+    rightRail,
+    linerTop,
+    linerBottom,
+    linerLeft,
+    linerRight,
+    image,
+    glassPane,
+    stand,
+  );
   group.userData.__normalizedResources = resources;
   return group;
 }
@@ -512,7 +603,11 @@ export function RendererLook() {
 
 function MaximeObjectSet({ room }: { room: RoomPlan }) {
   const gltf = useLoader(SceneGltfLoader, "/vendor/maxime/scene-final.gltf", configureSceneGltfLoader) as GLTF;
-  const placements = room.kind === "lobby" ? showroomObjects : bedroomObjects;
+  const placements = useMemo(() => (
+    room.kind === "lobby"
+      ? showroomObjects.filter((placement) => placement.instance !== "showroom-observer")
+      : bedroomObjects
+  ), [room.kind]);
   const model = useMemo(() => composeObjectSet(gltf.scene, placements), [gltf.scene, placements]);
 
   useEffect(() => () => {

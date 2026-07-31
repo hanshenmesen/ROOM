@@ -13,11 +13,17 @@ import {
   type DragEvent,
   type FormEvent,
 } from "react";
-import { runPipeline } from "@/lib/agents/pipeline";
-import { parseProfile } from "@/lib/agents/parser";
+import { compileProfile } from "@/lib/agents/pipeline";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
-import { sampleResume } from "@/lib/data/sample-resume";
-import type { ContentFamily, PipelineResult, ProfileItem, SourceEvidence } from "@/lib/types";
+import { hanchenDemoProfile } from "@/lib/data/hanchen-demo-profile";
+import {
+  applyProjectEdits,
+  projectEditFromItem,
+  updateProjectEdit,
+  type ProjectEdit,
+  type ProjectEdits,
+} from "@/lib/project-edits";
+import type { ContentFamily, ParsedProfile, PipelineResult, ProfileItem, SourceEvidence } from "@/lib/types";
 import {
   beginSceneLoading,
   type SceneLoadingSnapshot,
@@ -34,12 +40,14 @@ const OWNER_PRIVATE_PASSWORD = "owner2026";
 const VISITOR_PRIVATE_PASSWORD = "visit2026";
 const GUESTBOOK_STORAGE_KEY = "room:guestbook:v1";
 const DIARY_STORAGE_KEY = "room:diary:v1";
-const sampleResumeProfile = parseProfile(sampleResume);
-const sampleResumeStats = {
-  projects: sampleResumeProfile.items.filter((item) => item.kind === "project").length,
-  journey: sampleResumeProfile.items.filter((item) => item.kind === "experience" || item.kind === "education").length,
-  skills: sampleResumeProfile.skills.length,
-  achievements: sampleResumeProfile.items.filter((item) => item.kind === "achievement").length,
+const SOURCE_BROWSER_ID = "showroom-source-browser";
+const PROJECT_EDITS_STORAGE_PREFIX = "room:project-edits:v1:";
+const EMPTY_PROJECT_EDIT: ProjectEdit = { title: "", summary: "" };
+const hanchenDemoStats = {
+  projects: hanchenDemoProfile.items.filter((item) => item.kind === "project").length,
+  journey: hanchenDemoProfile.items.filter((item) => ["experience", "education"].includes(item.kind)).length,
+  skills: hanchenDemoProfile.skills.length,
+  achievements: hanchenDemoProfile.items.filter((item) => item.kind === "achievement").length,
 };
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
   publication: "论文 / 研究",
@@ -92,6 +100,9 @@ type SelectedDetail = {
   eyebrow: string;
   title: string;
   body: string;
+  sourceItemId?: string;
+  imageUrl?: string;
+  editableProject?: boolean;
   metadata?: {
     label: string;
     value: string;
@@ -100,6 +111,29 @@ type SelectedDetail = {
   source: string;
   sourceUrl?: string;
 };
+
+type SourceLink = {
+  label: string;
+  url: string;
+};
+
+function collectSourceLinks(profile: ParsedProfile | null, item?: ProfileItem): SourceLink[] {
+  if (!profile) return [];
+  const links = new Map<string, string>();
+  const safeAdd = (url: string | undefined, label: string) => {
+    const safeUrl = safeExternalHref(url);
+    if (!safeUrl) return;
+    links.set(safeUrl, label);
+  };
+  if (item) {
+    safeAdd(item.projectUrl, "项目源文件");
+    safeAdd(item.sourceUrl, "项目原始来源");
+  }
+  if (profile.source.type === "url") {
+    safeAdd(profile.source.id, "个人主页");
+  }
+  return Array.from(links.entries()).map(([url, label]) => ({ label, url }));
+}
 
 function formatSourceLabel(profileType: "url" | "text", evidenceOrLocator?: SourceEvidence | string) {
   if (typeof evidenceOrLocator === "object" && evidenceOrLocator.origin === "system-generated") {
@@ -150,6 +184,62 @@ function readStoredEntries<T>(key: string): T[] {
 
 function writeStoredEntries<T>(key: string, entries: T[]) {
   window.localStorage.setItem(key, JSON.stringify(entries));
+}
+
+function readStoredProjectEdits(profileId: string): ProjectEdits {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.localStorage.getItem(`${PROJECT_EDITS_STORAGE_PREFIX}${profileId}`);
+    return stored ? JSON.parse(stored) as ProjectEdits : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredProjectEdits(profileId: string, edits: ProjectEdits) {
+  window.localStorage.setItem(`${PROJECT_EDITS_STORAGE_PREFIX}${profileId}`, JSON.stringify(edits));
+}
+
+function resizeProjectCover(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("请选择图片文件。"));
+      return;
+    }
+    if (file.size > 8_000_000) {
+      reject(new Error("原图请控制在 8 MB 以内。"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("这张图片无法读取，请换一张再试。"));
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("这张图片无法读取，请换一张再试。"));
+        return;
+      }
+      const image = new window.Image();
+      image.onerror = () => reject(new Error("这张图片无法解码，请换一张再试。"));
+      image.onload = () => {
+        const maxWidth = 1440;
+        const maxHeight = 960;
+        const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("浏览器无法处理这张图片。"));
+          return;
+        }
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.84));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function createEntryId() {
@@ -274,8 +364,13 @@ export function RoomStudio() {
   const [diaryText, setDiaryText] = useState("");
   const [diaryImage, setDiaryImage] = useState("");
   const [diaryError, setDiaryError] = useState("");
+  const [projectEdits, setProjectEdits] = useState<ProjectEdits>({});
+  const [projectEditDraft, setProjectEditDraft] = useState<ProjectEdit>(EMPTY_PROJECT_EDIT);
+  const [projectEditMessage, setProjectEditMessage] = useState("");
+  const [sourceBrowserProjectId, setSourceBrowserProjectId] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const diaryImageInput = useRef<HTMLInputElement>(null);
+  const projectImageInput = useRef<HTMLInputElement>(null);
   const sceneReadyTimer = useRef<number | null>(null);
   const projectCount = result?.world.exhibits.filter((item) => item.eyebrow === "PROJECT").length || 0;
   const projectPageCount = Math.max(1, Math.ceil(projectCount / PROJECTS_PER_PAGE));
@@ -283,21 +378,22 @@ export function RoomStudio() {
   const selectedDetail = useMemo<SelectedDetail | undefined>(() => {
     if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary") return undefined;
     const sourceType = result.profile.source.type;
-    const resolvedSelectedId = selectedId.startsWith("project-wall:")
-      ? selectedId.slice("project-wall:".length)
-      : selectedId;
-    const exhibit = result.world.exhibits.find((item) => item.id === resolvedSelectedId);
+    const exhibit = result.world.exhibits.find((item) => item.id === selectedId);
     if (exhibit) {
       return {
         eyebrow: exhibit.eyebrow,
         title: exhibit.title,
         body: exhibit.body,
+        sourceItemId: exhibit.sourceItemId,
+        imageUrl: exhibit.imageUrl,
+        editableProject: exhibit.eyebrow === "PROJECT",
         metadata: projectMetadataForDetail(exhibit),
         source: formatSourceLabel(sourceType, exhibit.evidence[0]),
         sourceUrl: safeExternalHref(exhibit.projectUrl) || safeExternalHref(exhibit.sourceUrl),
       };
     }
-    const surface = result.world.displaySurfaces.find((item) => item.id === selectedId);
+    const resolvedSurfaceId = selectedId === "bedroom-portrait" ? "showroom-profile" : selectedId;
+    const surface = result.world.displaySurfaces.find((item) => item.id === resolvedSurfaceId);
     if (!surface) return undefined;
     const sourceUrl = result.profile.source.type === "url" ? safeExternalHref(result.profile.source.id) : undefined;
     const surfaceItems = surface.sourceItemIds
@@ -371,6 +467,21 @@ export function RoomStudio() {
     };
   }, [result, selectedId]);
 
+  const selectedProjectItem = useMemo(() => {
+    if (!result || !selectedDetail?.editableProject || !selectedDetail.sourceItemId) return undefined;
+    return result.profile.items.find((item) => item.id === selectedDetail.sourceItemId && item.kind === "project");
+  }, [result, selectedDetail]);
+
+  const sourceBrowserProjectItem = useMemo(() => {
+    if (!result || !sourceBrowserProjectId) return undefined;
+    return result.profile.items.find((item) => item.id === sourceBrowserProjectId && item.kind === "project");
+  }, [result, sourceBrowserProjectId]);
+
+  const sourceBrowserLinks = useMemo(
+    () => collectSourceLinks(result ? result.profile : null, sourceBrowserProjectItem || selectedProjectItem),
+    [result, selectedProjectItem, sourceBrowserProjectItem],
+  );
+
   useEffect(() => {
     const hydrationTimer = window.setTimeout(() => {
       setGuestbookEntries(readStoredEntries<GuestbookEntry>(GUESTBOOK_STORAGE_KEY));
@@ -424,8 +535,9 @@ export function RoomStudio() {
     setPrivateUnlockedMode("");
   }
 
-  function openWorld(text: string, label: string, type: "text" | "url" = "text", media: ExtractedMedia[] = [], sourceUrl?: string) {
-    const next = runPipeline(text, { label, type, id: type === "url" ? sourceUrl || label : undefined, media });
+  function openWorld(profile: ParsedProfile) {
+    const storedProjectEdits = readStoredProjectEdits(profile.id);
+    const next = compileProfile(applyProjectEdits(profile, storedProjectEdits));
     beginSceneLoading();
     if (sceneReadyTimer.current !== null) window.clearTimeout(sceneReadyTimer.current);
     sceneReadyTimer.current = null;
@@ -433,11 +545,42 @@ export function RoomStudio() {
     setSceneReady(false);
     setSceneLoadState(null);
     setResult(next);
+    setProjectEdits(storedProjectEdits);
+    setProjectEditDraft(EMPTY_PROJECT_EDIT);
+    setProjectEditMessage("");
     setSelectedId("");
     setActiveRoom("exterior");
     setProjectPage(0);
+    setSourceBrowserProjectId("");
     resetPrivateAccess();
     setMessage("");
+  }
+
+  async function parseTextWithAgent(
+    text: string,
+    label: string,
+    type: "text" | "url" = "text",
+    media: ExtractedMedia[] = [],
+    sourceUrl?: string,
+    followWebsite = true,
+  ) {
+    const response = await fetch("/api/parse", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        text,
+        label,
+        sourceType: type,
+        sourceId: type === "url" ? sourceUrl || label : undefined,
+        media,
+        followWebsite,
+      }),
+    });
+    const data = await response.json() as { profile?: ParsedProfile; error?: string; details?: string[] };
+    if (!response.ok || !data.profile) {
+      throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
+    }
+    openWorld(data.profile);
   }
 
   const requestRoomChange = useCallback((roomId: string) => {
@@ -499,7 +642,8 @@ export function RoomStudio() {
         error?: string;
       };
       if (!response.ok || !data.text) throw new Error(data.error || "读取失败，请换一个公开网址。 ");
-      openWorld(data.text, data.title || value, "url", data.media || [], value);
+      setMessage("Claude Profile Agent 正在理解网页内容…");
+      await parseTextWithAgent(data.text, data.title || value, "url", data.media || [], value, false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "读取失败，请稍后重试。 ");
     } finally {
@@ -509,17 +653,18 @@ export function RoomStudio() {
 
   async function readFile(file?: File) {
     if (!file) return;
-    const extension = file.name.split(".").pop()?.toLowerCase();
-    if (!extension || !["txt", "md", "html", "htm"].includes(extension)) {
-      setMessage("当前 Demo 支持 TXT、Markdown 和 HTML 简历。PDF 解析会在下一版加入。");
-      return;
-    }
     setLoading(true);
-    setMessage("正在读取简历…");
+    setMessage("Claude Profile Agent 正在读取简历，并准备追踪个人网站…");
     try {
-      const text = await file.text();
-      if (!text.trim()) throw new Error("这个文件没有可读取的文字。");
-      openWorld(text, file.name);
+      const form = new FormData();
+      form.set("file", file);
+      form.set("followWebsite", "true");
+      const response = await fetch("/api/parse", { method: "POST", body: form });
+      const data = await response.json() as { profile?: ParsedProfile; error?: string; details?: string[] };
+      if (!response.ok || !data.profile) {
+        throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
+      }
+      openWorld(data.profile);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取这个文件。");
     } finally {
@@ -537,6 +682,10 @@ export function RoomStudio() {
     void readFile(event.dataTransfer.files?.[0]);
   }
 
+  function openDemo() {
+    openWorld(hanchenDemoProfile);
+  }
+
   const selectWorldObject = useCallback((id: string) => {
     if (id === "bedroom-diary" && (activeRoom !== PRIVATE_ROOM_ID || !privateUnlocked)) {
       setPrivateAccessMode("");
@@ -545,10 +694,34 @@ export function RoomStudio() {
       setPrivateGateOpen(true);
       return;
     }
+    const selectedExhibit = result?.world.exhibits.find((item) => item.id === id && item.eyebrow === "PROJECT");
+    const selectedProject = selectedExhibit
+      ? result?.profile.items.find((item) => item.id === selectedExhibit.sourceItemId && item.kind === "project")
+      : undefined;
+    setProjectEditDraft(selectedProject ? projectEditFromItem(selectedProject) : EMPTY_PROJECT_EDIT);
+    setProjectEditMessage("");
+    if (projectImageInput.current) projectImageInput.current.value = "";
     setSelectedId(id);
+    setSourceBrowserProjectId(
+      id === SOURCE_BROWSER_ID
+        ? result?.profile.items.find((item) => item.kind === "project")?.id || ""
+        : "",
+    );
     setGuestbookError("");
     setDiaryError("");
-  }, [activeRoom, privateUnlocked]);
+  }, [activeRoom, privateUnlocked, result]);
+
+  function openSourceBrowser(item?: ProfileItem) {
+    if (!result) return;
+    const nextItem = item || selectedProjectItem;
+    const links = collectSourceLinks(result.profile, nextItem);
+    if (!links.length) {
+      setProjectEditMessage("当前项目还没有可用的源文件链接，请先补充来源后再试。");
+      return;
+    }
+    setSourceBrowserProjectId(nextItem?.id || "");
+    setSelectedId(SOURCE_BROWSER_ID);
+  }
 
   function saveGuestbookEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -633,6 +806,43 @@ export function RoomStudio() {
     }
   }
 
+  async function readProjectImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProjectEditMessage("正在优化封面图片…");
+    try {
+      const imageUrl = await resizeProjectCover(file);
+      setProjectEditDraft((current) => ({ ...current, imageUrl }));
+      setProjectEditMessage("封面已准备好，保存后会立即更新到电脑屏幕。");
+    } catch (error) {
+      setProjectEditMessage(error instanceof Error ? error.message : "这张图片无法处理，请换一张再试。");
+      event.target.value = "";
+    }
+  }
+
+  function saveProjectEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!result || !selectedProjectItem) return;
+    if (!projectEditDraft.title.trim() || !projectEditDraft.summary.trim()) {
+      setProjectEditMessage("项目名称和项目说明都需要填写。 ");
+      return;
+    }
+    if (projectEditDraft.projectUrl && !safeExternalHref(projectEditDraft.projectUrl)) {
+      setProjectEditMessage("源文件链接需要是完整的 http:// 或 https:// 地址。 ");
+      return;
+    }
+    const nextEdits = updateProjectEdit(projectEdits, selectedProjectItem.id, projectEditDraft);
+    const nextProfile = applyProjectEdits(result.profile, nextEdits);
+    setProjectEdits(nextEdits);
+    setResult(compileProfile(nextProfile));
+    try {
+      writeStoredProjectEdits(result.profile.id, nextEdits);
+      setProjectEditMessage("已保存到当前浏览器，3D 电脑屏幕已同步更新。");
+    } catch {
+      setProjectEditMessage("3D 电脑屏幕已更新；浏览器空间不足，本次图片只在当前会话保留。 ");
+    }
+  }
+
   if (!result) {
     return (
       <main className="intake-page">
@@ -645,7 +855,10 @@ export function RoomStudio() {
           <div className="hero-index" aria-hidden="true">R/01</div>
           <div className="hero-copy">
             <p className="overline">A portfolio you can walk into.</p>
-            <h1>把你的经历，<br />变成一个世界。</h1>
+            <h1>
+              <span>把你的经历，</span>
+              <span>变成你的世界。</span>
+            </h1>
             <p className="intro">
               给我们你的个人网页或简历。ROOM 会把项目、经历和技能编排成一栋可以走进去探索的 3D 小别墅。
             </p>
@@ -689,13 +902,13 @@ export function RoomStudio() {
             >
               <span className="upload-icon" aria-hidden="true">↑</span>
               <span className="upload-title">上传你的 CV</span>
-              <span className="upload-note">拖到这里，或点击选择 · TXT / MD / HTML</span>
+              <span className="upload-note">拖到这里，或点击选择 · PDF / 图片 / 常见文本格式</span>
             </button>
             <input
               ref={fileInput}
               className="visually-hidden"
               type="file"
-              accept=".txt,.md,.html,.htm,text/plain,text/markdown,text/html"
+              accept=".pdf,.txt,.md,.markdown,.html,.htm,.json,.csv,.tsv,.xml,.yaml,.yml,.rtf,.log,.jpg,.jpeg,.png,.gif,.webp,application/pdf,text/*,image/jpeg,image/png,image/gif,image/webp"
               onChange={upload}
             />
 
@@ -706,16 +919,16 @@ export function RoomStudio() {
             <section className="demo-resumes" aria-labelledby="demo-resume-title">
               <div className="demo-heading">
                 <span id="demo-resume-title">DEMO · 从简历到别墅</span>
-                <small>示例数据，仅用于快速体验</small>
+                <small>已完成 Agent 解析，可直接进入</small>
               </div>
               <div className="demo-panel demo-single">
                 <div className="demo-person">
-                  <span>示</span>
-                  <div><strong>示例人物</strong><small>自动解析样例 · 不代表真实个人</small></div>
+                  <span>韩</span>
+                  <div><strong>韩晨</strong><small>中科院 · LLM-Agent / 多智能体系统</small></div>
                 </div>
-                <p>{sampleResumeStats.projects} 个项目 · {sampleResumeStats.journey} 段经历与教育 · {sampleResumeStats.skills} 项技能 · {sampleResumeStats.achievements} 项成就</p>
-                <button type="button" onClick={() => openWorld(sampleResume, "示例 Demo 简历")}>
-                  进入示例别墅 <span aria-hidden="true">→</span>
+                <p>{hanchenDemoStats.projects} 个项目 · {hanchenDemoStats.journey} 段经历与教育 · {hanchenDemoStats.skills} 项技能 · {hanchenDemoStats.achievements} 项成就</p>
+                <button type="button" disabled={loading} onClick={openDemo}>
+                  进入韩晨的别墅 <span aria-hidden="true">→</span>
                 </button>
               </div>
             </section>
@@ -857,6 +1070,52 @@ export function RoomStudio() {
               <p>{selectedDetail.eyebrow}</p>
               <h2>{selectedDetail.title}</h2>
               <DetailBody body={selectedDetail.body} />
+              {selectedDetail.editableProject && selectedProjectItem ? (
+                <form className="project-editor" onSubmit={saveProjectEdit}>
+                  <div className="project-editor-heading">
+                    <strong>EDIT THIS COMPUTER</strong>
+                    <span>本地覆盖 · 保留原始证据</span>
+                  </div>
+                  <label htmlFor="project-edit-title">项目名称</label>
+                  <input
+                    id="project-edit-title"
+                    value={projectEditDraft.title}
+                    onChange={(event) => setProjectEditDraft((current) => ({ ...current, title: event.target.value }))}
+                    maxLength={120}
+                  />
+                  <label htmlFor="project-edit-summary">项目说明</label>
+                  <textarea
+                    id="project-edit-summary"
+                    value={projectEditDraft.summary}
+                    onChange={(event) => setProjectEditDraft((current) => ({ ...current, summary: event.target.value }))}
+                    maxLength={900}
+                    rows={5}
+                  />
+                  <label htmlFor="project-edit-source">源文件 / 项目链接</label>
+                  <input
+                    id="project-edit-source"
+                    type="url"
+                    value={projectEditDraft.projectUrl || ""}
+                    onChange={(event) => setProjectEditDraft((current) => ({ ...current, projectUrl: event.target.value }))}
+                    placeholder="https://github.com/you/project"
+                  />
+                  <div className="project-cover-upload">
+                    <label htmlFor="project-edit-image">电脑屏幕封面</label>
+                    <input ref={projectImageInput} id="project-edit-image" type="file" accept="image/*" onChange={(event) => void readProjectImage(event)} />
+                    <span>自动缩放为适合 3D 屏幕的尺寸</span>
+                  </div>
+                  {projectEditDraft.imageUrl ? (
+                    <Image className="project-cover-preview" src={projectEditDraft.imageUrl} alt="项目电脑屏幕预览" width={320} height={190} unoptimized />
+                  ) : null}
+                  <div className="project-edit-message" aria-live="polite">{projectEditMessage}</div>
+                  <button type="submit">保存并更新电脑屏幕</button>
+                </form>
+              ) : null}
+              {selectedDetail.editableProject ? (
+                <button className="project-open-source-btn" type="button" onClick={() => openSourceBrowser(selectedProjectItem)}>
+                  在电脑里打开源文件
+                </button>
+              ) : null}
               {selectedDetail.metadata?.length ? (
                 <dl className="detail-meta" aria-label="项目元数据">
                   {selectedDetail.metadata.map((item) => (
@@ -873,7 +1132,7 @@ export function RoomStudio() {
               <small>
                 {selectedDetail.source}
                 {selectedDetail.sourceUrl ? (
-                  <> · <a href={selectedDetail.sourceUrl} target="_blank" rel="noreferrer">打开原始来源</a></>
+                  <> · <a href={selectedDetail.sourceUrl} target="_blank" rel="noreferrer">在电脑中打开源文件 ↗</a></>
                 ) : null}
               </small>
             </>
@@ -903,6 +1162,34 @@ export function RoomStudio() {
                   </article>
                 )) : <span>还没有留言。</span>}
               </div>
+            </>
+          ) : null}
+        </aside>
+
+        <aside
+          className={`memory-panel source-browser-panel ${selectedId === SOURCE_BROWSER_ID ? "is-open" : ""}`}
+          aria-hidden={selectedId !== SOURCE_BROWSER_ID}
+        >
+          {selectedId === SOURCE_BROWSER_ID ? (
+            <>
+              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭源码终端">×</button>
+              <p>SOURCE COMPUTER</p>
+              <h2>源码访问终端</h2>
+              <div className="memory-description">选中的项目在这里收敛为可访问的源文件入口。</div>
+              {sourceBrowserLinks.length ? (
+                <ul className="source-browser-links">
+                  {sourceBrowserLinks.map((link) => (
+                    <li key={link.url}>
+                      <a href={link.url} target="_blank" rel="noreferrer">
+                        <strong>{link.label}</strong>
+                        <span>{link.url}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="memory-description">当前还没有可用的源文件链接。</span>
+              )}
             </>
           ) : null}
         </aside>
@@ -954,12 +1241,14 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "移动鼠标环视 · 点击墙面资料、中央项目展架或角落留言板"
+                : "移动鼠标环视 · 点击中央项目电脑可编辑内容或打开源文件"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "移动鼠标环视 · 点击桌上的日记本 · 返回客厅继续浏览"}
+                : selectedId === "bedroom-portrait"
+                  ? "卧室人物相框已聚焦 · 个人档案保持可读"
+                  : "移动鼠标环视 · 点击日记本或桌面人物相框 · 返回客厅继续浏览"}
         </div>
       </section>
     </main>

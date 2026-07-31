@@ -15,12 +15,6 @@ import {
   type ReactNode,
 } from "react";
 import * as THREE from "three";
-import {
-  buildCreativeSubjectSceneDisclosure,
-  findRenderableCreativeSubject,
-  planCreativeSubjects,
-  type CreativeSubject,
-} from "@/lib/agents/creative-subjects";
 import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
 import { AuthoredRoomScene } from "./AuthoredRoomScene";
 import {
@@ -54,7 +48,6 @@ const DARK_WOOD = "#34231f";
 const BRASS = "#d4a15c";
 const TEAL = "#65d7c3";
 const CORAL = "#ff8b61";
-const PROJECT_WALL_PREFIX = "project-wall:";
 const EMPTY_INFORMATION_DETAILS: string[] = [];
 const PROJECTS_PER_PAGE = 4;
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
@@ -71,13 +64,15 @@ function sceneMediaUrl(url: string) {
     : url;
 }
 
-const PROJECT_STAND_SPACING_X = 7.4;
-const PROJECT_STAND_FRONT_Z = -3.35;
-const PROJECT_STAND_REAR_Z = -7.85;
-const PROJECT_STAND_BASE_SIZE = [1.88, 0.26, 1.56] as const;
-const PROJECT_STAND_TOP_SIZE = [1.54, 0.16, 1.28] as const;
-const PROJECT_CARD_SIZE = [1.68, 1.12, 0.09] as const;
+const PROJECT_STAND_SPACING_X = 5.5;
+const PROJECT_STAND_FRONT_Z = -3.65;
+const PROJECT_STAND_REAR_Z = -7.15;
+const PROJECT_STAND_BASE_SIZE = [2.02, 0.22, 1.52] as const;
+const PROJECT_STAND_TOP_SIZE = [1.78, 0.12, 1.3] as const;
 const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
+const GALLERY_FRAME_DEPTH = 0.078;
+const GALLERY_ART_Z = GALLERY_FRAME_DEPTH / 2 + 0.008;
+const GALLERY_GLASS_Z = GALLERY_ART_Z + 0.008;
 
 const projectDisplayPositions: Vec3[] = [
   [-PROJECT_STAND_SPACING_X / 2, 0, PROJECT_STAND_FRONT_Z],
@@ -86,21 +81,10 @@ const projectDisplayPositions: Vec3[] = [
   [PROJECT_STAND_SPACING_X / 2, 0, PROJECT_STAND_REAR_Z],
 ];
 
-type ProjectWallPlacement = {
-  position: Vec3;
-  rotation: Vec3;
-  camera: Vec3;
-};
-
-const projectWallPlacements: ProjectWallPlacement[] = [
-  { position: [-10.62, 2.1, -4.4], rotation: [0, Math.PI / 2, 0], camera: [-6.25, 1.66, -4.4] },
-  { position: [-10.62, 2.1, -10.6], rotation: [0, Math.PI / 2, 0], camera: [-6.25, 1.66, -10.6] },
-  { position: [10.62, 2.1, -10.6], rotation: [0, -Math.PI / 2, 0], camera: [6.25, 1.66, -10.6] },
-  { position: [10.62, 2.1, -4.4], rotation: [0, -Math.PI / 2, 0], camera: [6.25, 1.66, -4.4] },
-];
-
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
   "showroom-guestbook": { target: [-10.58, 1.7, 2.5], camera: [-7.35, 1.66, 2.5], fov: 46 },
+  "showroom-source-browser": { target: [8, 1.48, 3.85], camera: [5.15, 1.52, 3.85], fov: 44 },
+  "bedroom-portrait": { target: [-20.15, 1.34, -15.15], camera: [-17.45, 1.5, -15.15], fov: 42 },
   "bedroom-diary": { target: [-20.2, 0.96, -16.25], camera: [-16.55, 1.56, -16.25], fov: 48 },
 };
 
@@ -130,10 +114,7 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
 
   useEffect(() => {
     const room = world.rooms.find((item) => item.id === activeRoom);
-    const wallProjectId = selectedExhibit?.startsWith(PROJECT_WALL_PREFIX)
-      ? selectedExhibit.slice(PROJECT_WALL_PREFIX.length)
-      : undefined;
-    const exhibit = world.exhibits.find((item) => item.id === (wallProjectId || selectedExhibit));
+    const exhibit = world.exhibits.find((item) => item.id === selectedExhibit);
     const exhibitRoom = exhibit ? world.rooms.find((item) => item.id === exhibit.roomId) : undefined;
     const authoredFocus = selectedExhibit
       ? world.displaySurfaces.find((surface) => surface.id === selectedExhibit)?.focusTarget
@@ -145,23 +126,16 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
     const displayedProjectPosition = projectIndex >= 0
       ? projectDisplayPositions[projectIndex % PROJECTS_PER_PAGE]
       : undefined;
-    const wallFocus = wallProjectId && projectIndex >= 0
-      ? projectWallPlacements[projectIndex % PROJECTS_PER_PAGE]
-      : undefined;
     if (authoredFocus) {
       lookAtTarget.set(...authoredFocus.target);
       destination.set(...authoredFocus.camera);
       desiredFov.current = authoredFocus.fov;
-    } else if (wallFocus) {
-      lookAtTarget.set(...wallFocus.position);
-      destination.set(...wallFocus.camera);
-      desiredFov.current = 50;
     } else if (exhibit) {
       const exhibitPosition = displayedProjectPosition || exhibit.position;
       lookAtTarget.set(exhibitPosition[0], Math.max(1, exhibitPosition[1]), exhibitPosition[2]);
       if (displayedProjectPosition) {
-        destination.set(exhibitPosition[0], 1.66, exhibitPosition[2] + 3.8);
-        desiredFov.current = 50;
+        destination.set(exhibitPosition[0], 1.6, exhibitPosition[2] + 3.05);
+        desiredFov.current = 45;
       } else {
         const centralSide = exhibitRoom && exhibitRoom.center[0] < 0 ? 1 : -1;
         destination.set(exhibit.position[0] + centralSide * 3.9, 1.66, exhibit.position[2]);
@@ -194,7 +168,7 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
     const fromFov = camera instanceof THREE.PerspectiveCamera ? camera.fov : desiredFov.current;
     let positionPoints = [startPosition, destination.clone()];
     let targetPoints = [startTarget, lookAtTarget.clone()];
-    let duration = exhibit || authoredFocus || wallFocus ? 1.7 : 2.2;
+    let duration = exhibit || authoredFocus ? 1.7 : 2.2;
 
     if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
       positionPoints = [
@@ -401,6 +375,205 @@ function capacityAwareItems(items: string[], capacity: number) {
 }
 
 type InformationFrameVariant = "text" | "profile" | "timeline" | "skills" | "project";
+type GalleryFrameFinish = "walnut" | "ebonized" | "cherry" | "oak";
+
+const GALLERY_FRAME_PALETTES: Record<GalleryFrameFinish, { wood: string; edge: string; mat: string; metal: string }> = {
+  walnut: { wood: "#3b2721", edge: "#74513d", mat: "#f2e7d6", metal: "#c89b56" },
+  ebonized: { wood: "#393033", edge: "#745c54", mat: "#eee7dc", metal: "#b99158" },
+  cherry: { wood: "#63352d", edge: "#9a6049", mat: "#f4e5d0", metal: "#d2a35e" },
+  oak: { wood: "#caa77a", edge: "#ead0a6", mat: "#f7f3eb", metal: "#d5b678" },
+};
+
+function rectangularRingShape(outerWidth: number, outerHeight: number, innerWidth: number, innerHeight: number) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-outerWidth / 2, -outerHeight / 2);
+  shape.lineTo(outerWidth / 2, -outerHeight / 2);
+  shape.lineTo(outerWidth / 2, outerHeight / 2);
+  shape.lineTo(-outerWidth / 2, outerHeight / 2);
+  shape.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-innerWidth / 2, -innerHeight / 2);
+  hole.lineTo(-innerWidth / 2, innerHeight / 2);
+  hole.lineTo(innerWidth / 2, innerHeight / 2);
+  hole.lineTo(innerWidth / 2, -innerHeight / 2);
+  hole.closePath();
+  shape.holes.push(hole);
+  return shape;
+}
+
+function galleryFrameFinish(seed: string, offset = 0): GalleryFrameFinish {
+  const finishes: GalleryFrameFinish[] = ["walnut", "cherry", "ebonized"];
+  const score = Array.from(seed).reduce((sum, character) => sum + character.charCodeAt(0), offset);
+  return finishes[Math.abs(score) % finishes.length];
+}
+
+function createFrameWoodTexture(finish: GalleryFrameFinish) {
+  const palette = GALLERY_FRAME_PALETTES[finish];
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext("2d")!;
+  const wash = context.createLinearGradient(0, 0, 512, 512);
+  wash.addColorStop(0, palette.edge);
+  wash.addColorStop(0.42, palette.wood);
+  wash.addColorStop(0.7, finish === "ebonized" ? "#171518" : palette.edge);
+  wash.addColorStop(1, palette.wood);
+  context.fillStyle = wash;
+  context.fillRect(0, 0, 512, 512);
+
+  for (let line = 0; line < 92; line += 1) {
+    const baseY = (line / 91) * 512;
+    context.beginPath();
+    for (let x = -12; x <= 524; x += 12) {
+      const wave = Math.sin(x * 0.024 + line * 0.83) * (2.2 + (line % 4) * 0.6)
+        + Math.sin(x * 0.071 + line * 0.31) * 1.6;
+      if (x === -12) context.moveTo(x, baseY + wave);
+      else context.lineTo(x, baseY + wave);
+    }
+    context.strokeStyle = line % 5 === 0 ? "rgba(24,12,8,0.28)" : "rgba(255,224,185,0.08)";
+    context.lineWidth = line % 7 === 0 ? 2.2 : 0.9;
+    context.stroke();
+  }
+  for (let pore = 0; pore < 34; pore += 1) {
+    const x = (pore * 83) % 512;
+    const y = (pore * 137) % 512;
+    context.strokeStyle = "rgba(20,10,8,0.18)";
+    context.lineWidth = 1.2;
+    context.beginPath();
+    context.ellipse(x, y, 18 + (pore % 5) * 3, 4 + (pore % 3), (pore % 7) * 0.11, 0, Math.PI * 2);
+    context.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2.15, 2.15);
+  texture.anisotropy = 8;
+  return texture;
+}
+
+function GalleryFrame({
+  contentWidth,
+  contentHeight,
+  children,
+  finish = "walnut",
+  accent = BRASS,
+  selected = false,
+  hovered = false,
+  doubleSided = false,
+  railWidth = 0.065,
+  matWidth = 0.035,
+}: {
+  contentWidth: number;
+  contentHeight: number;
+  children: ReactNode;
+  finish?: GalleryFrameFinish;
+  accent?: string;
+  selected?: boolean;
+  hovered?: boolean;
+  doubleSided?: boolean;
+  railWidth?: number;
+  matWidth?: number;
+}) {
+  const palette = GALLERY_FRAME_PALETTES[finish];
+  const woodTexture = useMemo(() => createFrameWoodTexture(finish), [finish]);
+  const openingWidth = contentWidth + matWidth * 2;
+  const openingHeight = contentHeight + matWidth * 2;
+  const outerWidth = openingWidth + railWidth * 2;
+  const outerHeight = openingHeight + railWidth * 2;
+  const frameShape = useMemo(
+    () => rectangularRingShape(outerWidth, outerHeight, openingWidth, openingHeight),
+    [openingHeight, openingWidth, outerHeight, outerWidth],
+  );
+  const linerThickness = Math.max(0.01, railWidth * 0.16);
+  const bevelSize = Math.min(0.012, railWidth * 0.18);
+  const bevelThickness = Math.min(0.01, railWidth * 0.15);
+  const linerShape = useMemo(
+    () => rectangularRingShape(
+      contentWidth + linerThickness * 2,
+      contentHeight + linerThickness * 2,
+      contentWidth,
+      contentHeight,
+    ),
+    [contentHeight, contentWidth, linerThickness],
+  );
+  const glassSides = doubleSided ? [1, -1] : [1];
+
+  useEffect(() => () => woodTexture.dispose(), [woodTexture]);
+
+  return (
+    <group>
+      <mesh castShadow receiveShadow position={[0, 0, -GALLERY_FRAME_DEPTH / 2]}>
+        <extrudeGeometry args={[frameShape, {
+          depth: GALLERY_FRAME_DEPTH,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize,
+          bevelThickness,
+          curveSegments: 1,
+        }]} />
+        <meshPhysicalMaterial
+          map={woodTexture}
+          bumpMap={woodTexture}
+          bumpScale={0.016}
+          color="#ffffff"
+          emissive={selected ? accent : INK}
+          emissiveIntensity={selected ? 0.045 : hovered ? 0.018 : 0}
+          roughness={finish === "ebonized" ? 0.34 : 0.42}
+          metalness={finish === "ebonized" ? 0.1 : 0.035}
+          clearcoat={finish === "ebonized" ? 0.16 : 0.32}
+          clearcoatRoughness={0.38}
+          envMapIntensity={0.92}
+        />
+      </mesh>
+      <mesh position={[0, 0, -0.002]} receiveShadow>
+        <boxGeometry args={[openingWidth, openingHeight, 0.028]} />
+        <meshStandardMaterial color={palette.mat} roughness={0.94} metalness={0} />
+      </mesh>
+      <mesh position={[0, 0, GALLERY_FRAME_DEPTH / 2 + 0.003]}>
+        <extrudeGeometry args={[linerShape, {
+          depth: 0.012,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.004,
+          bevelThickness: 0.003,
+          curveSegments: 1,
+        }]} />
+        <meshStandardMaterial color={palette.metal} roughness={0.26} metalness={0.8} envMapIntensity={0.9} />
+      </mesh>
+      {children}
+      {glassSides.map((side) => (
+        <group key={side} position={[0, 0, side * GALLERY_GLASS_Z]} rotation={side < 0 ? [0, Math.PI, 0] : [0, 0, 0]}>
+          <mesh renderOrder={3}>
+            <planeGeometry args={[contentWidth, contentHeight]} />
+            <meshPhysicalMaterial
+              color="#fff9ef"
+              transparent
+              opacity={0.07}
+              roughness={0.08}
+              metalness={0}
+              clearcoat={1}
+              clearcoatRoughness={0.06}
+              envMapIntensity={0.9}
+              depthWrite={false}
+            />
+          </mesh>
+          <mesh position={[-contentWidth * 0.28, contentHeight * 0.08, 0.001]} rotation={[0, 0, -0.42]} renderOrder={4}>
+            <planeGeometry args={[Math.max(0.018, contentWidth * 0.018), contentHeight * 0.78]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.11} depthWrite={false} toneMapped={false} />
+          </mesh>
+          <mesh position={[-contentWidth * 0.18, contentHeight * 0.18, 0.001]} rotation={[0, 0, -0.42]} renderOrder={4}>
+            <planeGeometry args={[Math.max(0.01, contentWidth * 0.009), contentHeight * 0.46]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.07} depthWrite={false} toneMapped={false} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, -outerHeight / 2 - 0.01, 0.012]} castShadow>
+        <boxGeometry args={[outerWidth * 0.64, 0.014, 0.045]} />
+        <meshStandardMaterial color={palette.edge} roughness={0.46} metalness={0.08} />
+      </mesh>
+    </group>
+  );
+}
 
 function projectAccent(title: string) {
   const normalized = title.toLowerCase();
@@ -510,7 +683,6 @@ function InformationFrame({
   interactive = false,
   selected = false,
   onSelect,
-  portraitUrl,
 }: {
   kicker: string;
   title: string;
@@ -526,7 +698,6 @@ function InformationFrame({
   interactive?: boolean;
   selected?: boolean;
   onSelect?: () => void;
-  portraitUrl?: string;
 }) {
   const [hovered, setHovered] = useState(false);
   const group = useRef<THREE.Group>(null);
@@ -641,153 +812,167 @@ function InformationFrame({
       onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
     >
-      <mesh castShadow>
-        <boxGeometry args={[width + 0.16, height + 0.16, 0.1]} />
-        <meshStandardMaterial color={DARK_WOOD} emissive={selected ? accent : INK} emissiveIntensity={selected ? 0.22 : hovered ? 0.1 : 0} metalness={0.12} roughness={0.52} />
-      </mesh>
-      <mesh position={[0, 0, 0.061]}>
-        <planeGeometry args={[width, height]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
-      </mesh>
-      {variant === "profile" && portraitUrl ? (
-        <TextureAssetBoundary fallback={null} resetKey={portraitUrl}>
-          <Suspense fallback={null}>
-            <LoadedProfilePortrait url={portraitUrl} position={[-width * 0.314, -height * 0.02, 0.074]} />
-          </Suspense>
-        </TextureAssetBoundary>
-      ) : null}
-      <mesh position={[0, -height / 2 + 0.035, 0.095]}>
-        <boxGeometry args={[width, 0.07, 0.045]} />
-        <meshBasicMaterial color={accent} toneMapped={false} />
-      </mesh>
+      <GalleryFrame
+        contentWidth={width}
+        contentHeight={height}
+        finish={variant === "profile" ? "cherry" : galleryFrameFinish(`${variant}:${title}`)}
+        accent={accent}
+        selected={selected}
+        hovered={hovered}
+        railWidth={variant === "project" ? 0.068 : 0.06}
+        matWidth={variant === "profile" ? 0.045 : 0.034}
+      >
+        <>
+          <mesh position={[0, 0, GALLERY_ART_Z]}>
+            <planeGeometry args={[width, height]} />
+            <meshBasicMaterial map={texture} toneMapped={false} />
+          </mesh>
+          <mesh position={[0, -height / 2 + 0.035, GALLERY_GLASS_Z + 0.004]}>
+            <boxGeometry args={[width, 0.07, 0.025]} />
+            <meshStandardMaterial color={accent} emissive={selected ? accent : "#000000"} emissiveIntensity={selected ? 0.22 : 0} roughness={0.34} metalness={0.42} />
+          </mesh>
+        </>
+      </GalleryFrame>
     </group>
   );
 }
 
-function LoadedProfilePortrait({ url, position, stylized = false }: { url: string; position: Vec3; stylized?: boolean }) {
+function LoadedDeskPortraitPhoto({ url, width, height }: { url: string; width: number; height: number }) {
   const mediaUrl = sceneMediaUrl(url);
   const sourceTexture = useLoader(SceneTextureLoader, mediaUrl);
   const displayTexture = useMemo(() => {
     const texture = sourceTexture.clone();
     const image = sourceTexture.image as { width?: number; height?: number } | undefined;
     const sourceAspect = image?.width && image?.height ? image.width / image.height : 1;
+    const targetAspect = width / height;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-    if (sourceAspect > 1) {
-      texture.repeat.x = 1 / sourceAspect;
+    if (sourceAspect > targetAspect) {
+      texture.repeat.x = targetAspect / sourceAspect;
       texture.offset.x = (1 - texture.repeat.x) / 2;
-    } else if (sourceAspect < 1) {
-      texture.repeat.y = sourceAspect;
+    } else if (sourceAspect < targetAspect) {
+      texture.repeat.y = sourceAspect / targetAspect;
       texture.offset.y = (1 - texture.repeat.y) / 2;
     }
     texture.anisotropy = 4;
     texture.needsUpdate = true;
     return texture;
-  }, [sourceTexture]);
+  }, [height, sourceTexture, width]);
 
   useEffect(() => retainSceneMediaTexture(mediaUrl, sourceTexture, (cacheKey) => {
     useLoader.clear(SceneTextureLoader, cacheKey);
   }), [mediaUrl, sourceTexture]);
   useEffect(() => () => displayTexture.dispose(), [displayTexture]);
   return (
-    <group position={position}>
-      <mesh castShadow>
-        <boxGeometry args={[0.94, 0.94, 0.035]} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.58} metalness={0.08} />
-      </mesh>
-      <mesh position={[0, 0, 0.021]}>
-        <planeGeometry args={[0.86, 0.86]} />
-        <meshBasicMaterial
-          map={displayTexture}
-          toneMapped={false}
-          onBeforeCompile={stylized ? (shader) => {
-            shader.fragmentShader = shader.fragmentShader.replace(
-              "#include <map_fragment>",
-              "#include <map_fragment>\ndiffuseColor.rgb = floor(diffuseColor.rgb * 5.0 + 0.5) / 5.0;",
-            );
-          } : undefined}
-          customProgramCacheKey={() => stylized ? "profile-posterize-v1" : "profile-photo-v1"}
+    <mesh position={[0, 0, 0.071]}>
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial map={displayTexture} toneMapped={false} />
+    </mesh>
+  );
+}
+
+function DeskPortraitDisplay({ url, lit, selected, interactive, onSelect }: { url: string; lit: boolean; selected: boolean; interactive: boolean; onSelect: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const group = useRef<THREE.Group>(null);
+  const outerWidth = 0.62;
+  const outerHeight = 0.84;
+  const railWidth = 0.03;
+  const matWidth = outerWidth - railWidth * 2;
+  const matHeight = outerHeight - railWidth * 2;
+  const photoWidth = 0.33;
+  const photoHeight = 0.46;
+  const centerY = outerHeight / 2 + 0.035;
+  const woodTexture = useMemo(() => createFrameWoodTexture("oak"), []);
+  const frameShape = useMemo(
+    () => rectangularRingShape(outerWidth, outerHeight, matWidth, matHeight),
+    [matHeight, matWidth],
+  );
+  const photoBevel = useMemo(
+    () => rectangularRingShape(photoWidth + 0.035, photoHeight + 0.035, photoWidth, photoHeight),
+    [],
+  );
+
+  useEffect(() => () => woodTexture.dispose(), [woodTexture]);
+  useFrame(() => {
+    if (!group.current) return;
+    const targetScale = selected ? 1.06 : hovered ? 1.035 : 1;
+    const scale = THREE.MathUtils.lerp(group.current.scale.x, targetScale, 0.14);
+    group.current.scale.setScalar(scale);
+  });
+
+  return (
+    <group
+      ref={group}
+      position={[-20.15, 0.92, -15.15]}
+      rotation={[-0.08, Math.PI / 2, -0.015]}
+      onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
+      onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
+      onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
+    >
+      <mesh castShadow receiveShadow position={[0, centerY, 0]}>
+        <extrudeGeometry args={[frameShape, {
+          depth: 0.052,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.008,
+          bevelThickness: 0.007,
+          curveSegments: 1,
+        }]} />
+        <meshPhysicalMaterial
+          map={woodTexture}
+          bumpMap={woodTexture}
+          bumpScale={0.012}
+          color="#fff7e8"
+          roughness={0.38}
+          metalness={0.02}
+          clearcoat={0.32}
+          clearcoatRoughness={0.4}
+          envMapIntensity={0.9}
         />
       </mesh>
-    </group>
-  );
-}
-
-function CreativePersonFigure({ subject }: { subject: CreativeSubject }) {
-  const photoUrl = subject.source.kind === "profile-photo"
-    ? subject.source.media?.url
-    : undefined;
-  const disclosure = buildCreativeSubjectSceneDisclosure(subject);
-  return (
-    <group>
-      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[0.62, 0.72, 0.24, 20]} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.62} metalness={0.14} />
+      <mesh castShadow receiveShadow position={[0, centerY, 0.015]}>
+        <boxGeometry args={[matWidth, matHeight, 0.032]} />
+        <meshStandardMaterial color="#f7f4ed" roughness={0.92} metalness={0} />
       </mesh>
-      <mesh castShadow position={[0, 1.08, 0]}>
-        <capsuleGeometry args={[0.38, 0.88, 5, 10]} />
-        <meshStandardMaterial color={TEAL} roughness={0.74} metalness={0.02} />
+      <mesh position={[0, centerY - 0.015, 0.052]}>
+        <extrudeGeometry args={[photoBevel, {
+          depth: 0.014,
+          bevelEnabled: true,
+          bevelSegments: 1,
+          bevelSize: 0.004,
+          bevelThickness: 0.003,
+          curveSegments: 1,
+        }]} />
+        <meshStandardMaterial color="#e8e3da" roughness={0.82} metalness={0} />
       </mesh>
-      {[-1, 1].map((side) => (
-        <mesh key={side} castShadow position={[side * 0.5, 1.08, 0]} rotation={[0, 0, side * -0.2]}>
-          <capsuleGeometry args={[0.11, 0.62, 4, 8]} />
-          <meshStandardMaterial color="#d4a07e" roughness={0.78} />
-        </mesh>
-      ))}
-      {photoUrl ? (
-        <TextureAssetBoundary fallback={null} resetKey={photoUrl}>
+      <group position={[0, centerY - 0.015, 0]}>
+        <TextureAssetBoundary fallback={null} resetKey={url}>
           <Suspense fallback={null}>
-            <LoadedProfilePortrait url={photoUrl} position={[0, 2.05, 0]} stylized />
+            <LoadedDeskPortraitPhoto url={url} width={photoWidth} height={photoHeight} />
           </Suspense>
         </TextureAssetBoundary>
-      ) : (
-        <mesh castShadow position={[0, 1.96, 0]}>
-          <icosahedronGeometry args={[0.43, 1]} />
-          <meshStandardMaterial color="#d4a07e" roughness={0.78} />
-        </mesh>
-      )}
-      <TextPanel
-        title={disclosure.title}
-        subtitle={disclosure.subtitle}
-        position={[0, 0.54, 0.62]}
-        rotation={[0, 0.35, 0]}
-        width={2.28}
-        height={0.54}
-      />
-    </group>
-  );
-}
-
-function CreativePetFigure({ subject }: { subject: CreativeSubject }) {
-  const disclosure = buildCreativeSubjectSceneDisclosure(subject);
-  return (
-    <group position={[1.2, 0, 0.25]} scale={0.62}>
-      <mesh castShadow receiveShadow position={[0, 0.14, 0]}>
-        <cylinderGeometry args={[0.48, 0.55, 0.22, 16]} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.66} />
+      </group>
+      <mesh position={[0, centerY, 0.084]} renderOrder={4}>
+        <planeGeometry args={[matWidth, matHeight]} />
+        <meshPhysicalMaterial color="#fffdf8" transparent opacity={0.052} roughness={0.1} clearcoat={1} clearcoatRoughness={0.06} depthWrite={false} />
       </mesh>
-      <mesh castShadow position={[0, 0.66, 0]}>
-        <sphereGeometry args={[0.43, 12, 9]} />
-        <meshStandardMaterial color="#c98757" roughness={0.82} />
+      <mesh position={[-0.24, centerY + 0.1, 0.088]} rotation={[0, 0, -0.42]} renderOrder={5}>
+        <planeGeometry args={[0.016, 0.86]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.1} depthWrite={false} toneMapped={false} />
       </mesh>
-      <mesh castShadow position={[0.28, 1.02, 0]}>
-        <icosahedronGeometry args={[0.34, 1]} />
-        <meshStandardMaterial color="#d89a68" roughness={0.82} />
+      <mesh castShadow position={[0, centerY - 0.05, -0.18]} rotation={[0.35, 0, 0]}>
+        <boxGeometry args={[0.42, 0.54, 0.035]} />
+        <meshStandardMaterial color="#9b7559" roughness={0.88} metalness={0} />
       </mesh>
-      {subject.label === "Cat" ? [-1, 1].map((side) => (
-        <mesh key={side} castShadow position={[0.28 + side * 0.18, 1.32, 0]} rotation={[0, 0, side * -0.18]}>
-          <coneGeometry args={[0.13, 0.28, 4]} />
-          <meshStandardMaterial color="#d89a68" roughness={0.82} />
-        </mesh>
-      )) : null}
-      <TextPanel
-        title={disclosure.title}
-        subtitle={disclosure.subtitle}
-        position={[0.15, 0.28, 0.65]}
-        rotation={[0, 0.24, 0]}
-        width={2.18}
-        height={0.52}
-      />
+      <mesh castShadow position={[0, centerY + 0.31, -0.06]}>
+        <boxGeometry args={[0.22, 0.04, 0.06]} />
+        <meshStandardMaterial color="#c5a06f" roughness={0.54} metalness={0.08} />
+      </mesh>
+      <mesh castShadow position={[0, 0.02, -0.06]}>
+        <boxGeometry args={[0.48, 0.04, 0.18]} />
+        <meshStandardMaterial color="#ac825f" roughness={0.78} metalness={0.02} />
+      </mesh>
+      {lit ? <pointLight position={[0, 0.82, 0.48]} intensity={selected ? 2.4 : hovered ? 1.8 : 1.15} distance={2.6} decay={2} color="#ffe1b5" /> : null}
     </group>
   );
 }
@@ -850,20 +1035,7 @@ function fallbackSurfaceLayout(surface: DisplaySurfacePlan, index: number) {
   };
 }
 
-function CreativeSubjectCorner({ subjects }: { subjects: CreativeSubject[] }) {
-  const person = findRenderableCreativeSubject(subjects, "person");
-  const pet = findRenderableCreativeSubject(subjects, "pet");
-  if (!person) return null;
-  return (
-    <group position={[8.45, 0, -16.5]} rotation={[0, -0.35, 0]}>
-      <CreativePersonFigure subject={person} />
-      {pet ? <CreativePetFigure subject={pet} /> : null}
-    </group>
-  );
-}
-
 function LivingInformationWall({ world, interactive, selectedId, onSelect }: { world: WorldPlan; interactive: boolean; selectedId?: string; onSelect: (id: string) => void }) {
-  const portraitUrl = world.profile.media.find((media) => media.category === "profile-photo")?.url;
   return (
     <group>
       {world.displaySurfaces.map((surface, index) => {
@@ -878,7 +1050,6 @@ function LivingInformationWall({ world, interactive, selectedId, onSelect }: { w
             accent={surface.accent || TEAL}
             variant={layout.variant}
             details={details}
-            portraitUrl={surface.semanticRole === "profile" ? portraitUrl : undefined}
             position={layout.position}
             rotation={layout.rotation}
             width={layout.width}
@@ -946,6 +1117,96 @@ function GuestbookBoard({ messages, interactive, selected, onSelect }: { message
   );
 }
 
+function SourceBrowserTerminal({ interactive, selected, onSelect }: { interactive: boolean; selected: boolean; onSelect: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const panel = useRef<THREE.Group>(null);
+  const monitorTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 620;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#dceae4";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#203634";
+    context.fillRect(0, 0, canvas.width, 86);
+    context.fillStyle = "#f4f1e8";
+    context.font = "700 30px Arial";
+    context.fillText("ROOM / SOURCE COMPUTER", 48, 55);
+    context.fillStyle = "#1d2927";
+    context.font = "700 56px Arial";
+    context.fillText("PROJECT FILES", 48, 180);
+    context.fillStyle = "#56706b";
+    context.font = "26px Arial";
+    context.fillText("SELECTED EXHIBIT · VERIFIED LINKS", 48, 228);
+    [310, 398, 486].forEach((y, index) => {
+      context.fillStyle = index === 0 ? "#f7faf7" : "#c9dbd4";
+      context.fillRect(48, y, 928, 58);
+      context.fillStyle = "#3e5c57";
+      context.fillRect(66, y + 20, index === 0 ? 650 : 520 - index * 70, 14);
+      context.fillStyle = "#dc8e68";
+      context.fillRect(910, y + 17, 38, 22);
+    });
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
+  }, []);
+
+  useEffect(() => () => monitorTexture.dispose(), [monitorTexture]);
+
+  useFrame(() => {
+    if (!panel.current) return;
+    const targetScale = selected ? 1.06 : hovered ? 1.03 : 1;
+    const nextScale = THREE.MathUtils.lerp(panel.current.scale.x, targetScale, 0.14);
+    panel.current.scale.setScalar(nextScale);
+  });
+
+  return (
+    <group
+      ref={panel}
+      position={[8, 0.94, 3.85]}
+      rotation={[0, -Math.PI / 2, 0]}
+      onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
+      onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
+      onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
+    >
+      <mesh castShadow receiveShadow position={[0, 0.72, 0]}>
+        <boxGeometry args={[1.82, 1.15, 0.12]} />
+        <meshStandardMaterial color="#232a2a" roughness={0.42} metalness={0.3} emissive={selected ? TEAL : INK} emissiveIntensity={selected ? 0.15 : 0.02} />
+      </mesh>
+      <mesh position={[0, 0.72, 0.068]}>
+        <planeGeometry args={[1.58, 0.93]} />
+        <meshBasicMaterial map={monitorTexture} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0.72, 0.076]} renderOrder={4}>
+        <planeGeometry args={[1.58, 0.93]} />
+        <meshPhysicalMaterial color="#e8ffff" transparent opacity={0.045} roughness={0.1} clearcoat={1} depthWrite={false} />
+      </mesh>
+      <mesh castShadow position={[0, 0.05, -0.02]}>
+        <boxGeometry args={[0.15, 0.38, 0.12]} />
+        <meshStandardMaterial color="#3d4746" roughness={0.48} metalness={0.3} />
+      </mesh>
+      <mesh castShadow position={[0, -0.16, 0]}>
+        <boxGeometry args={[0.84, 0.08, 0.42]} />
+        <meshStandardMaterial color="#343d3c" roughness={0.52} metalness={0.24} />
+      </mesh>
+      <mesh castShadow position={[0, -0.27, 0.54]} rotation={[-0.08, 0, 0]}>
+        <boxGeometry args={[1.15, 0.06, 0.38]} />
+        <meshStandardMaterial color="#4b5553" roughness={0.58} metalness={0.18} />
+      </mesh>
+      <mesh castShadow position={[0.74, -0.26, 0.54]}>
+        <sphereGeometry args={[0.11, 14, 9]} />
+        <meshStandardMaterial color="#4b5553" roughness={0.55} metalness={0.16} />
+      </mesh>
+      <mesh position={[-0.81, 0.21, 0.072]}>
+        <circleGeometry args={[0.022, 14]} />
+        <meshBasicMaterial color={selected ? "#7effd9" : "#f0b36a"} toneMapped={false} />
+      </mesh>
+      {interactive ? <pointLight position={[0, 0.9, 0.65]} intensity={selected ? 3 : hovered ? 1.9 : 0.75} distance={2.8} color={selected ? CORAL : TEAL} /> : null}
+    </group>
+  );
+}
+
 function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolean; selected: boolean; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false);
   const rug = useRugTextures(undefined, 4.6 / 3.2);
@@ -986,7 +1247,7 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
         ))}
       </group>
       <mesh position={[0, 0.78, 0]}>
-        <boxGeometry args={[3.05, 1.48, 1.58]} />
+        <boxGeometry args={[1.55, 1.35, 1.42]} />
         <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={selected ? 0.14 : hovered ? 0.08 : 0.01} toneMapped={false} />
       </mesh>
       <TextPanel title="PRIVATE DIARY" subtitle="CLICK THE OPEN BOOK" position={[0, 1.62, -0.55]} width={1.82} />
@@ -1138,11 +1399,11 @@ function LowPolyPlant({ position, scale = 1 }: { position: Vec3; scale?: number 
 function ProjectTextureFaces({ texture }: { texture: THREE.Texture }) {
   return (
     <>
-      <mesh position={[0, 0, 0.051]}>
+      <mesh position={[0, 0, GALLERY_ART_Z]}>
         <planeGeometry args={PROJECT_CARD_SURFACE_SIZE} />
         <meshBasicMaterial map={texture} toneMapped={false} />
       </mesh>
-      <mesh position={[0, 0, -0.051]} rotation={[0, Math.PI, 0]}>
+      <mesh position={[0, 0, -GALLERY_ART_Z]} rotation={[0, Math.PI, 0]}>
         <planeGeometry args={PROJECT_CARD_SURFACE_SIZE} />
         <meshBasicMaterial map={texture} toneMapped={false} />
       </mesh>
@@ -1179,7 +1440,7 @@ function LoadedProjectTextureFaces({ url }: { url: string }) {
   return <ProjectTextureFaces texture={displayTexture} />;
 }
 
-function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; index: number; selected: boolean }) {
+function ProjectComputerScreen({ exhibit, index, selected }: { exhibit: ExhibitPlan; index: number; selected: boolean }) {
   const artwork = useRef<THREE.Group>(null);
   const fallbackLabel = exhibit.imageUrl ? "SOURCED IMAGE LOADING" : "SYSTEM PLACEHOLDER";
   useFrame((state, delta) => {
@@ -1188,7 +1449,7 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
     const idleYaw = baseYaw + Math.sin(state.clock.elapsedTime * 0.75 + index * 1.1) * 0.045;
     const targetYaw = selected ? 0 : idleYaw;
     artwork.current.rotation.y = THREE.MathUtils.damp(artwork.current.rotation.y, targetYaw, 7.5, delta);
-    artwork.current.position.y = 1.02 + Math.sin(state.clock.elapsedTime * 1.05 + index) * 0.025;
+    artwork.current.position.y = 1.14 + Math.sin(state.clock.elapsedTime * 1.05 + index) * 0.012;
   });
   const accent = projectAccent(exhibit.title);
   const texture = useMemo(() => {
@@ -1220,26 +1481,38 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
   const placeholderFaces = <ProjectTextureFaces texture={texture} />;
 
   return (
-    <group ref={artwork} position={[0, 1.02, 0]}>
-      {[-0.62, 0.62].map((x) => (
-        <mesh key={`project-display-rear-support-${x}`} castShadow position={[x * 1.18, -0.43, -0.38]}>
-          <boxGeometry args={[0.055, 0.82, 0.055]} />
-          <meshStandardMaterial color={DARK_WOOD} roughness={0.64} metalness={0.08} />
-        </mesh>
-      ))}
-      <mesh castShadow>
-        <boxGeometry args={PROJECT_CARD_SIZE} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.54} metalness={0.12} />
+    <group ref={artwork} position={[0, 1.14, 0]}>
+      <mesh castShadow receiveShadow position={[0, 0, 0]}>
+        <boxGeometry args={[1.76, 1.18, 0.12]} />
+        <meshStandardMaterial color="#24282a" roughness={0.42} metalness={0.32} emissive={selected ? accent : INK} emissiveIntensity={selected ? 0.18 : 0.025} />
       </mesh>
-      {exhibit.imageUrl
-        ? (
-          <TextureAssetBoundary fallback={placeholderFaces} resetKey={exhibit.imageUrl}>
-            <Suspense fallback={placeholderFaces}>
-              <LoadedProjectTextureFaces url={exhibit.imageUrl} />
-            </Suspense>
-          </TextureAssetBoundary>
-        )
-        : placeholderFaces}
+      <group position={[0, 0, 0.024]}>
+        {exhibit.imageUrl
+          ? (
+            <TextureAssetBoundary fallback={placeholderFaces} resetKey={exhibit.imageUrl}>
+              <Suspense fallback={placeholderFaces}>
+                <LoadedProjectTextureFaces url={exhibit.imageUrl} />
+              </Suspense>
+            </TextureAssetBoundary>
+          )
+          : placeholderFaces}
+      </group>
+      <mesh position={[0, 0, 0.092]} renderOrder={4}>
+        <planeGeometry args={PROJECT_CARD_SURFACE_SIZE} />
+        <meshPhysicalMaterial color="#c9f6ff" transparent opacity={0.045} roughness={0.12} clearcoat={1} clearcoatRoughness={0.08} depthWrite={false} />
+      </mesh>
+      <mesh position={[-0.78, -0.5, 0.072]}>
+        <circleGeometry args={[0.026, 14]} />
+        <meshBasicMaterial color={selected ? "#79ffd7" : "#f5b867"} toneMapped={false} />
+      </mesh>
+      <mesh castShadow position={[0, -0.78, -0.015]}>
+        <boxGeometry args={[0.15, 0.42, 0.12]} />
+        <meshStandardMaterial color="#34393b" roughness={0.48} metalness={0.38} />
+      </mesh>
+      <mesh castShadow position={[0, -1, 0.02]}>
+        <boxGeometry args={[0.82, 0.08, 0.46]} />
+        <meshStandardMaterial color="#303536" roughness={0.5} metalness={0.34} />
+      </mesh>
     </group>
   );
 }
@@ -1269,12 +1542,28 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
         <boxGeometry args={PROJECT_STAND_TOP_SIZE} />
         <meshStandardMaterial color="#e6d5bd" roughness={0.76} />
       </mesh>
-      <ProjectImageCard exhibit={exhibit} index={displayIndex - 1} selected={selected} />
+      <ProjectComputerScreen exhibit={exhibit} index={displayIndex - 1} selected={selected} />
+      <group position={[0, 0.5, 0.42]} rotation={[-0.08, 0, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[1.18, 0.06, 0.42]} />
+          <meshStandardMaterial color="#3a3e3f" roughness={0.56} metalness={0.22} />
+        </mesh>
+        {[-0.45, -0.27, -0.09, 0.09, 0.27, 0.45].map((x) => (
+          <mesh key={x} position={[x, 0.035, 0]}>
+            <boxGeometry args={[0.12, 0.018, 0.28]} />
+            <meshStandardMaterial color="#a9ada9" roughness={0.7} />
+          </mesh>
+        ))}
+      </group>
+      <mesh castShadow position={[0.78, 0.5, 0.46]}>
+        <sphereGeometry args={[0.12, 16, 10]} />
+        <meshStandardMaterial color="#4a5051" roughness={0.5} metalness={0.18} />
+      </mesh>
       <TextPanel
-        title={`PROJECT ${String(displayIndex).padStart(2, "0")}`}
-        subtitle={exhibit.title}
+        title={`COMPUTER ${String(displayIndex).padStart(2, "0")}`}
+        subtitle={`${exhibit.title} · CLICK TO EDIT / OPEN SOURCE`}
         position={[0, 0.44, 0.77]}
-        width={1.36}
+        width={1.62}
         height={0.32}
       />
       {interactive ? <pointLight position={[0, 1.45, 0.35]} intensity={selected ? 3.2 : hovered ? 2 : 0.65} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} /> : null}
@@ -1316,15 +1605,23 @@ function EmptySlotCard({ slot }: { slot: number }) {
   useEffect(() => () => texture.dispose(), [texture]);
 
   return (
-    <group position={[0, 1.02, 0]}>
-      <mesh castShadow>
-        <boxGeometry args={PROJECT_CARD_SIZE} />
-        <meshStandardMaterial color="#8c8278" roughness={0.86} metalness={0.02} transparent opacity={0.62} />
+    <group position={[0, 1.14, 0]}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[1.76, 1.18, 0.12]} />
+        <meshStandardMaterial color="#343739" roughness={0.66} metalness={0.18} />
       </mesh>
-      <ProjectTextureFaces texture={texture} />
-      <mesh position={[0, 0, 0.07]}>
-        <planeGeometry args={[1.72, 1.16]} />
-        <meshBasicMaterial color="#f5eee2" transparent opacity={0.16} toneMapped={false} wireframe />
+      <group position={[0, 0, 0.024]}><ProjectTextureFaces texture={texture} /></group>
+      <mesh position={[0, 0, 0.092]}>
+        <planeGeometry args={PROJECT_CARD_SURFACE_SIZE} />
+        <meshBasicMaterial color="#f5eee2" transparent opacity={0.08} toneMapped={false} wireframe />
+      </mesh>
+      <mesh castShadow position={[0, -0.78, -0.015]}>
+        <boxGeometry args={[0.15, 0.42, 0.12]} />
+        <meshStandardMaterial color="#45484a" roughness={0.7} metalness={0.12} />
+      </mesh>
+      <mesh castShadow position={[0, -1, 0.02]}>
+        <boxGeometry args={[0.82, 0.08, 0.46]} />
+        <meshStandardMaterial color="#3c4041" roughness={0.7} metalness={0.12} />
       </mesh>
     </group>
   );
@@ -1347,43 +1644,12 @@ function EmptyProjectPedestal({ position, slot }: { position: Vec3; slot: number
       </mesh>
       <EmptySlotCard slot={slot} />
       <TextPanel
-        title="COMING SOON"
-        subtitle={`EMPTY SLOT ${String(slot + 1).padStart(2, "0")} · NOT A SOURCED IMAGE`}
+        title="COMPUTER OFFLINE"
+        subtitle={`EMPTY SLOT ${String(slot + 1).padStart(2, "0")} · WAITING FOR A PROJECT`}
         position={[0, 0.44, 0.77]}
         width={1.48}
         height={0.36}
       />
-    </group>
-  );
-}
-
-function ProjectWallArchive({ exhibits, world, displayStart, selectedId, interactive, onSelect }: { exhibits: ExhibitPlan[]; world: WorldPlan; displayStart: number; selectedId?: string; interactive: boolean; onSelect: (id: string) => void }) {
-  return (
-    <group>
-      {exhibits.map((exhibit, index) => {
-        const placement = projectWallPlacements[index];
-        const sourceItem = world.profile.items.find((item) => item.id === exhibit.sourceItemId);
-        const wallId = `${PROJECT_WALL_PREFIX}${exhibit.id}`;
-        return (
-          <InformationFrame
-            key={wallId}
-            kicker={`PROJECT ${String(displayStart + index + 1).padStart(2, "0")}`}
-            title={exhibit.title}
-            body={exhibit.body}
-            details={[sourceItem?.subtitle || "", exhibit.body]}
-            position={placement.position}
-            rotation={placement.rotation}
-            width={2.65}
-            height={1.7}
-            accent={projectAccent(exhibit.title)}
-            footer="WALL ARCHIVE · CLICK TO INSPECT"
-            variant="project"
-            interactive={interactive}
-            selected={selectedId === wallId}
-            onSelect={() => onSelect(wallId)}
-          />
-        );
-      })}
     </group>
   );
 }
@@ -1500,7 +1766,7 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
   const visibleProjectPage = Math.min(projectPage, maxProjectPage);
   const projectStart = visibleProjectPage * PROJECTS_PER_PAGE;
   const visibleProjectExhibits = projectExhibits.slice(projectStart, projectStart + PROJECTS_PER_PAGE);
-  const creativeSubjects = useMemo(() => planCreativeSubjects(world.profile), [world.profile]);
+  const portraitUrl = world.profile.media.find((media) => media.category === "profile-photo")?.url;
 
   useEffect(() => {
     document.body.style.cursor = "default";
@@ -1539,15 +1805,20 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
             onSelect={onSelect}
           />
           <ShowroomDetails lit={activeRoom === "room-lobby"} />
-          <CreativeSubjectCorner subjects={creativeSubjects} />
-          <ProjectWallArchive
-            exhibits={visibleProjectExhibits}
-            world={world}
-            displayStart={projectStart}
+          <SourceBrowserTerminal
             interactive={activeRoom === "room-lobby"}
-            selectedId={selectedExhibit}
-            onSelect={onSelect}
+            selected={selectedExhibit === "showroom-source-browser"}
+            onSelect={() => onSelect("showroom-source-browser")}
           />
+          {portraitUrl ? (
+            <DeskPortraitDisplay
+              url={portraitUrl}
+              lit={activeRoom === "room-private"}
+              interactive={activeRoom === "room-private"}
+              selected={selectedExhibit === "bedroom-portrait"}
+              onSelect={() => onSelect("bedroom-portrait")}
+            />
+          ) : null}
           <GuestbookBoard
             messages={guestbookMessages}
             interactive={activeRoom === "room-lobby"}
@@ -1576,7 +1847,7 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
                 exhibit={exhibit}
                 position={position}
                 displayIndex={projectStart + slot + 1}
-                selected={selectedExhibit === exhibit.id || selectedExhibit === `${PROJECT_WALL_PREFIX}${exhibit.id}`}
+                selected={selectedExhibit === exhibit.id}
                 interactive={activeRoom === "room-lobby"}
                 onSelect={onSelect}
               />

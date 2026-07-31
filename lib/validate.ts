@@ -15,6 +15,9 @@ export function validateProfile(profile: ParsedProfile) {
   if (profile.summary !== "Profile summary unavailable" && !profile.identityEvidence.summary?.length) {
     errors.push("profile summary needs source evidence");
   }
+  if (profile.personalWebsite && !profile.personalWebsiteEvidence?.length) {
+    errors.push("personal website needs source evidence");
+  }
   if (!profile.items.length) errors.push("at least one profile item is required");
   if (profile.items.some((item) => !item.evidence.length)) errors.push("every profile item needs evidence");
   for (const item of profile.items) {
@@ -42,6 +45,12 @@ export function validateWorld(world: WorldPlan) {
     errors.push("display surface ids must be unique");
   }
   const aggregatedSourceIds = world.displaySurfaces.flatMap((surface) => surface.sourceItemIds);
+  const projectSourceIds = new Set(world.exhibits
+    .filter((exhibit) => exhibit.eyebrow === "PROJECT")
+    .map((exhibit) => exhibit.sourceItemId));
+  if (aggregatedSourceIds.some((sourceId) => projectSourceIds.has(sourceId))) {
+    errors.push("project source items must use one pedestal display only");
+  }
   const expectedAggregatedSourceIds = world.exhibits
     .filter((exhibit) => exhibit.eyebrow !== "PROJECT")
     .map((exhibit) => exhibit.sourceItemId);

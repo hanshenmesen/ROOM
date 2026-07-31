@@ -1,5 +1,5 @@
 import vinext from "vinext";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
@@ -11,9 +11,19 @@ const { d1, r2 } = hostingConfig;
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
-const localBindingConfig = {
+function createLocalBindingConfig(env: Record<string, string | undefined>) {
+  return {
   main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
+  compatibility_flags: ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  vars: {
+    ...(env.WEBSITE_AGENT_API_KEY ? { WEBSITE_AGENT_API_KEY: env.WEBSITE_AGENT_API_KEY } : {}),
+    ...(env.WEBSITE_AGENT_BASE_URL ? { WEBSITE_AGENT_BASE_URL: env.WEBSITE_AGENT_BASE_URL } : {}),
+    ...(env.WEBSITE_AGENT_MODEL ? { WEBSITE_AGENT_MODEL: env.WEBSITE_AGENT_MODEL } : {}),
+    ...(env.MAAS_API_KEY ? { MAAS_API_KEY: env.MAAS_API_KEY } : {}),
+    ...(env.MAAS_API_KEY_FALLBACK ? { MAAS_API_KEY_FALLBACK: env.MAAS_API_KEY_FALLBACK } : {}),
+    ...(env.MAAS_BASE_URL ? { MAAS_BASE_URL: env.MAAS_BASE_URL } : {}),
+    ...(env.MAAS_MODEL ? { MAAS_MODEL: env.MAAS_MODEL } : {}),
+  },
   d1_databases: d1
     ? [
         {
@@ -31,9 +41,10 @@ const localBindingConfig = {
         },
       ]
     : [],
-};
+  };
+}
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command, mode }) => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= "false";
@@ -42,6 +53,8 @@ export default defineConfig(async () => {
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
+  const localEnvironment = { ...loadEnv(mode, process.cwd(), ""), ...process.env };
+  const runtimeEnvironment = command === "serve" ? localEnvironment : {};
 
   return {
     server: isCodexSeatbeltSandbox
@@ -52,7 +65,7 @@ export default defineConfig(async () => {
       sites(),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
-        config: localBindingConfig,
+        config: createLocalBindingConfig(runtimeEnvironment),
       }),
     ],
   };

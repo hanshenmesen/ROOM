@@ -11,12 +11,27 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`, keep the included Chinese sample résumé or paste your own, then run the four-agent pipeline.
+Configure the server-side Profile Agent in an ignored `.env.local` file:
+
+```dotenv
+WEBSITE_AGENT_API_KEY=your-independent-website-agent-key
+WEBSITE_AGENT_BASE_URL=https://your-provider.example/v1
+WEBSITE_AGENT_MODEL=claude-sonnet-5
+MAAS_API_KEY=your-primary-key
+MAAS_API_KEY_FALLBACK=your-secondary-key
+MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
+MAAS_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
+```
+
+Local secrets are loaded only by the development server. Production builds expect the same names as deployment-platform secrets and do not embed `.env.local` values.
+
+Open `http://localhost:3000` at the public entrance. Choose the precompiled Han Chen demo to enter its world immediately without reparsing, or import another résumé or public portfolio.
 
 The demo supports:
 
-- Pasted résumé text and `.txt`, `.md`, or `.html` uploads.
-- Extraction of public HTML pages through a guarded server route.
+- Pasted résumé text plus PDF, image, and common text/web data uploads.
+- Hybrid PDF parsing: a fast page-aware text/link evidence pass plus Claude document vision and semantic extraction.
+- Guarded public-page extraction and automatic personal-website enrichment when the résumé names a homepage. The website Agent starts as soon as the identity shard finds that homepage and runs concurrently with the remaining résumé extraction.
 - Five connected rooms rendered with React Three Fiber.
 - Clickable exhibits with line-level source evidence.
 - Deterministic checks for omissions, overlap, dead click targets, room connectivity, and mobile budgets.
@@ -46,14 +61,13 @@ Implemented first world:
 
 ## Core principle
 
-Agents do not generate arbitrary Three.js applications. Agents produce validated structured data. A deterministic runtime compiles that data into a stable, testable 3D world.
+Agents read and understand the original résumé and personal website rather than relying on a fixed field extractor. Their evidence-backed result is normalized only at the boundary so a deterministic runtime can compile it into a stable, testable 3D world.
 
 ```text
-Portfolio URL / résumé
-        ↓
-Parser Agent
-        ↓
-Structured profile.json
+Résumé / PDF ──→ page evidence + identity Agent ──→ personal homepage ──→ website Agent
+      └────────→ page evidence + inventory Agent ───────────────────────────────┘
+                                           ↓ concurrent join
+                                  evidence-backed profile.json
         ↓
 Creative Director + World Orchestrator
         ↓

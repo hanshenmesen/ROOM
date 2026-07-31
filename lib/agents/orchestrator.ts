@@ -54,6 +54,19 @@ function projectPosition(center: Vec3, index: number): Vec3 {
   ];
 }
 
+function overflowSafeNonProjectPosition(center: Vec3, index: number, count: number): Vec3 {
+  const columns = Math.min(8, Math.max(2, count));
+  const row = Math.floor(index / columns);
+  const column = index % columns;
+  const itemsInRow = Math.min(columns, count - row * columns);
+  const zOffsets = [-12, 0, 7.5, 11.2, 14.2];
+  return [
+    center[0] + (column - (itemsInRow - 1) / 2) * 2.25,
+    0.72,
+    center[2] + (zOffsets[row] ?? 14.2 + (row - 4) * 2.4),
+  ];
+}
+
 function exhibitKind(kind: string): ExhibitPlan["kind"] {
   if (kind === "project") return "pedestal";
   if (kind === "experience" || kind === "education") return "timeline";
@@ -126,7 +139,7 @@ function layoutDisplaySurfaces(drafts: SurfaceDraft[]): DisplaySurfacePlan[] {
 }
 
 export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): WorldPlan {
-  const drafts = [
+  const draftedExhibits = [
     ...profile.items.map((item) => ({
       sourceItemId: item.id,
       roomId: "room-lobby",
@@ -156,6 +169,14 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       evidence: profile.skillEvidence[skill] || [],
     })),
   ];
+  const drafts = (() => {
+    const seen = new Set<string>();
+    return draftedExhibits.filter((draft) => {
+      if (seen.has(draft.sourceItemId)) return false;
+      seen.add(draft.sourceItemId);
+      return true;
+    });
+  })();
 
   const nonProjectDrafts = drafts.filter((item) => item.eyebrow !== "PROJECT");
   const projectDrafts = drafts.filter((item) => item.eyebrow === "PROJECT");
@@ -171,7 +192,9 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       ...draft,
       position: draft.eyebrow === "PROJECT"
         ? projectPosition(room.center, projectIndex)
-        : positionFor(room.center, room.size, siblingIndex, siblings.length),
+        : projectDrafts.length > 4
+          ? overflowSafeNonProjectPosition(room.center, siblingIndex, siblings.length)
+          : positionFor(room.center, room.size, siblingIndex, siblings.length),
       size: draft.eyebrow === "PROJECT"
         ? [1.72, 1.72, 1.5]
         : draft.kind === "terminal"
@@ -200,7 +223,6 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
 
   const sourceIdsFor = (...kinds: Array<ParsedProfile["items"][number]["kind"]>) =>
     profile.items.filter((item) => kinds.includes(item.kind)).map((item) => item.id);
-  const projectSourceIds = sourceIdsFor("project");
   const achievementSourceIds = sourceIdsFor("achievement");
   const draftSurface = (surface: SurfaceDraft) => surface;
   const educationSourceIds = sourceIdsFor("education");
@@ -256,18 +278,6 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       variant: "timeline" as const,
       weight: 4,
     })] : []),
-    ...(projectSourceIds.length ? [draftSurface({
-      id: "showroom-works",
-      semanticRole: "works" as const,
-      title: `项目与作品 · ${projectSourceIds.length}`,
-      kicker: "作品索引",
-      accent: "#8d77bf",
-      sourceItemIds: projectSourceIds,
-      presentationMode: projectSourceIds.length > 6 ? "paged" as const : "summary" as const,
-      pageSize: projectSourceIds.length > 6 ? 6 : undefined,
-      variant: "timeline" as const,
-      weight: 5,
-    })] : []),
     ...(profile.skills.length ? [draftSurface({
       id: "showroom-skills",
       semanticRole: "skills" as const,
@@ -278,7 +288,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       presentationMode: profile.skills.length > 10 ? "paged" as const : "summary" as const,
       pageSize: profile.skills.length > 10 ? 10 : undefined,
       variant: "skills" as const,
-      weight: 6,
+      weight: 5,
     })] : []),
     ...(profile.contacts.length ? [draftSurface({
       id: "showroom-contact",
@@ -290,7 +300,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       presentationMode: profile.contacts.length > 5 ? "paged" as const : "summary" as const,
       pageSize: profile.contacts.length > 5 ? 5 : undefined,
       variant: "timeline" as const,
-      weight: 7,
+      weight: 6,
     })] : []),
   ].sort((a, b) => a.weight - b.weight);
   const displaySurfaces = layoutDisplaySurfaces(surfaceDrafts);
