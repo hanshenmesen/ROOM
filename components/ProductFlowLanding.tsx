@@ -26,14 +26,14 @@ export function ProductFlowLanding({ onEnter }: { onEnter: () => void }) {
     <main className={`flow-landing ${leaving ? "is-leaving" : ""}`}>
       <header className="flow-header">
         <img className="flow-logo" src={`${ASSET_ROOT}/room-logo.png`} alt="ROOM" />
-        <h1 id="flow-title">你的简历 <span aria-hidden="true">→</span> 你的房子</h1>
+        <h1 id="flow-title">把你的经历，变成你的世界。</h1>
       </header>
 
       <section className="flow-layout" aria-labelledby="flow-title">
         <article className="flow-step flow-step-source">
           <header className="flow-step-heading">
             <span>01</span>
-            <div><small>INPUT</small><h2>投入一份简历</h2></div>
+            <div><small>INPUT</small><h2>一份真实经历</h2></div>
           </header>
 
           <div className="flow-source-visual">
@@ -58,21 +58,23 @@ export function ProductFlowLanding({ onEnter }: { onEnter: () => void }) {
         <article className="flow-step flow-step-agents">
           <header className="flow-step-heading">
             <span>02</span>
-            <div><small>PROCESS</small><h2>四个 Agent 编排</h2></div>
+            <div><small>PROCESS</small><h2>Agent 理解与编排</h2></div>
           </header>
 
-          <div className="flow-agent-stack">
-            {AGENT_STEPS.map((agent, index) => (
-              <div className={`flow-agent flow-agent-${agent.tone}`} style={{ "--agent-index": index } as React.CSSProperties} key={agent.name}>
-                <div><strong>{agent.name}</strong><span>{agent.detail}</span></div>
-                <img src={`${ASSET_ROOT}/${agent.icon}`} alt="" />
-              </div>
-            ))}
-          </div>
+          <div className="flow-agent-visual">
+            <div className="flow-agent-stack">
+              {AGENT_STEPS.map((agent, index) => (
+                <div className={`flow-agent flow-agent-${agent.tone}`} style={{ "--agent-index": index } as React.CSSProperties} key={agent.name}>
+                  <div><strong>{agent.name}</strong><span>{agent.detail}</span></div>
+                  <img src={`${ASSET_ROOT}/${agent.icon}`} alt="" />
+                </div>
+              ))}
+            </div>
 
-          <div className="flow-world-file">
-            <img src={`${ASSET_ROOT}/world-bolt.png`} alt="" />
-            <div><strong>world.json</strong><code>{"{  {...}  }"}</code></div>
+            <div className="flow-world-file">
+              <img src={`${ASSET_ROOT}/world-bolt.png`} alt="" />
+              <div><strong>world.json</strong><code>{"{  {...}  }"}</code></div>
+            </div>
           </div>
         </article>
 
@@ -81,12 +83,15 @@ export function ProductFlowLanding({ onEnter }: { onEnter: () => void }) {
         <article className="flow-step flow-step-result">
           <header className="flow-step-heading">
             <span>03</span>
-            <div><small>SPACE</small><h2>长成一座个人房子</h2></div>
+            <div><small>WORLD</small><h2>长成一个人的世界</h2></div>
           </header>
 
           <div className="flow-house-visual">
             <span className="flow-house-light" aria-hidden="true" />
             <img className="flow-house" src={`${ASSET_ROOT}/house.png`} alt="由简历内容生成的六个主题空间" />
+            <span className="flow-room-lights" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, index) => <i style={{ "--room-index": index } as React.CSSProperties} key={index} />)}
+            </span>
 
             <div className="flow-visitor">
               <img className="flow-visitor-avatar" src={`${ASSET_ROOT}/visitor.png`} alt="访客像素人物" />

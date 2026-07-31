@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
@@ -631,6 +633,7 @@ export function RoomStudio() {
     if (!result || !selectedDetail?.editableProject || !selectedDetail.sourceItemId) return undefined;
     return result.profile.items.find((item) => item.id === selectedDetail.sourceItemId && item.kind === "project");
   }, [result, selectedDetail]);
+  const selectedMaterialIsPublication = selectedProjectItem?.contentFamily === "publication";
 
   const sourceBrowserProjectItem = useMemo(() => {
     if (!result || !sourceBrowserProjectId) return undefined;
@@ -1189,8 +1192,9 @@ export function RoomStudio() {
   function saveProjectEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!result || !selectedProjectItem) return;
+    const materialName = selectedProjectItem.contentFamily === "publication" ? "论文" : "项目";
     if (!projectEditDraft.title.trim() || !projectEditDraft.summary.trim()) {
-      setProjectEditMessage("项目名称和项目说明都需要填写。 ");
+      setProjectEditMessage(`${materialName}标题和完整说明都需要填写。`);
       return;
     }
     if (projectEditDraft.projectUrl && !safeExternalHref(projectEditDraft.projectUrl)) {
@@ -1203,9 +1207,9 @@ export function RoomStudio() {
     setResult(compileProfile(nextProfile));
     try {
       writeStoredProjectEdits(result.profile.id, nextEdits);
-      setProjectEditMessage("已保存到当前浏览器，3D 项目展岛已同步更新。");
+      setProjectEditMessage(`已保存到当前浏览器，3D ${materialName}素材框已同步生成精简版。`);
     } catch {
-      setProjectEditMessage("3D 项目展岛已更新；浏览器空间不足，本次图片只在当前会话保留。 ");
+      setProjectEditMessage(`3D ${materialName}素材框已更新；浏览器空间不足，本次图片只在当前会话保留。`);
     }
   }
 
@@ -1278,7 +1282,9 @@ export function RoomStudio() {
     return (
       <main className={`intake-page is-${intakeTransition}`}>
         <header className="minimal-header">
-          <Link className="wordmark" href="/" aria-label="ROOM home">ROOM</Link>
+          <Link className="wordmark intake-wordmark" href="/" aria-label="ROOM home">
+            <img src="/assets/blueprint/parts/room-logo.png" alt="ROOM" />
+          </Link>
           <div className="header-tools">
             <button className="intake-back" type="button" onClick={returnToStory}><span aria-hidden="true">←</span> 查看流程</button>
             <button
@@ -1294,19 +1300,23 @@ export function RoomStudio() {
         </header>
 
         <section className="intake-hero">
-          <div className="hero-index" aria-hidden="true">R/01</div>
+          <div className="hero-index" aria-hidden="true">R/02</div>
           <div className="hero-copy">
-            <p className="overline">A portfolio you can walk into.</p>
+            <p className="overline">CREATE / INPUT</p>
             <h1>
-              <span>把你的经历，</span>
-              <span>变成你的世界。</span>
+              <span>从一份经历，</span>
+              <span>开始搭建。</span>
             </h1>
             <p className="intro">
-              给我们你的个人网页或简历。ROOM 会把项目、经历和技能编排成一座可以走进去探索的 3D 博物馆。
+              提交个人网页或简历。ROOM 会沿着上一页的路径，把项目、经历和技能继续编排成一座可以进入的 3D 博物馆。
             </p>
           </div>
 
           <div className="intake-form">
+            <div className="intake-form-heading">
+              <span>01</span>
+              <div><small>SOURCE</small><strong>选择你的资料来源</strong></div>
+            </div>
             <form
               className="url-form"
               onSubmit={(event) => {
@@ -1314,7 +1324,7 @@ export function RoomStudio() {
                 void extractUrl();
               }}
             >
-              <label htmlFor="portfolio-url">个人网页</label>
+              <label htmlFor="portfolio-url"><span>个人网页</span><small>URL</small></label>
               <div className="url-row">
                 <input
                   id="portfolio-url"
@@ -1325,7 +1335,7 @@ export function RoomStudio() {
                   autoComplete="url"
                 />
                 <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成博物馆">
-                  <span>生成</span><span aria-hidden="true">→</span>
+                  <span>继续</span><span aria-hidden="true">→</span>
                 </button>
               </div>
             </form>
@@ -1343,7 +1353,7 @@ export function RoomStudio() {
               disabled={loading}
             >
               <span className="upload-icon" aria-hidden="true">↑</span>
-              <span className="upload-title">上传你的 CV</span>
+              <span className="upload-title">上传简历或作品资料</span>
               <span className="upload-note">拖到这里，或点击选择 · PDF / 图片 / 常见文本格式</span>
             </button>
             <input
@@ -1589,25 +1599,25 @@ export function RoomStudio() {
               {selectedDetail.editableProject && selectedProjectItem ? (
                 <form className="project-editor" onSubmit={saveProjectEdit}>
                   <div className="project-editor-heading">
-                    <strong>EDIT THIS EXHIBIT</strong>
-                    <span>本地覆盖 · 保留原始证据</span>
+                    <strong>{selectedMaterialIsPublication ? "EDIT PAPER MATERIAL" : "EDIT THIS MATERIAL"}</strong>
+                    <span>展框自动精简 · 原始证据保留</span>
                   </div>
-                  <label htmlFor="project-edit-title">项目名称</label>
+                  <label htmlFor="project-edit-title">{selectedMaterialIsPublication ? "论文完整标题" : "项目名称"}</label>
                   <input
                     id="project-edit-title"
                     value={projectEditDraft.title}
                     onChange={(event) => setProjectEditDraft((current) => ({ ...current, title: event.target.value }))}
-                    maxLength={120}
+                    maxLength={selectedMaterialIsPublication ? 300 : 120}
                   />
-                  <label htmlFor="project-edit-summary">项目说明</label>
+                  <label htmlFor="project-edit-summary">{selectedMaterialIsPublication ? "论文完整说明" : "项目完整说明"}</label>
                   <textarea
                     id="project-edit-summary"
                     value={projectEditDraft.summary}
                     onChange={(event) => setProjectEditDraft((current) => ({ ...current, summary: event.target.value }))}
-                    maxLength={900}
+                    maxLength={selectedMaterialIsPublication ? 4000 : 900}
                     rows={5}
                   />
-                  <label htmlFor="project-edit-source">源文件 / 项目链接</label>
+                  <label htmlFor="project-edit-source">{selectedMaterialIsPublication ? "论文 / 来源链接" : "源文件 / 项目链接"}</label>
                   <input
                     id="project-edit-source"
                     type="url"
@@ -1616,15 +1626,15 @@ export function RoomStudio() {
                     placeholder="https://github.com/you/project"
                   />
                   <div className="project-cover-upload">
-                    <label htmlFor="project-edit-image">项目展岛封面</label>
+                    <label htmlFor="project-edit-image">素材框封面</label>
                     <input ref={projectImageInput} id="project-edit-image" type="file" accept="image/*" onChange={(event) => void readProjectImage(event)} />
-                    <span>自动缩放为适合 3D 屏幕的尺寸</span>
+                    <span>原始插图保持不变，仅文字展签自动精简</span>
                   </div>
                   {projectEditDraft.imageUrl ? (
                     <Image className="project-cover-preview" src={projectEditDraft.imageUrl} alt="项目展岛封面预览" width={320} height={190} unoptimized />
                   ) : null}
                   <div className="project-edit-message" aria-live="polite">{projectEditMessage}</div>
-                  <button type="submit">保存并更新项目展岛</button>
+                  <button type="submit">保存并更新素材框</button>
                 </form>
               ) : null}
               {selectedDetail.editableProject ? (

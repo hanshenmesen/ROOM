@@ -21,6 +21,7 @@ import {
   planCreativeSubjects,
   type CreativeSubject,
 } from "@/lib/agents/creative-subjects";
+import { materialFrameCopy } from "@/lib/exhibit-presentation";
 import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
 import {
   PortfolioEnvironment,
@@ -1493,7 +1494,7 @@ function LoadedProjectTextureFaces({ url }: { url: string }) {
 
 function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; index: number; selected: boolean }) {
   const artwork = useRef<THREE.Group>(null);
-  const fallbackLabel = exhibit.imageUrl ? "SOURCED IMAGE LOADING" : "SYSTEM PLACEHOLDER";
+  const frameCopy = useMemo(() => materialFrameCopy(exhibit, index + 1), [exhibit, index]);
   useFrame((state, delta) => {
     if (!artwork.current) return;
     const baseYaw = index % 2 === 0 ? 0.05 : -0.05;
@@ -1510,23 +1511,27 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
     const context = canvas.getContext("2d")!;
     context.fillStyle = "#f4eadb";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    drawProjectArtwork(context, exhibit.title, accent);
+    drawProjectArtwork(context, frameCopy.title, accent);
     context.fillStyle = accent;
     context.fillRect(0, 348, canvas.width, 16);
     context.fillStyle = "#6e5c51";
     context.font = "700 25px Arial";
-    context.fillText(`${fallbackLabel} ${String(index + 1).padStart(2, "0")}`, 48, 416, 920);
+    context.fillText(frameCopy.marker, 48, 416, 920);
     context.fillStyle = INK;
     context.font = "700 54px Arial";
-    const titleBottom = drawWrappedText(context, exhibit.title, 48, 486, 920, 60, 2);
+    const titleBottom = drawWrappedText(context, frameCopy.title, 48, 486, 920, 60, 2);
+    const metaY = titleBottom + 38;
+    context.fillStyle = accent;
+    context.font = "700 24px Arial";
+    context.fillText(frameCopy.meta, 48, metaY, 920);
     context.fillStyle = "#514640";
-    context.font = "27px Arial";
-    drawWrappedText(context, exhibit.body, 48, titleBottom + 42, 920, 36, 3);
+    context.font = "26px Arial";
+    drawWrappedText(context, frameCopy.takeaway, 48, metaY + 40, 920, 34, 2);
     const result = new THREE.CanvasTexture(canvas);
     result.colorSpace = THREE.SRGBColorSpace;
     result.anisotropy = 4;
     return result;
-  }, [accent, exhibit.body, exhibit.title, fallbackLabel, index]);
+  }, [accent, frameCopy]);
 
   useEffect(() => () => texture.dispose(), [texture]);
   const placeholderFaces = <ProjectTextureFaces texture={texture} />;
@@ -1553,6 +1558,7 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
 function ProjectPedestal({ exhibit, position, displayIndex, selected, interactive, onSelect }: { exhibit: ExhibitPlan; position: Vec3; displayIndex: number; selected: boolean; interactive: boolean; onSelect: (id: string) => void }) {
   const [hovered, setHovered] = useState(false);
   const group = useRef<THREE.Group>(null);
+  const frameCopy = useMemo(() => materialFrameCopy(exhibit, displayIndex), [displayIndex, exhibit]);
   useFrame(() => {
     if (!group.current) return;
     const targetScale = selected ? 1.055 : hovered ? 1.035 : 1;
@@ -1581,8 +1587,8 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
       </mesh>
       <ProjectImageCard exhibit={exhibit} index={displayIndex - 1} selected={selected} />
       <TextPanel
-        title={`PROJECT ${String(displayIndex).padStart(2, "0")}`}
-        subtitle={exhibit.title}
+        title={frameCopy.marker}
+        subtitle={frameCopy.title}
         position={[0, 0.43, 0.74]}
         width={1.12}
         height={0.26}

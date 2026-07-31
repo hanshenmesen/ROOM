@@ -17,9 +17,9 @@ test("server-renders ROOM product shell and metadata", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>ROOM — 把你的经历变成你的世界<\/title>/i);
-  assert.match(html, /你的简历/);
-  assert.match(html, /你的房子/);
-  assert.match(html, /四个 Agent 编排/);
+  assert.match(html, /把你的经历，变成你的世界/);
+  assert.match(html, /Agent 理解与编排/);
+  assert.match(html, /长成一个人的世界/);
   assert.match(html, /class="flow-step flow-step-source"/);
   assert.match(html, /class="flow-step flow-step-result"/);
   assert.match(html, /开始创建/);

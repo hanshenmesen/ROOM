@@ -30,6 +30,23 @@ test("the landing is rebuilt from independently positioned PPT artwork", () => {
   assert.match(landingStyles, /\.flow-layout\s*\{[^}]*display: grid;[^}]*grid-template-columns:/);
 });
 
+test("the landing uses the editorial world headline and stays overflow-free", () => {
+  assert.match(landingSource, /把你的经历，变成你的世界。/);
+  assert.match(landingStyles, /@media \(max-width: 760px\)/);
+  assert.match(landingStyles, /\.flow-layout\s*\{[^}]*grid-template-columns: minmax\(0, \.84fr\)/);
+});
+
+test("the three stages share a frame and normalize artwork around the web notebook", () => {
+  assert.match(landingStyles, /\.flow-step\s*\{[^}]*height: var\(--stage-height\);[^}]*grid-template-rows: 58px minmax\(0, 1fr\);/);
+  assert.match(landingStyles, /\.flow-source-visual\s*\{[^}]*--web-height:/);
+  assert.match(landingStyles, /\.flow-owner img\s*\{[^}]*height: calc\(var\(--web-height\) \* \.91\)/);
+  assert.match(landingStyles, /\.flow-pdf-card\s*\{[^}]*width: calc\(var\(--web-height\) \* \.781\)/);
+  assert.match(landingStyles, /\.flow-pdf-card\s*\{[^}]*height: calc\(var\(--web-height\) \* 1\.186\)/);
+  assert.match(landingSource, /className="flow-room-lights"/);
+  assert.match(landingStyles, /@keyframes flow-route-pulse/);
+  assert.match(landingStyles, /@keyframes flow-agent-scan/);
+});
+
 test("the creation action stays at the lower-right and the intake can animate back", () => {
   assert.match(landingSource, /className="flow-enter"/);
   assert.match(landingSource, /setLeaving\(true\)/);
@@ -40,4 +57,15 @@ test("the creation action stays at the lower-right and the intake can animate ba
   assert.match(studioSource, /function returnToStory\(\)/);
   assert.match(landingStyles, /@keyframes intake-enter/);
   assert.match(landingStyles, /@keyframes intake-leave/);
+});
+
+test("the landing and intake share one editorial visual system", () => {
+  assert.match(studioSource, /intake-wordmark/);
+  assert.match(studioSource, /room-logo\.png/);
+  assert.match(studioSource, /从一份经历，/);
+  assert.match(studioSource, /className="intake-form-heading"/);
+  assert.match(landingStyles, /\.intake-page\s*\{[^}]*--intake-ink: #17202a;[^}]*padding: 0 clamp\(22px, 4vw, 72px\);/);
+  assert.match(landingStyles, /\.hero-copy\s*\{[^}]*align-self: start;[^}]*border-top: 1px solid var\(--intake-rule\);/);
+  assert.match(landingStyles, /\.intake-form\s*\{[^}]*align-self: start;[^}]*border-top: 1px solid rgba\(82, 127, 174, \.46\);/);
+  assert.match(landingStyles, /\.demo-panel > button\s*\{[^}]*border-radius: 999px;[^}]*background: #1c3348;/);
 });
