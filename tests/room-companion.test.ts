@@ -48,6 +48,9 @@ test("room companion patrol points stay on the lobby floor and away from blocked
   assert.match(companionSource, /currentIndex\.current - 1 \+ count/);
   assert.match(companionSource, /companionMovementBlocked/);
   assert.match(companionSource, /collisionRaycaster/);
+  assert.match(companionSource, /object instanceof THREE\.Mesh/);
+  assert.match(companionSource, /intersectObjects\(collisionMeshes, false\)/);
+  assert.doesNotMatch(companionSource, /intersectObjects\(scene\.children, true\)/);
   assert.match(companionSource, /chooseNextWaypoint\(blockedTarget\)/);
 });
 

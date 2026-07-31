@@ -49,6 +49,16 @@ function belongsToCompanion(object: THREE.Object3D | null) {
   return false;
 }
 
+function visibleCompanionCollisionMesh(object: THREE.Object3D): object is THREE.Mesh {
+  if (!(object instanceof THREE.Mesh) || belongsToCompanion(object) || object.userData.ignoreCameraCollision) {
+    return false;
+  }
+  const materials = Array.isArray(object.material) ? object.material : [object.material];
+  return materials.some((material) => (
+    material.visible && (!material.transparent || material.opacity >= 0.05)
+  ));
+}
+
 function companionMovementBlocked(
   scene: THREE.Scene,
   position: THREE.Vector3,
@@ -61,13 +71,19 @@ function companionMovementBlocked(
   const side = new THREE.Vector3(-forward.z, 0, forward.x);
   const origin = position.clone();
   origin.y = MARDOU_COMPANION_SAFE_ZONE.floorY + 0.28;
+  const collisionMeshes: THREE.Mesh[] = [];
+  scene.traverseVisible((object) => {
+    if (visibleCompanionCollisionMesh(object)) collisionMeshes.push(object);
+  });
+  if (!collisionMeshes.length) return false;
   return [-COMPANION_COLLISION_RADIUS, 0, COMPANION_COLLISION_RADIUS].some((offset) => {
     raycaster.set(origin.clone().addScaledVector(side, offset), forward);
     raycaster.near = 0.01;
     raycaster.far = distance + COMPANION_COLLISION_RADIUS;
-    return raycaster.intersectObjects(scene.children, true).some((hit) => (
-      hit.object.visible && !belongsToCompanion(hit.object)
-    ));
+    // Intersect concrete meshes only. Recursive scene raycasting also invokes
+    // Sprite.raycast, which expects raycaster.camera to be set and crashes
+    // during companion movement with `camera.matrixWorld` on a null camera.
+    return raycaster.intersectObjects(collisionMeshes, false).length > 0;
   });
 }
 
