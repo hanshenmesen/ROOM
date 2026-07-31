@@ -47,6 +47,11 @@ test("provided source points map to the authored profile, trophy, education, pro
   assert.equal(MARDOU_ACHIEVEMENT_PLACEMENT.focus.target[1], 1.12);
   assert.equal(MARDOU_ACHIEVEMENT_PLACEMENT.focus.fov, 52);
   assert.deepEqual(rounded(MARDOU_EDUCATION_PLACEMENT.position), rounded(MARDOU_PRIVATE_SURFACE_PLACEMENTS[0].position));
+  const originalEducationYaw = Math.atan2(
+    -1.45 - MARDOU_EDUCATION_PLACEMENT.position[0],
+    -19.55 - MARDOU_EDUCATION_PLACEMENT.position[2],
+  );
+  assert.ok(Math.abs(MARDOU_EDUCATION_PLACEMENT.rotation[1] - (originalEducationYaw + Math.PI)) < 1e-9);
   assert.match(worldSource, /surface\.semanticRole === "achievement"\) return MARDOU_ACHIEVEMENT_PLACEMENT/);
   assert.match(worldSource, /name="achievement-trophy"/);
   const achievementGeometry = worldSource.slice(
@@ -200,5 +205,8 @@ test("the supplied pet bed is floor-aligned beside the pillar at point 54", () =
 
 test("project screens use a higher reading angle on all three islands", () => {
   assert.match(worldSource, /const PROJECT_CARD_TILT = -0\.82/);
+  assert.match(worldSource, /const PROJECT_CARD_HEIGHT = 1\.08/);
+  assert.match(worldSource, /position=\{\[0, PROJECT_CARD_HEIGHT, 0\]\}/);
+  assert.match(worldSource, /artwork\.current\.position\.y = PROJECT_CARD_HEIGHT/);
   assert.match(worldSource, /rotation=\{\[PROJECT_CARD_TILT, 0, 0\]\}/);
 });

@@ -31,6 +31,12 @@ test("controller uses a real bundled music track, visibility pause, and a persis
   assert.match(controllerSource, /Math\.max\(0, Math\.min\(1,/);
   assert.match(controllerSource, /audio\.volume = clampMediaVolume/);
   assert.match(controllerSource, /aria-pressed/);
+  assert.match(controllerSource, /else if \(!muted\) void start\(\)/);
+  assert.match(controllerSource, /function togglePlayback\(\)/);
+  assert.match(controllerSource, /const nextMuted = !muted && started/);
+  assert.match(controllerSource, /if \(!nextMuted\) void start\(\)/);
+  assert.match(controllerSource, /"已关闭音乐" : "已开启音乐"/);
+  assert.doesNotMatch(controllerSource, /started \? DEFAULT_MUSIC_BOX_TRACK\.title/);
 });
 
 test("the local gramophone yields to and restores the ambient controller", () => {

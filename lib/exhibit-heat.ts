@@ -1,4 +1,5 @@
 import type { WorldPlan } from "./types";
+import { displayStandTitle } from "./display-copy.ts";
 
 export const EXHIBIT_HEAT_STORAGE_PREFIX = "room:exhibit-heat:v1:";
 
@@ -44,7 +45,7 @@ export function publicHeatTargets(world: WorldPlan, projectsPerPage = 3): Exhibi
     .filter((surface) => surface.roomId === "room-lobby" && surface.interaction.clickable)
     .map((surface) => ({
       id: surface.id,
-      label: surface.title || surface.kicker || surface.semanticRole || "个人资料",
+      label: displayStandTitle(surface.title || surface.kicker || surface.semanticRole || "个人资料"),
       eyebrow: surface.semanticRole?.toUpperCase() || "SHOWROOM",
       kind: "information-stand" as const,
     }));

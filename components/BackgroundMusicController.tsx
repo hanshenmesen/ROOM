@@ -86,17 +86,17 @@ export const BackgroundMusicController = forwardRef<BackgroundMusicControllerHan
     }, []);
 
     const start = useCallback(async () => {
-      if (failed) return;
       try {
         const audio = ensureSharedAudio();
         audioRef.current = audio;
         if (audio.paused) await audio.play();
+        setFailed(false);
         setStarted(true);
         fadeTo(targetVolume());
       } catch {
         setFailed(true);
       }
-    }, [failed, fadeTo, targetVolume]);
+    }, [fadeTo, targetVolume]);
 
     const stop = useCallback(() => {
       const audio = audioRef.current || sharedAudio;
@@ -117,8 +117,8 @@ export const BackgroundMusicController = forwardRef<BackgroundMusicControllerHan
 
     useEffect(() => {
       if (!enabled) fadeTo(0);
-      else if (started) fadeTo(targetVolume());
-    }, [enabled, fadeTo, started, targetVolume]);
+      else if (!muted) void start();
+    }, [enabled, fadeTo, muted, start]);
 
     useEffect(() => {
       function handleVisibility() {
@@ -138,8 +138,8 @@ export const BackgroundMusicController = forwardRef<BackgroundMusicControllerHan
       };
     }, [enabled, muted, start, started, stop]);
 
-    function toggleMuted() {
-      const nextMuted = !muted;
+    function togglePlayback() {
+      const nextMuted = !muted && started;
       setPreference({ muted: nextMuted, volume });
       writePreference(nextMuted, volume);
       if (!nextMuted) void start();
@@ -148,9 +148,9 @@ export const BackgroundMusicController = forwardRef<BackgroundMusicControllerHan
 
     return visible ? (
       <div className="background-music-control" aria-label="背景音乐控制">
-        <button type="button" onClick={toggleMuted} aria-pressed={!muted && started}>
+        <button type="button" onClick={togglePlayback} aria-pressed={!muted && started}>
           <span aria-hidden="true">{muted || !started ? "♪" : "♫"}</span>
-          {muted ? "音乐关闭" : started ? DEFAULT_MUSIC_BOX_TRACK.title : failed ? "音乐不可用" : "开启音乐"}
+          {failed ? "音乐不可用" : muted || !started ? "已关闭音乐" : "已开启音乐"}
         </button>
       </div>
     ) : null;

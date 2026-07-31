@@ -5,6 +5,7 @@ import { MARDOU_STAIR_CLICK_TARGETS } from "../components/MardouMuseumLayout.ts"
 
 const sceneSource = await readFile(new URL("../components/MardouMuseumScene.tsx", import.meta.url), "utf8");
 const worldSource = await readFile(new URL("../components/WorldCanvas.tsx", import.meta.url), "utf8");
+const studioSource = await readFile(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
 
 test("stair targets follow every real tread and the intermediate landing", () => {
   assert.equal(MARDOU_STAIR_CLICK_TARGETS.length, 21);
@@ -32,6 +33,19 @@ test("stairs expose one translucent floor-aware navigation sign", () => {
   assert.match(worldSource, /stairNavigationSign: true/);
   assert.match(worldSource, /rgba\(11, 18, 23, \.58\)/);
   assert.match(worldSource, /onRoomChange\(activeRoom === "room-private" \? "room-lobby" : "room-private"\)/);
+});
+
+test("floor navigation stays hidden until the camera is close to the stairs", () => {
+  assert.match(worldSource, /const LOBBY_STAIR_PROXIMITY_RADIUS = 3\.15/);
+  assert.match(worldSource, /const PRIVATE_STAIR_PROXIMITY_RADIUS = 3\.65/);
+  assert.match(worldSource, /function StairProximityReporter/);
+  assert.match(worldSource, /camera\.position\.distanceTo\(proximityPoint\) <= proximityRadius/);
+  assert.match(worldSource, /\{nearby \? <sprite/);
+  assert.match(worldSource, /nearby=\{stairNearby\}/);
+  assert.match(studioSource, /const \[stairNavigationNearby, setStairNavigationNearby\] = useState\(false\)/);
+  assert.match(studioSource, /onStairProximityChange=\{setStairNavigationNearby\}/);
+  assert.match(studioSource, /activeRoom === "room-lobby" && stairNavigationNearby && !cameraTransitioning/);
+  assert.match(studioSource, /\) : stairNavigationNearby && !cameraTransitioning \? \(/);
 });
 
 test("museum background no longer promotes a broad coordinate region to stairs", () => {

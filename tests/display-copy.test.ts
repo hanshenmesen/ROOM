@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { compileProfile } from "../lib/agents/pipeline.ts";
-import { normalizeDisplayProfile, sanitizeDisplayText } from "../lib/display-copy.ts";
+import { displayStandTitle, normalizeDisplayProfile, sanitizeDisplayText } from "../lib/display-copy.ts";
 import type { ParsedProfile, SourceEvidence } from "../lib/types.ts";
 
 function evidence(locator: string, excerpt: string): SourceEvidence {
@@ -62,6 +62,13 @@ test("sanitizeDisplayText removes trailing source and locator noise only from di
   assert.equal(sanitizeDisplayText("Three.js - lines:9-10 evidence"), "Three.js");
   assert.equal(sanitizeDisplayText("Email: ada@example.com source: portfolio line:8"), "Email: ada@example.com");
   assert.equal(sanitizeDisplayText("A source-aware retrieval system"), "A source-aware retrieval system");
+});
+
+test("display stand titles omit aggregate counts without altering numbered names", () => {
+  assert.equal(displayStandTitle("教育背景 · 2"), "教育背景");
+  assert.equal(displayStandTitle("技能工具 • 12"), "技能工具");
+  assert.equal(displayStandTitle("Project 2"), "Project 2");
+  assert.equal(displayStandTitle("Museum 2025"), "Museum 2025");
 });
 
 test("normalizeDisplayProfile cleans presentation fields and remaps evidence map keys", () => {

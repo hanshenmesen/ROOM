@@ -25,6 +25,14 @@ export function sanitizeDisplayText(value: string): string {
   return current || compactDisplayWhitespace(value);
 }
 
+// Older compiled worlds stored aggregate counts in their stand titles, for
+// example "教育背景 · 2". Counts belong in the detail/pagination UI, not in
+// the authored title. Require the separator so legitimate names such as
+// "Project 2" or "ROOM 3" remain untouched.
+export function displayStandTitle(value: string): string {
+  return sanitizeDisplayText(value).replace(/\s*[·•]\s*\d+\s*$/, "").trim();
+}
+
 function cleanOptional(value: string | undefined) {
   return value === undefined ? undefined : sanitizeDisplayText(value);
 }

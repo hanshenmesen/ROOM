@@ -64,7 +64,7 @@ import {
   MUSIC_BOX_TRACKS,
   musicBoxTrack,
 } from "@/lib/background-music";
-import { sanitizeDisplayText } from "@/lib/display-copy";
+import { displayStandTitle, sanitizeDisplayText } from "@/lib/display-copy";
 import { ROOM_COMPANION_NAME } from "@/lib/room-companion";
 import type { ContentFamily, ParsedProfile, PipelineResult, ProfileItem } from "@/lib/types";
 import {
@@ -91,6 +91,8 @@ const VISITOR_PRIVATE_PASSWORD = "visit2026";
 const GUESTBOOK_STORAGE_KEY = "room:guestbook:v1";
 const SOURCE_BROWSER_ID = "showroom-source-browser";
 const GRAMOPHONE_ID = "showroom-gramophone";
+const HOBBIES_ID = "showroom-hobbies";
+const SNACKS_ID = "showroom-snacks";
 const PRIVATE_FRAME_STORAGE_KEY = "room:mardou-private-frame-images:v2";
 const PRIVATE_FRAME_SLOTS = [
   "private-frame-1",
@@ -538,6 +540,7 @@ export function RoomStudio() {
   const [dragging, setDragging] = useState(false);
   const [activeRoom, setActiveRoom] = useState("room-lobby");
   const [cameraTransitioning, setCameraTransitioning] = useState(false);
+  const [stairNavigationNearby, setStairNavigationNearby] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [focusPhase, setFocusPhase] = useState<ExhibitFocusPhase>("idle");
   const [privateGateOpen, setPrivateGateOpen] = useState(false);
@@ -616,10 +619,48 @@ export function RoomStudio() {
     () => exhibitHeat ? heatItems(heatTargets, exhibitHeat) : [],
     [exhibitHeat, heatTargets],
   );
-  const focusableExhibitIds = useMemo(() => heatTargets.map((target) => target.id), [heatTargets]);
+  const focusableExhibitIds = useMemo(
+    () => {
+      const availableIds = new Set([
+        ...heatTargets.map((target) => target.id),
+        HOBBIES_ID,
+        SNACKS_ID,
+      ]);
+      const projectIds = heatTargets
+        .filter((target) => target.kind === "project-pedestal")
+        .map((target) => target.id);
+      return [
+        "showroom-highlights",
+        "showroom-profile",
+        SNACKS_ID,
+        ...projectIds,
+        "showroom-skills",
+        HOBBIES_ID,
+        "showroom-education",
+        "showroom-works",
+        "showroom-contact",
+        "showroom-experience",
+      ].filter((id) => availableIds.has(id));
+    },
+    [heatTargets],
+  );
   const selectedFocusIndex = focusableExhibitIds.indexOf(selectedId);
   const selectedDetail = useMemo<SelectedDetail | undefined>(() => {
     if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary" || selectedId === GRAMOPHONE_ID) return undefined;
+    if (selectedId === HOBBIES_ID) {
+      return {
+        eyebrow: "HOBBIES",
+        title: "爱好",
+        body: "球类运动\n\n篮球 · 足球 · 网球\n\n在运动里保持活力，也享受与朋友一起比赛和交流的时刻。",
+      };
+    }
+    if (selectedId === SNACKS_ID) {
+      return {
+        eyebrow: "FOOD",
+        title: "食物",
+        body: "新鲜水果 · 果汁与饮料\n\n这里展示水果、饮品等食物，是逛展间隙补充能量的小角落。",
+      };
+    }
     const exhibit = result.world.exhibits.find((item) => item.id === selectedId);
     if (exhibit) {
       return {
@@ -663,7 +704,7 @@ export function RoomStudio() {
         .map((sourceId) => sourceId.slice("skill:".length));
       return {
         eyebrow: eyebrowByRole.skills,
-        title: surface.title || `技能工具 · ${skills.length}`,
+        title: displayStandTitle(surface.title || "技能工具"),
         body: skills.map(sanitizeDisplayText).join("\n"),
         sourceUrl,
       };
@@ -675,7 +716,7 @@ export function RoomStudio() {
         .filter((contact): contact is string => Boolean(contact));
       return {
         eyebrow: eyebrowByRole.contact,
-        title: surface.title || `联系方式 · ${contacts.length}`,
+        title: displayStandTitle(surface.title || "联系方式"),
         body: formatContactLines(contacts),
         sourceUrl,
       };
@@ -687,7 +728,7 @@ export function RoomStudio() {
         : formatJourneyDetail;
     return {
       eyebrow: surface.semanticRole ? eyebrowByRole[surface.semanticRole] : "SHOWROOM",
-      title: surface.title || `${surface.kicker || "展示内容"} · ${surfaceItems.length}`,
+      title: displayStandTitle(surface.title || surface.kicker || "展示内容"),
       body: surfaceItems.length
         ? surfaceItems.map(formatItem).join("\n\n")
         : "原始资料中暂未识别到可展示内容。",
@@ -1244,7 +1285,9 @@ export function RoomStudio() {
     setSelectedId(id);
     const focusable = Boolean(id) && Boolean(
       result?.world.exhibits.some((item) => item.id === id)
-      || result?.world.displaySurfaces.some((item) => item.id === id),
+      || result?.world.displaySurfaces.some((item) => item.id === id)
+      || id === HOBBIES_ID
+      || id === SNACKS_ID,
     );
     setFocusPhase(focusable ? "travelling" : "idle");
     setSourceBrowserProjectId(
@@ -1261,7 +1304,16 @@ export function RoomStudio() {
     if (id === selectedId && focusPhase !== "idle") return;
     const exhibit = result.world.exhibits.find((item) => item.id === id);
     const surface = result.world.displaySurfaces.find((item) => item.id === id);
-    const targetRoom = exhibit?.roomId || surface?.roomId;
+    // The pipeline keeps resume surfaces public, but the Mardou layout mounts
+    // education/experience/works/contact on the upper gallery. Route by the
+    // physical placement so adjacent focus navigation uses the real stairs
+    // instead of drawing a direct camera line through the upper floor.
+    const surfaceRoom = surface
+      ? ["profile", "achievement", "skills"].includes(surface.semanticRole)
+        ? "room-lobby"
+        : PRIVATE_ROOM_ID
+      : undefined;
+    const targetRoom = exhibit?.roomId || surfaceRoom;
     if (targetRoom && targetRoom !== activeRoom) setActiveRoom(targetRoom);
     selectWorldObject(id);
   }
@@ -1729,6 +1781,7 @@ export function RoomStudio() {
           onFocusSettled={handleExhibitFocusSettled}
           onTransitionStateChange={setCameraTransitioning}
           onOpenPetQa={openPetQa}
+          onStairProximityChange={setStairNavigationNearby}
         />
         <audio
           ref={gramophoneAudio}
@@ -1817,21 +1870,29 @@ export function RoomStudio() {
             <span className="journey-primary">点击画面中的入口 · 进入主展厅</span>
           ) : (
             <>
-              <button
-                type="button"
-                disabled={cameraTransitioning}
-                onClick={() => {
-                  leavePrivateRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
-                }}
-              >
-                ← {activeRoom === "room-lobby" ? "回到展馆外" : "返回主展厅"}
-              </button>
+              {activeRoom === "room-lobby" ? (
+                <button
+                  type="button"
+                  disabled={cameraTransitioning}
+                  onClick={() => leavePrivateRoom("exterior")}
+                >
+                  ← 回到展馆外
+                </button>
+              ) : stairNavigationNearby && !cameraTransitioning ? (
+                <button
+                  type="button"
+                  disabled={cameraTransitioning}
+                  onClick={() => leavePrivateRoom("room-lobby")}
+                >
+                  ← 返回主展厅
+                </button>
+              ) : null}
               {activeRoom === PRIVATE_ROOM_ID ? (
                 <button type="button" disabled={cameraTransitioning} onClick={() => { setSelectedId(PRIVATE_FRAME_SLOTS[0]); setPrivateFrameMessage(""); }}>
                   管理二楼自由相框
                 </button>
               ) : null}
-              {activeRoom === "room-lobby" ? (
+              {activeRoom === "room-lobby" && stairNavigationNearby && !cameraTransitioning ? (
                 <button type="button" disabled={cameraTransitioning} onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
                   二层展区 · 直接进入
                 </button>
@@ -2191,12 +2252,12 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "WASD 移动 · Q / E 单击 90°、长按持续旋转 · R 广角后退 · 鼠标靠近边缘持续环视 · 右键锁定/解除视角 · 点击展品或楼梯"
+                : "WASD 移动 · Q / E 单击 45°、长按持续旋转 · R 广角后退 · 鼠标靠近边缘持续环视 · 右键锁定/解除视角 · 点击展品或楼梯"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "WASD 移动 · Q / E 单击 90°、长按持续旋转 · R 广角后退 · 鼠标靠近边缘持续环视 · 右键锁定/解除视角 · 点击桌上的日记本"}
+                : "WASD 移动 · Q / E 单击 45°、长按持续旋转 · R 广角后退 · 鼠标靠近边缘持续环视 · 右键锁定/解除视角 · 点击桌上的日记本"}
         </div>
       </section>
     </main>

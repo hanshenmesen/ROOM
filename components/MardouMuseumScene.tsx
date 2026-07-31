@@ -26,6 +26,21 @@ const AUTO_DOOR_CUTS = [
   { minX: -13.55, maxX: -4.85, minY: -16.35, maxY: -7.8, minZ: -51.48, maxZ: -50.92 },
 ] as const;
 
+// This full-height round pillar sits immediately between the food display and
+// its focus route. It is baked into the shared Walls mesh, so remove only the
+// triangles whose centroids belong to the measured pillar bounds. A centroid
+// test avoids clipping the neighboring balcony and curved wall geometry.
+const FOOD_FOCUS_PILLAR_CUT = {
+  minX: -28.55,
+  maxX: -26.98,
+  minY: -16.35,
+  maxY: 13.6,
+  // Walls geometry is authored under a parent translated by source Z -500,
+  // so the local cut uses the measured world-source bounds plus 500.
+  minZ: -28.25,
+  maxZ: -26.68,
+} as const;
+
 function cutAutoDoorOpening(mesh: THREE.Mesh) {
   const source = mesh.geometry;
   const index = source.getIndex();
@@ -44,13 +59,22 @@ function cutAutoDoorOpening(mesh: THREE.Mesh) {
     const triangleMaxY = Math.max(position.getY(a), position.getY(b), position.getY(c));
     const triangleMinZ = Math.min(position.getZ(a), position.getZ(b), position.getZ(c));
     const triangleMaxZ = Math.max(position.getZ(a), position.getZ(b), position.getZ(c));
+    const triangleCenterX = (position.getX(a) + position.getX(b) + position.getX(c)) / 3;
+    const triangleCenterY = (position.getY(a) + position.getY(b) + position.getY(c)) / 3;
+    const triangleCenterZ = (position.getZ(a) + position.getZ(b) + position.getZ(c)) / 3;
     const intersectsDoorway = AUTO_DOOR_CUTS.some((cut) => triangleMaxX >= cut.minX
       && triangleMinX <= cut.maxX
       && triangleMaxY >= cut.minY
       && triangleMinY <= cut.maxY
       && triangleMaxZ >= cut.minZ
       && triangleMinZ <= cut.maxZ);
-    if (!intersectsDoorway) keptIndices.push(a, b, c);
+    const belongsToFoodFocusPillar = triangleCenterX >= FOOD_FOCUS_PILLAR_CUT.minX
+      && triangleCenterX <= FOOD_FOCUS_PILLAR_CUT.maxX
+      && triangleCenterY >= FOOD_FOCUS_PILLAR_CUT.minY
+      && triangleCenterY <= FOOD_FOCUS_PILLAR_CUT.maxY
+      && triangleCenterZ >= FOOD_FOCUS_PILLAR_CUT.minZ
+      && triangleCenterZ <= FOOD_FOCUS_PILLAR_CUT.maxZ;
+    if (!intersectsDoorway && !belongsToFoodFocusPillar) keptIndices.push(a, b, c);
   }
   geometry.setIndex(keptIndices);
   geometry.computeBoundingBox();

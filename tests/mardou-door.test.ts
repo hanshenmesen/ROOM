@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { MARDOU_AUTO_DOOR, MARDOU_INNER_GALLERY_DOOR, MARDOU_SIDE_ENTRANCE_DOOR } from "../components/MardouMuseumLayout.ts";
+import { MARDOU_AUTO_DOOR, MARDOU_INNER_GALLERY_DOOR, MARDOU_PROJECT_SKILLS_DOOR_ROUTE, MARDOU_SIDE_ENTRANCE_DOOR } from "../components/MardouMuseumLayout.ts";
 
 const sceneSource = readFileSync(new URL("../components/MardouMuseumScene.tsx", import.meta.url), "utf8");
 const worldSource = readFileSync(new URL("../components/WorldCanvas.tsx", import.meta.url), "utf8");
@@ -31,6 +31,18 @@ test("the supplied inner gallery wall point maps to a second automatic door", ()
   assert.deepEqual(MARDOU_INNER_GALLERY_DOOR.normal, [0, 0, 1]);
   assert.deepEqual(MARDOU_INNER_GALLERY_DOOR.rotation, [0, 0, 0]);
   assert.match(sceneSource, /minZ: -51\.48, maxZ: -50\.92/);
+});
+
+test("project three and skills focus navigation crosses the inner door in both directions", () => {
+  assert.equal(MARDOU_PROJECT_SKILLS_DOOR_ROUTE.projectSide[0], MARDOU_INNER_GALLERY_DOOR.position[0]);
+  assert.equal(MARDOU_PROJECT_SKILLS_DOOR_ROUTE.threshold[0], MARDOU_INNER_GALLERY_DOOR.position[0]);
+  assert.equal(MARDOU_PROJECT_SKILLS_DOOR_ROUTE.skillsSide[0], MARDOU_INNER_GALLERY_DOOR.position[0]);
+  assert.ok(MARDOU_PROJECT_SKILLS_DOOR_ROUTE.projectSide[2] > MARDOU_INNER_GALLERY_DOOR.position[2]);
+  assert.equal(MARDOU_PROJECT_SKILLS_DOOR_ROUTE.threshold[2], MARDOU_INNER_GALLERY_DOOR.position[2]);
+  assert.ok(MARDOU_PROJECT_SKILLS_DOOR_ROUTE.skillsSide[2] < MARDOU_INNER_GALLERY_DOOR.position[2]);
+  assert.match(worldSource, /enteringSkillsFromProjectThree \|\| leavingSkillsForProjectThree/);
+  assert.match(worldSource, /enteringSkillsFromProjectThree \? doorwayPoints : doorwayPoints\.reverse\(\)/);
+  assert.match(worldSource, /MARDOU_INNER_GALLERY_DOOR\} interactive=\{activeRoom === "room-lobby"\}/);
 });
 
 test("point 45 maps to a matching automatic side entrance door", () => {

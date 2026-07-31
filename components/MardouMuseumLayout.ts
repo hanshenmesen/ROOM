@@ -152,6 +152,27 @@ export const MARDOU_INNER_GALLERY_DOOR = {
   swingDirection: 1,
 } as const;
 
+// Project 03 and the skills bookcase sit on opposite sides of this wall.
+// Keep the camera centred in the authored opening on both sides so focus
+// navigation enters and leaves through the door instead of cutting the wall.
+export const MARDOU_PROJECT_SKILLS_DOOR_ROUTE = {
+  projectSide: [
+    MARDOU_INNER_GALLERY_DOOR.position[0],
+    MARDOU_GROUND_FLOOR_Y + MARDOU_CAMERA_EYE_HEIGHT,
+    MARDOU_INNER_GALLERY_DOOR.position[2] + 1.35,
+  ] as Vec3,
+  threshold: [
+    MARDOU_INNER_GALLERY_DOOR.position[0],
+    MARDOU_GROUND_FLOOR_Y + MARDOU_CAMERA_EYE_HEIGHT,
+    MARDOU_INNER_GALLERY_DOOR.position[2],
+  ] as Vec3,
+  skillsSide: [
+    MARDOU_INNER_GALLERY_DOOR.position[0],
+    MARDOU_GROUND_FLOOR_Y + MARDOU_CAMERA_EYE_HEIGHT,
+    MARDOU_INNER_GALLERY_DOOR.position[2] - 1,
+  ] as Vec3,
+} as const;
+
 const sideEntranceDoorWallPoint = mardouSourcePointToWorld([7.7966, -11.7118, -489.4102]);
 export const MARDOU_SIDE_ENTRANCE_DOOR = {
   id: "side-entrance-door",
@@ -226,6 +247,7 @@ export const MARDOU_LOBBY_INTRO_ROUTE = {
 // stair treads, and keep y at floor height so the companion never routes
 // upstairs.
 const companionEntranceFloorPoint = mardouSourcePointToWorld([-10.018, -16.2896, -510.6123]);
+const companionWelcomeFloorPoint = mardouSourcePointToWorld([-9.603, -16.2896, -499.1433]);
 const companionPatrolSourcePoints: ReadonlyArray<Vec3> = [
   [-10.2734, -16.2896, -513.2173],
   [-15.9923, -16.2896, -517.8265],
@@ -244,18 +266,17 @@ export const MARDOU_COMPANION_SAFE_ZONE = {
   bodyHeight: 0.62,
   stoppingRadius: 0.32,
   clickPauseSeconds: 8,
-  // Begin at the supplied entrance point and greet the arriving camera there.
-  // Keeping the welcome point coincident avoids cutting through the nearby
-  // structure before the normal patrol begins.
+  // Stay at the supplied spawn point while the entrance camera crosses both
+  // doors. After its final 90-degree turn, walk to the picked greeting point.
   entranceSpawn: [
     companionEntranceFloorPoint[0],
     MARDOU_GROUND_FLOOR_Y,
     companionEntranceFloorPoint[2],
   ] as Vec3,
   entranceWelcome: [
-    companionEntranceFloorPoint[0],
+    companionWelcomeFloorPoint[0],
     MARDOU_GROUND_FLOOR_Y,
-    companionEntranceFloorPoint[2],
+    companionWelcomeFloorPoint[2],
   ] as Vec3,
   entrancePauseSeconds: 6,
   dialoguePoint: companionPatrolPoints[0],
@@ -283,7 +304,10 @@ export const MARDOU_LOBBY_WIDE_FOCUS: MuseumFocus = {
 
 export const MARDOU_LIFE_FILLER_PLACEMENTS = {
   sports: { position: [5.35, MARDOU_GROUND_FLOOR_Y, -14.2] as Vec3, rotation: [0, -0.38, 0] as Vec3 },
-  refreshments: { position: [-6.5, MARDOU_GROUND_FLOOR_Y, -13.5] as Vec3, rotation: [0, 0.34, 0] as Vec3 },
+  refreshments: {
+    position: mardouSourcePointToWorld([-31.2155, -16.2896, -530.4865]),
+    rotation: [0, 0.34, 0] as Vec3,
+  },
 } as const;
 
 const couchFloorPoint = mardouSourcePointToWorld([33.0497, -16.2896, -522.3357]);
@@ -298,6 +322,35 @@ const petBedFloorPoint = mardouSourcePointToWorld([-5.3113, -16.2896, -525.4833]
 export const MARDOU_PET_BED_PLACEMENT = {
   position: petBedFloorPoint,
   rotation: [0, 0, 0] as Vec3,
+} as const;
+
+const cartoonStatueFloorPoint = mardouSourcePointToWorld([-21.6859, -16.2896, -483.6665]);
+export const MARDOU_CARTOON_STATUE_PLACEMENT = {
+  position: cartoonStatueFloorPoint,
+  // Aim the entrance sculpture toward the arriving visitor rather than the
+  // nearby wall. The imported character uses +Z as its authored front axis.
+  rotation: [0, 2.1, 0] as Vec3,
+} as const;
+
+const guestbookWallPoint = mardouSourcePointToWorld([-49.6924, -10.6302, -520.5229]);
+const guestbookWallNormal = [0.9900574606963372, 0, 0.14069393737382296] as Vec3;
+export const MARDOU_GUESTBOOK_WALL_PLACEMENT = {
+  position: [
+    guestbookWallPoint[0] + guestbookWallNormal[0] * 0.04,
+    guestbookWallPoint[1],
+    guestbookWallPoint[2] + guestbookWallNormal[2] * 0.04,
+  ] as Vec3,
+  normal: guestbookWallNormal,
+  rotation: [0, Math.atan2(guestbookWallNormal[0], guestbookWallNormal[2]), 0] as Vec3,
+  focus: {
+    target: guestbookWallPoint,
+    camera: [
+      guestbookWallPoint[0] + guestbookWallNormal[0] * 3,
+      guestbookWallPoint[1],
+      guestbookWallPoint[2] + guestbookWallNormal[2] * 3,
+    ] as Vec3,
+    fov: 47,
+  },
 } as const;
 
 export const MARDOU_EXTERIOR_FOCUS: MuseumFocus = {
@@ -370,7 +423,9 @@ export const MARDOU_PRIVATE_ROUTE = {
     [-2.8, 1.7, -12],
     [-1.5, 1.5, -14],
   ] as ReadonlyArray<Vec3>,
-  duration: 18,
+  // Traverse the same authored stair path in half the former 18-second time.
+  // This makes both ascent and descent exactly twice as fast.
+  duration: 9,
 };
 
 // The GLB merges the stairs into the shared Walls mesh, so there is no named
@@ -543,7 +598,20 @@ function inwardFacingPrivatePlacement(sourcePoint: Vec3): MuseumPlacement {
 // Education remains on the upper gallery. Achievements are represented by a
 // dedicated trophy at the separately supplied ground-floor point above.
 export const MARDOU_PRIVATE_SURFACE_PLACEMENTS: MuseumPlacement[] = privateDisplaySourcePoints.map(
-  inwardFacingPrivatePlacement,
+  (sourcePoint, index) => {
+    const authoredPlacement = inwardFacingPrivatePlacement(sourcePoint);
+    if (index !== 0) return authoredPlacement;
+    return {
+      ...authoredPlacement,
+      // Education uses the first upper-floor slot. Turn the whole pedestal and
+      // plaque around without moving its picked floor point or focus route.
+      rotation: [
+        authoredPlacement.rotation[0],
+        authoredPlacement.rotation[1] + Math.PI,
+        authoredPlacement.rotation[2],
+      ],
+    };
+  },
 );
 
 export function mardouCreativeCornerPlacementForPrivateCount(privateSurfaceCount: number): MuseumPlacement | undefined {
@@ -603,12 +671,6 @@ export const MARDOU_GRAMOPHONE_PLACEMENT: MuseumPlacement = {
     camera: [gramophoneFloorPoint[0] - 3, 1.5, gramophoneFloorPoint[2]],
     fov: 46,
   },
-};
-
-export const MARDOU_GUESTBOOK_PLACEMENT: MuseumPlacement = {
-  position: [-5, 4.65, -18],
-  rotation: [0, Math.PI / 2, 0],
-  focus: { target: [-5, 4.65, -18], camera: [-2, 4.8, -18], fov: 46 },
 };
 
 const privateDiaryFloorPoint = mardouSourcePointToWorld([21.6668, -0.3973, -546.3062]);

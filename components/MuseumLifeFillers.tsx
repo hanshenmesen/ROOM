@@ -1,12 +1,43 @@
 "use client";
 
-import { useFrame } from "@react-three/fiber";
-import { useLayoutEffect, useRef } from "react";
+import { useFrame, useLoader } from "@react-three/fiber";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import type { ThreeEvent } from "@react-three/fiber";
+import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MARDOU_LIFE_FILLER_PLACEMENTS } from "./MardouMuseumLayout";
+import { SceneGltfLoader } from "./SceneAssetLoaders";
 
 const WOOD = "#3f2b25";
 const BRASS = "#bd9252";
+const FRUIT_COLLECTION_URL = "/vendor/mardou/fruit-collection.glb";
+const DRINK_URL = "/vendor/mardou/drink-1.glb";
+
+function normalizedAsset(scene: THREE.Group, targetSize: [number, number, number], anchorY: number) {
+  const model = scene.clone(true);
+  const bounds = new THREE.Box3().setFromObject(model);
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  const scale = Math.min(
+    targetSize[0] / Math.max(size.x, 0.001),
+    targetSize[1] / Math.max(size.y, 0.001),
+    targetSize[2] / Math.max(size.z, 0.001),
+  );
+  model.scale.multiplyScalar(scale);
+  model.position.set(-center.x * scale, anchorY - bounds.min.y * scale, -center.z * scale);
+  model.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    object.castShadow = true;
+    object.receiveShadow = true;
+  });
+  return model;
+}
+
+function LifeGltfAsset({ url, size, anchorY }: { url: string; size: [number, number, number]; anchorY: number }) {
+  const gltf = useLoader(SceneGltfLoader, url) as GLTF;
+  const model = useMemo(() => normalizedAsset(gltf.scene, size, anchorY), [anchorY, gltf.scene, size]);
+  return <primitive object={model} />;
+}
 
 function Ball({ position, color, pattern = "plain", scale = 1 }: {
   position: [number, number, number];
@@ -56,7 +87,7 @@ function Ball({ position, color, pattern = "plain", scale = 1 }: {
   </group>;
 }
 
-function SportsDisplay() {
+function SportsDisplay({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
   const ball = useRef<THREE.Group>(null);
   useFrame((state, delta) => {
     if (!ball.current) return;
@@ -64,7 +95,15 @@ function SportsDisplay() {
     ball.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 1.4) * 0.018;
   });
   const placement = MARDOU_LIFE_FILLER_PLACEMENTS.sports;
-  return <group name="sports-life-display" position={placement.position} rotation={placement.rotation} scale={0.72}>
+  return <group
+    name="sports-life-display"
+    position={placement.position}
+    rotation={placement.rotation}
+    scale={0.72}
+    onClick={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); onSelect(); }}
+    onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
+    onPointerOut={() => { document.body.style.cursor = "default"; }}
+  >
     <mesh receiveShadow position={[0, 0.09, 0]}>
       <cylinderGeometry args={[1.05, 1.15, 0.18, 24]} />
       <meshStandardMaterial color={WOOD} roughness={0.72} metalness={0.08} />
@@ -88,46 +127,39 @@ function SportsDisplay() {
       <torusGeometry args={[0.2, 0.025, 7, 24]} />
       <meshStandardMaterial color="#6fd6c9" roughness={0.46} />
     </mesh>
-  </group>;
-}
-
-function Cup({ position, color }: { position: [number, number, number]; color: string }) {
-  return <group position={position}>
-    <mesh castShadow><cylinderGeometry args={[0.12, 0.1, 0.26, 14]} /><meshStandardMaterial color={color} roughness={0.62} /></mesh>
-    <mesh position={[0.14, 0.02, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <torusGeometry args={[0.07, 0.018, 6, 14]} /><meshStandardMaterial color={color} roughness={0.62} />
+    <mesh position={[0, 0.9, 0]} userData={{ hobbyHitTarget: true }}>
+      <boxGeometry args={[2.2, 1.9, 1.15]} />
+      <meshBasicMaterial color="#6fd6c9" transparent opacity={selected ? 0.055 : 0.001} depthWrite={false} />
     </mesh>
   </group>;
 }
 
-function RefreshmentDisplay() {
+function RefreshmentDisplay({ selected, onSelect }: { selected: boolean; onSelect: () => void }) {
   const placement = MARDOU_LIFE_FILLER_PLACEMENTS.refreshments;
-  return <group name="refreshment-life-display" position={placement.position} rotation={placement.rotation} scale={0.84}>
+  return <group
+    name="refreshment-life-display"
+    position={placement.position}
+    rotation={placement.rotation}
+    scale={0.84}
+    onClick={(event: ThreeEvent<PointerEvent>) => { event.stopPropagation(); onSelect(); }}
+    onPointerOver={(event) => { event.stopPropagation(); document.body.style.cursor = "pointer"; }}
+    onPointerOut={() => { document.body.style.cursor = "default"; }}
+  >
     <mesh receiveShadow position={[0, 0.42, 0]} castShadow>
       <cylinderGeometry args={[0.88, 0.72, 0.84, 18]} />
       <meshStandardMaterial color="#5b4035" roughness={0.78} />
     </mesh>
     <mesh castShadow position={[0, 0.88, 0]}><cylinderGeometry args={[1, 1, 0.1, 24]} /><meshStandardMaterial color="#ddc8aa" roughness={0.68} /></mesh>
-    <Cup position={[-0.44, 1.1, 0.08]} color="#7ab8b1" />
-    <Cup position={[0.42, 1.08, -0.08]} color="#c96f55" />
-    <mesh castShadow position={[0, 1.05, 0.1]} rotation={[0.1, 0.2, -0.08]}>
-      <torusGeometry args={[0.27, 0.09, 7, 18, Math.PI * 1.55]} />
-      <meshStandardMaterial color="#d9a45c" roughness={0.8} />
+    <group position={[-0.25, 0, 0.02]}>
+      <LifeGltfAsset url={FRUIT_COLLECTION_URL} size={[0.82, 0.56, 0.82]} anchorY={0.96} />
+    </group>
+    <group position={[0.48, 0, -0.04]} rotation={[0, -0.25, 0]}>
+      <LifeGltfAsset url={DRINK_URL} size={[0.34, 0.7, 0.34]} anchorY={0.96} />
+    </group>
+    <mesh position={[0, 1.18, 0]} userData={{ snackHitTarget: true }}>
+      <cylinderGeometry args={[1.08, 1.08, 1.35, 20]} />
+      <meshBasicMaterial color="#ff9f68" transparent opacity={selected ? 0.05 : 0.001} depthWrite={false} />
     </mesh>
-    <group position={[0.08, 1.08, -0.32]}>
-      <mesh castShadow><sphereGeometry args={[0.16, 12, 8]} /><meshStandardMaterial color="#c95448" roughness={0.76} /></mesh>
-      <mesh position={[0.03, 0.16, 0]} rotation={[0, 0, -0.35]}><coneGeometry args={[0.05, 0.15, 7]} /><meshStandardMaterial color="#517848" /></mesh>
-    </group>
-    <mesh castShadow position={[0.65, 1.36, 0]}><cylinderGeometry args={[0.1, 0.12, 0.62, 12]} /><meshStandardMaterial color="#6da3b6" transparent opacity={0.78} roughness={0.25} /></mesh>
-    <mesh position={[0.65, 1.72, 0]}><cylinderGeometry args={[0.045, 0.045, 0.18, 8]} /><meshStandardMaterial color="#eee4cd" /></mesh>
-    <group position={[-0.15, 1.11, -0.28]} rotation={[Math.PI / 2, 0.15, 0.15]}>
-      <mesh castShadow><cylinderGeometry args={[0.2, 0.2, 0.14, 3]} /><meshStandardMaterial color="#f2d5a6" roughness={0.78} /></mesh>
-      <mesh position={[0, 0.075, 0]}><cylinderGeometry args={[0.19, 0.19, 0.018, 3]} /><meshStandardMaterial color="#f4f0e7" roughness={0.7} /></mesh>
-    </group>
-    <group position={[-0.7, 1.26, -0.12]}>
-      <mesh castShadow><cylinderGeometry args={[0.09, 0.09, 0.34, 12]} /><meshStandardMaterial color="#e7bb58" metalness={0.4} roughness={0.38} /></mesh>
-      <mesh position={[0, 0.02, 0.091]}><boxGeometry args={[0.11, 0.08, 0.006]} /><meshBasicMaterial color="#f5efe1" /></mesh>
-    </group>
   </group>;
 }
 
@@ -334,10 +366,14 @@ export function MardouExteriorGlassFacade() {
   </group>;
 }
 
-export function MuseumLifeFillers({ visible }: { visible: boolean }) {
+export function MuseumLifeFillers({ visible, selectedId, onSelect }: {
+  visible: boolean;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
   if (!visible) return null;
   return <group name="museum-life-fillers">
-    <SportsDisplay />
-    <RefreshmentDisplay />
+    <SportsDisplay selected={selectedId === "showroom-hobbies"} onSelect={() => onSelect("showroom-hobbies")} />
+    <RefreshmentDisplay selected={selectedId === "showroom-snacks"} onSelect={() => onSelect("showroom-snacks")} />
   </group>;
 }

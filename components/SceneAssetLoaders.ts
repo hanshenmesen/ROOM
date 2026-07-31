@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import {
   completeSceneAssetLoad,
   getSceneLoadingGeneration,
@@ -76,6 +77,7 @@ export class SceneTextureLoader extends THREE.TextureLoader {
 export class SceneGltfLoader extends GLTFLoader {
   constructor() {
     super(assetLoadingManager);
+    this.setMeshoptDecoder(MeshoptDecoder);
   }
 
   load(

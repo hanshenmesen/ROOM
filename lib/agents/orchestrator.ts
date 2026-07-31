@@ -237,7 +237,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     ...(educationSourceIds.length ? [draftSurface({
       id: "showroom-education",
       semanticRole: "education" as const,
-      title: `教育背景 · ${educationSourceIds.length}`,
+      title: "教育背景",
       kicker: "教育背景",
       accent: "#d3aa54",
       sourceItemIds: educationSourceIds,
@@ -248,7 +248,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     ...(experienceSourceIds.length ? [draftSurface({
       id: "showroom-experience",
       semanticRole: "experience" as const,
-      title: `工作经验 · ${experienceSourceIds.length}`,
+      title: "工作经验",
       kicker: "工作经验",
       accent: "#7088d4",
       sourceItemIds: experienceSourceIds,
@@ -259,7 +259,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     ...(achievementSourceIds.length ? [draftSurface({
       id: "showroom-highlights",
       semanticRole: "achievement" as const,
-      title: `成果与成就 · ${achievementSourceIds.length}`,
+      title: "成果与成就",
       kicker: "成果成就",
       accent: "#d3aa54",
       sourceItemIds: achievementSourceIds,
@@ -271,7 +271,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     ...(projectSourceIds.length ? [draftSurface({
       id: "showroom-works",
       semanticRole: "works" as const,
-      title: `项目与作品 · ${projectSourceIds.length}`,
+      title: "项目与作品",
       kicker: "作品索引",
       accent: "#8d77bf",
       sourceItemIds: projectSourceIds,
@@ -283,7 +283,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     ...(profile.skills.length ? [draftSurface({
       id: "showroom-skills",
       semanticRole: "skills" as const,
-      title: `技能工具 · ${profile.skills.length}`,
+      title: "技能工具",
       kicker: "技能工具",
       accent: "#65d7c3",
       sourceItemIds: profile.skills.map((skill) => `skill:${skill}`),
@@ -295,7 +295,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     ...(profile.contacts.length ? [draftSurface({
       id: "showroom-contact",
       semanticRole: "contact" as const,
-      title: `联系方式 · ${profile.contacts.length}`,
+      title: "联系方式",
       kicker: "联系方式",
       accent: "#9fc6b8",
       sourceItemIds: profile.contacts.map((_, index) => `contact:${index + 1}`),

@@ -59,3 +59,38 @@ test("heat-panel controls do not bubble into the 3D canvas miss handler", () => 
   assert.match(heatPanelSource, /onClick=\{\(\) => onSelect\(item\)\}/);
   assert.match(roomStudioSource, /setHeatPanelOpen\(false\);\s*window\.requestAnimationFrame\(\(\) => routeToWorldObject\(item\.id\)\)/);
 });
+
+test("focus navigation keeps the authored twelve-entity sequence", () => {
+  const orderSource = roomStudioSource.slice(
+    roomStudioSource.indexOf("const focusableExhibitIds"),
+    roomStudioSource.indexOf("const selectedFocusIndex"),
+  );
+  const tokens = [
+    '"showroom-highlights"',
+    '"showroom-profile"',
+    "SNACKS_ID",
+    "...projectIds",
+    '"showroom-skills"',
+    "HOBBIES_ID",
+    '"showroom-education"',
+    '"showroom-works"',
+    '"showroom-contact"',
+    '"showroom-experience"',
+  ];
+  let previousIndex = -1;
+  for (const token of tokens) {
+    const index = orderSource.indexOf(token, previousIndex + 1);
+    assert.ok(index > previousIndex, `${token} must follow the previous focus target`);
+    previousIndex = index;
+  }
+});
+
+test("focus navigation routes upper-gallery surfaces through the stair room transition", () => {
+  const routeSource = roomStudioSource.slice(
+    roomStudioSource.indexOf("function routeToWorldObject"),
+    roomStudioSource.indexOf("function selectHeatItem"),
+  );
+  assert.match(routeSource, /\["profile", "achievement", "skills"\]\.includes\(surface\.semanticRole\)/);
+  assert.match(routeSource, /: PRIVATE_ROOM_ID/);
+  assert.match(routeSource, /if \(targetRoom && targetRoom !== activeRoom\) setActiveRoom\(targetRoom\)/);
+});

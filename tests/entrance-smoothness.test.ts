@@ -140,8 +140,11 @@ test("the upstairs route looks along the stairs and stays above the treads", () 
   assert.ok(MARDOU_PRIVATE_ROUTE.lowerFlight[1] >= 2.7);
   assert.equal(MARDOU_PRIVATE_ROUTE.ascentTargets.length, 5);
   assert.equal(MARDOU_PRIVATE_ROUTE.descentTargets.length, 5);
-  assert.ok(MARDOU_PRIVATE_ROUTE.duration >= 11.5, "the staircase reads as a deliberate walking ascent");
+  assert.equal(MARDOU_PRIVATE_ROUTE.duration, 9, "upstairs and downstairs run at twice the former 18-second speed");
   assert.match(worldSource, /targetUsesControlTiming/);
+  assert.match(worldSource, /lookForwardAlongRoute: previousRoom\.current === "room-lobby" && activeRoom === "room-private"/);
+  assert.match(worldSource, /routeAhead\.y = camera\.position\.y/);
+  assert.match(worldSource, /smoothstep\(progress, 0\.82, 1\)/);
   assert.match(worldSource, /MARDOU_PRIVATE_ROUTE\.ascentTargets\.map/);
   assert.match(worldSource, /MARDOU_PRIVATE_ROUTE\.descentTargets\.map/);
 });

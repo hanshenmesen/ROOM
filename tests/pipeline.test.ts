@@ -120,6 +120,12 @@ test("orchestrator builds semantic dynamic wall surfaces from parsed content vol
   assert.equal(surfaces["showroom-education"]?.semanticRole, "education");
   assert.equal(surfaces["showroom-experience"]?.semanticRole, "experience");
   assert.equal(surfaces["showroom-works"]?.semanticRole, "works");
+  assert.equal(surfaces["showroom-education"]?.title, "教育背景");
+  assert.equal(surfaces["showroom-experience"]?.title, "工作经验");
+  assert.equal(surfaces["showroom-highlights"]?.title, "成果与成就");
+  assert.equal(surfaces["showroom-works"]?.title, "项目与作品");
+  assert.equal(surfaces["showroom-skills"]?.title, "技能工具");
+  assert.equal(surfaces["showroom-contact"]?.title, "联系方式");
   assert.equal(surfaces["showroom-works"]?.layout?.variant, "timeline");
   assert.ok((surfaces["showroom-profile"]?.layout?.width || 0) > (surfaces["showroom-education"]?.layout?.width || 0));
   assert.equal(surfaces["showroom-skills"]?.presentationMode, "paged");

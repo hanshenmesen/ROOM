@@ -31,9 +31,9 @@ test("right click toggles mouse-look locking without opening the context menu", 
   assert.match(source, /canvas\.dataset\.viewLocked/);
 });
 
-test("Q and E turn 90 degrees per tap and keep rotating while held", () => {
+test("Q and E turn 45 degrees per tap and keep rotating while held", () => {
   assert.match(source, /\["q", "e"\]\.includes\(key\)/);
-  assert.match(source, /FIRST_PERSON_KEY_TURN_ANGLE = THREE\.MathUtils\.degToRad\(90\)/);
+  assert.match(source, /FIRST_PERSON_KEY_TURN_ANGLE = THREE\.MathUtils\.degToRad\(45\)/);
   assert.match(source, /keyboardTurnHeld\.current = direction/);
   assert.match(source, /keyboardTurnRemaining\.current = direction \* FIRST_PERSON_KEY_TURN_ANGLE/);
   assert.match(source, /keyboardTurnRemaining\.current = keyboardTurnHeld\.current \* FIRST_PERSON_KEY_TURN_ANGLE/);
@@ -63,9 +63,13 @@ test("camera transitions use quintic easing and centripetal curves", () => {
   assert.match(source, /const focusStartDirection = startTarget\.clone\(\)\.sub\(startPosition\)\.normalize\(\)/);
   assert.match(source, /const focusView = focusTransition && !roomChanged[\s\S]*fromDirection: focusStartDirection/);
   assert.match(source, /activeRoute\.focusView[\s\S]*lerpVectors\([\s\S]*activeRoute\.focusView\.fromDirection,[\s\S]*activeRoute\.focusView\.toDirection/);
-  assert.match(source, /focusAttentionOrigin = \(projectIndex >= 1 \|\| previousProjectIndex >= 1\)[\s\S]*positionCurve\?\.getPointAt\(0\.5\)/);
+  assert.match(source, /focusAttentionOrigin = usesFarProjectRoute[\s\S]*positionCurve\?\.getPointAt\(0\.5\)/);
   assert.match(source, /focusStartDirection\.clone\(\)\.lerp\([\s\S]*focusAttentionDirection,[\s\S]*projectIndex === 2 \? 0\.9 : 0\.75/);
   assert.match(source, /projectIndex >= 1[\s\S]*MARDOU_FAR_PROJECT_FOCUS_ROUTE\.map/);
+  assert.match(source, /switchingBetweenProjects[\s\S]*positionPoints = \[startPosition, destination\.clone\(\)\]/);
+  assert.match(source, /positionCurve\.getLength\(\) \* 0\.58, 2\.6, 3\.8/);
+  assert.match(source, /enteringSkillsFromProjectThree[\s\S]*MARDOU_PROJECT_SKILLS_DOOR_ROUTE\.threshold/);
+  assert.match(source, /positionCurve\.getLength\(\) \* 0\.68, 4\.2, 6\.4/);
   assert.match(source, /positionCurve\.getLength\(\), true, turnAngle/);
   assert.match(source, /startPosition\.distanceTo\(destination\)/);
   assert.doesNotMatch(source, /duration = exhibit \|\| authoredFocus \? 2\.4 : 2\.8/);

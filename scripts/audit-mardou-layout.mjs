@@ -9,7 +9,6 @@ import {
   MARDOU_DIARY_FOCUS,
   MARDOU_ENTRANCE_ROUTE,
   MARDOU_EXTERIOR_FOCUS,
-  MARDOU_GUESTBOOK_PLACEMENT,
   MARDOU_HIDDEN_MESH_NAMES,
   MARDOU_LIFE_FILLER_PLACEMENTS,
   MARDOU_LOBBY_FOCUS,
@@ -718,8 +717,6 @@ const verifiedPoints = [
   { name: "private route landing", point: MARDOU_PRIVATE_ROUTE.landing, minimumClearance: 0.16 },
   { name: "private route upper flight", point: MARDOU_PRIVATE_ROUTE.upperFlight, minimumClearance: 0.16 },
   { name: "private route gallery entry", point: MARDOU_PRIVATE_ROUTE.galleryEntry, minimumClearance: 0.16 },
-  { name: "guestbook", point: MARDOU_GUESTBOOK_PLACEMENT.position },
-  { name: "guestbook camera", point: MARDOU_GUESTBOOK_PLACEMENT.focus.camera },
   { name: "diary camera", point: MARDOU_DIARY_FOCUS.camera },
   { name: "creative corner", point: [MARDOU_CREATIVE_CORNER_POSITION[0], 4.8, MARDOU_CREATIVE_CORNER_POSITION[2]] },
   { name: "sports life filler", point: [MARDOU_LIFE_FILLER_PLACEMENTS.sports.position[0], 1.1, MARDOU_LIFE_FILLER_PLACEMENTS.sports.position[2]], minimumClearance: 0.75 },
@@ -778,12 +775,12 @@ const fillerSeparationFailures = Object.entries(MARDOU_LIFE_FILLER_PLACEMENTS).f
 const companionWelcomeStart = new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceSpawn);
 const companionWelcomeEnd = new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome);
 const companionWelcomeDistance = companionWelcomeStart.distanceTo(companionWelcomeEnd);
-const companionWelcomeArrivalSeconds = companionWelcomeDistance / MARDOU_COMPANION_SPEED;
-const companionTimingFailures = (
-  companionWelcomeDistance > 0.01
-  || MARDOU_COMPANION_SAFE_ZONE.entrancePauseSeconds < MARDOU_LOBBY_INTRO_ROUTE.duration * 0.75
-)
-  ? [`companion entrance greeting moves ${companionWelcomeDistance.toFixed(2)}m in ${companionWelcomeArrivalSeconds.toFixed(2)}s or pauses for less than the first three quarters of the intro`]
+const companionWelcomeArrivalSeconds = companionWelcomeDistance / (MARDOU_COMPANION_SPEED * 1.35);
+// The camera now explicitly releases the pet only after its two-door entrance
+// route and final 90-degree turn complete. Audit the post-release walk itself:
+// it should be visible but brief, and must never exceed the guarded 5m cap.
+const companionTimingFailures = companionWelcomeDistance > 5 || companionWelcomeArrivalSeconds > 4
+  ? [`companion post-intro greeting moves ${companionWelcomeDistance.toFixed(2)}m in ${companionWelcomeArrivalSeconds.toFixed(2)}s`]
   : [];
 const companionWelcomePathFailures = Array.from({ length: 101 }, (_, index) => index / 100).flatMap((progress) => {
   const point = companionWelcomeStart.clone().lerp(companionWelcomeEnd, progress);
@@ -1122,7 +1119,7 @@ if (failures.length) {
 }
 console.log(`\nverified ${verifiedPoints.length} authored points with floor support and their placement-specific clearance thresholds`);
 console.log(`verified life fillers remain at least 2.6m from every ground-floor content stand`);
-console.log(`verified companion reaches the entrance welcome point at ${companionWelcomeArrivalSeconds.toFixed(2)}s with a clear cross-gallery path`);
+console.log(`verified companion reaches the entrance welcome point ${companionWelcomeArrivalSeconds.toFixed(2)}s after the intro release with a clear path`);
 console.log("verified sports and refreshment display centers remain visible in the desktop establishing view");
 console.log(`verified all project-island centers remain visible in the ${portraitAspect.toFixed(2)} portrait establishing view`);
 console.log(`verified all project-island centers remain visible after R-key reframing at ${portraitAspect.toFixed(2)} portrait aspect`);
