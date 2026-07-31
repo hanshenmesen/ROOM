@@ -73,7 +73,7 @@ export function RoomStudio() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [activeRoom, setActiveRoom] = useState("exterior");
+  const [activeRoom, setActiveRoom] = useState("room-lobby");
   const [selectedId, setSelectedId] = useState("");
   const [privateGateOpen, setPrivateGateOpen] = useState(false);
   const [privatePassword, setPrivatePassword] = useState("");
@@ -152,7 +152,7 @@ export function RoomStudio() {
     const next = runPipeline(text, { label, type, id: type === "url" ? label : undefined, media });
     setResult(next);
     setSelectedId("");
-    setActiveRoom("exterior");
+    setActiveRoom("room-lobby");
     setPrivateGateOpen(false);
     setPrivatePassword("");
     setPrivatePasswordError("");
@@ -333,7 +333,7 @@ export function RoomStudio() {
             <p className="overline">A portfolio you can walk into.</p>
             <h1>把你的经历，<br />变成一个世界。</h1>
             <p className="intro">
-              给我们你的个人网页或简历。ROOM 会把项目、经历和技能编排成一栋可以走进去探索的 3D 小别墅。
+              给我们你的个人网页或简历。ROOM 会把项目、经历和技能编排成一座可以走进去探索的 3D 博物馆。
             </p>
           </div>
 
@@ -355,7 +355,7 @@ export function RoomStudio() {
                   placeholder="https://yourname.com"
                   autoComplete="url"
                 />
-                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成别墅">
+                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成博物馆">
                   <span>生成</span><span aria-hidden="true">→</span>
                 </button>
               </div>
@@ -391,7 +391,7 @@ export function RoomStudio() {
             </div>
             <section className="demo-resumes" aria-labelledby="demo-resume-title">
               <div className="demo-heading">
-                <span id="demo-resume-title">FEATURED DEMO · 从简历到别墅</span>
+                <span id="demo-resume-title">FEATURED DEMO · 从简历到博物馆</span>
                 <small>第一版唯一样例</small>
               </div>
               <div className="demo-panel demo-single">
@@ -401,7 +401,7 @@ export function RoomStudio() {
                 </div>
                 <p>4 个项目 · 5 段经历与教育 · 12 项技能 · 3 项成就</p>
                 <button type="button" onClick={() => openWorld(sampleResume, "林澈 Demo 简历")}>
-                  进入林澈的别墅 <span aria-hidden="true">→</span>
+                  进入林澈的博物馆 <span aria-hidden="true">→</span>
                 </button>
               </div>
             </section>
@@ -419,7 +419,7 @@ export function RoomStudio() {
 
   return (
     <main className="world-page">
-      <section className="world-stage" aria-label={`${result.profile.name} 的 3D 个人世界`}>
+      <section className="world-stage" aria-label={`${result.profile.name} 的 3D 个人世界`} data-active-room={activeRoom} data-selected-exhibit={selectedId || undefined}>
         <button className="home-return" type="button" onClick={() => setResult(null)}>
           <span aria-hidden="true">←</span> 返回主页面
         </button>
@@ -435,9 +435,9 @@ export function RoomStudio() {
         <div className={`private-gate ${privateGateOpen ? "is-open" : ""}`} aria-hidden={!privateGateOpen}>
           {privateGateOpen ? (
             <section className="private-gate-card" role="dialog" aria-modal="true" aria-labelledby="private-gate-title">
-              <p>PRIVATE AREA · 01</p>
-              <h2 id="private-gate-title">进入私人卧室</h2>
-              <div className="private-gate-copy">这是公开陈列室之外的私密空间。输入密码后，可以打开只保存在本机浏览器里的文字与图片日记。</div>
+              <p>PRIVATE AREA · 2F</p>
+              <h2 id="private-gate-title">进入二楼私人房间</h2>
+              <div className="private-gate-copy">你现在位于二楼入口外。输入密码后，镜头会平滑穿过门厅，进入只在本机保存内容的私人日记室。</div>
               <form onSubmit={unlockPrivateRoom}>
                 <label htmlFor="private-room-password">访问密码</label>
                 <input
@@ -455,7 +455,7 @@ export function RoomStudio() {
                 <small id="private-password-hint">当前 Demo 密码：{DEMO_PRIVATE_PASSWORD}</small>
                 <div id="private-password-error" className="private-gate-error" aria-live="polite">{privatePasswordError}</div>
                 <div className="private-gate-actions">
-                  <button type="button" onClick={() => setPrivateGateOpen(false)}>取消</button>
+                  <button type="button" onClick={() => setPrivateGateOpen(false)}>留在入口</button>
                   <button type="submit">解锁并进入</button>
                 </div>
               </form>
@@ -463,25 +463,37 @@ export function RoomStudio() {
           ) : null}
         </div>
 
-        <nav className="journey-nav" aria-label="空间导航">
-          {activeRoom === "exterior" ? (
-            <span className="journey-primary">点击画面中的大门 · 进入客厅</span>
+        {activeRoom === "room-lobby" ? <aside className="exhibit-directory" aria-label="展品目录">
+          <strong>一楼展品目录</strong>
+          <div>
+            {[
+              ["showroom-profile", "简介"],
+              ["showroom-journey", "经历"],
+              ["showroom-skills", "技能"],
+              ["showroom-highlights", "成就"],
+              ["showroom-contact", "联系"],
+              ["showroom-guestbook", "留言"],
+            ].map(([id, label]) => (
+              <button key={id} type="button" className={selectedId === id ? "is-active" : ""} onClick={() => selectWorldObject(id)}>{label}</button>
+            ))}
+            {result.world.exhibits.filter((item) => item.eyebrow === "PROJECT").slice(0, 4).map((item, index) => (
+              <button key={item.id} type="button" className={selectedId === item.id ? "is-active" : ""} onClick={() => selectWorldObject(item.id)}>项目 {index + 1}</button>
+            ))}
+          </div>
+        </aside> : null}
+
+        <nav className="journey-nav" aria-label="楼层与房间导航">
+          {activeRoom === "room-lobby" ? (
+            <button type="button" onClick={() => requestRoomChange("room-private-entry")}>前往二楼私人区 ↑</button>
+          ) : activeRoom === "room-private-entry" ? (
+            <>
+              <button type="button" onClick={() => requestRoomChange("room-lobby")}>↓ 返回一楼公共展厅</button>
+              <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>私人房间 · {privateUnlocked ? "进入" : "输入密码"}</button>
+            </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedId("");
-                  setActiveRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
-                }}
-              >
-                ← {activeRoom === "room-lobby" ? "回到别墅外" : "返回客厅"}
-              </button>
-              {activeRoom === "room-lobby" ? (
-                <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
-                  私人卧室 · {privateUnlocked ? "进入" : "输入密码"}
-                </button>
-              ) : null}
+              <button type="button" onClick={() => requestRoomChange("room-private-entry")}>← 返回二楼入口</button>
+              <button type="button" onClick={() => requestRoomChange("room-lobby")}>↓ 返回一楼公共展厅</button>
             </>
           )}
         </nav>
@@ -557,15 +569,15 @@ export function RoomStudio() {
         </aside>
 
         <div className="world-hint">
-          {activeRoom === "exterior"
-            ? "打开前门 · 镜头会连续穿过门槛"
-            : activeRoom === "room-lobby"
-              ? selectedId
-                ? "视角已跟随到这件展品"
-                : "移动鼠标环视 · 点击墙面资料、中央项目展架或角落留言板"
+          {activeRoom === "room-lobby"
+            ? selectedId
+              ? "镜头已平滑聚焦 · 关闭面板返回探索视角"
+              : "W / A / S / D 移动 · 移动鼠标环视 · 点击展品查看内容"
+            : activeRoom === "room-private-entry"
+              ? "二楼入口 · 点击紫色门或使用下方按钮验证密码"
               : selectedId === "bedroom-diary"
-                ? "日记已打开 · 内容只保存在当前浏览器"
-                : "移动鼠标环视 · 点击桌上的日记本 · 返回客厅继续浏览"}
+                ? "私人日记已打开 · 内容只保存在当前浏览器"
+                : "W / A / S / D 移动 · 点击桌上的书本打开私人日记"}
         </div>
       </section>
     </main>

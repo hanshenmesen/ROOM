@@ -32,6 +32,14 @@ The MVP stores these files locally so the demo does not depend on a deployment o
 - License: MIT.
 - Copied: browser runtime files required by `DRACOLoader`.
 
+## Mozilla Hubs Conference Room 1
+
+- Source: https://sketchfab.com/3d-models/conference-room1-b69e2a5dd7de4d7a8e091768d54a63e6
+- Author: MozillaHubs.
+- License: CC BY 4.0, as recorded in the GLB `asset.extras` metadata.
+- Copied: `conference-room/conference_room1.glb`, unmodified.
+- Runtime adaptation: ROOM keeps the GLB read-only, uses its transformed geometry bounds and raycast-derived floor/ceiling levels for shared layout anchors, and instances the same shell vertically to provide separate public and private floors.
+
 ## Commercialization note
 
 The current build is a local, non-commercial prototype. Before any commercial distribution, review upstream asset credits again and replace or separately clear any third-party material whose rights are not fully covered by the repository license.

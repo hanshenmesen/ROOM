@@ -7,6 +7,7 @@ import type {
   Vec3,
   WorldPlan,
 } from "../types.ts";
+import { FLOOR_HEIGHT, FLOOR_PORTAL_POSITION, PROJECT_ANCHORS } from "../museum-layout.ts";
 
 const roomSpecs: Array<{
   id: string;
@@ -16,32 +17,18 @@ const roomSpecs: Array<{
   center: Vec3;
   size: Vec3;
 }> = [
-  { id: "room-lobby", kind: "lobby", title: "客厅", subtitle: "人物、项目、能力与档案", center: [0, 0, -7], size: [21.6, 0.3, 28] },
-  { id: "room-private", kind: "bedroom", title: "Private Bedroom", subtitle: "需密码进入 · 私人日记", center: [-18.8, 0, -16.25], size: [16, 0.3, 20] },
+  { id: "room-lobby", kind: "lobby", title: "一楼公共展厅", subtitle: "人物、项目、能力与档案", center: [0, 0, 0], size: [11.4, 4.25, 7.4] },
+  { id: "room-private", kind: "bedroom", title: "二楼私人房间", subtitle: "需密码进入 · 私人日记", center: [0, FLOOR_HEIGHT, 0], size: [11.4, 4.25, 7.4] },
 ];
 
-function positionFor(center: Vec3, size: Vec3, index: number, count: number): Vec3 {
-  const availableColumns = Math.max(2, Math.floor((size[0] - 2) / 2.3));
-  const columns = count === 1 ? 1 : Math.min(count, availableColumns, 5);
-  const row = Math.floor(index / columns);
-  const column = index % columns;
-  const rowCount = Math.ceil(count / columns);
-  const centeredRow = row - (rowCount - 1) / 2;
-  const reservedCenterOffset = centeredRow >= 0 ? centeredRow + 1 : centeredRow - 1;
-  const entryClearanceShift = center[0] < -1 ? -1 : 0;
-  const x = center[0] + entryClearanceShift + (column - (columns - 1) / 2) * 2.25;
-  const z = center[2] + reservedCenterOffset * 3.7;
-  return [x, 0.72, z];
+function positionFor(index: number): Vec3 {
+  const columns = [-4.5, -2.7, -0.9, 0.9, 2.7, 4.5];
+  const rows = [-2.72, -1.62, 1.62, 2.72];
+  return [columns[index % columns.length], 1.45, rows[Math.floor(index / columns.length) % rows.length]];
 }
 
-function projectPosition(center: Vec3, index: number): Vec3 {
-  const stations: Vec3[] = [
-    [center[0] - 4.4, 0, center[2] + 2.5],
-    [center[0] + 4.4, 0, center[2] + 2.5],
-    [center[0] - 4.4, 0, center[2] - 4.5],
-    [center[0] + 4.4, 0, center[2] - 4.5],
-  ];
-  return stations[index] || [center[0] + (index - 1.5) * 4, 0, center[2] - 4.5];
+function projectPosition(index: number): Vec3 {
+  return PROJECT_ANCHORS[index]?.position || [0, 0, 0.45];
 }
 
 function exhibitKind(kind: string): ExhibitPlan["kind"] {
@@ -79,8 +66,8 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
   ];
 
   const exhibits: ExhibitPlan[] = drafts.map((draft, index) => {
-    const siblings = drafts.filter((item) => item.roomId === draft.roomId);
-    const siblingIndex = siblings.findIndex((item) => item.sourceItemId === draft.sourceItemId);
+    const nonProjectSiblings = drafts.filter((item) => item.roomId === draft.roomId && item.eyebrow !== "PROJECT");
+    const siblingIndex = nonProjectSiblings.findIndex((item) => item.sourceItemId === draft.sourceItemId);
     const projectSiblings = drafts.filter((item) => item.eyebrow === "PROJECT");
     const projectIndex = projectSiblings.findIndex((item) => item.sourceItemId === draft.sourceItemId);
     const room = roomSpecs.find((item) => item.id === draft.roomId)!;
@@ -88,8 +75,8 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       id: `exhibit-${index + 1}`,
       ...draft,
       position: draft.eyebrow === "PROJECT"
-        ? projectPosition(room.center, projectIndex)
-        : positionFor(room.center, room.size, siblingIndex, siblings.length),
+        ? projectPosition(projectIndex)
+        : positionFor(siblingIndex),
       size: draft.eyebrow === "PROJECT"
         ? [1.72, 1.72, 1.5]
         : draft.kind === "terminal"
@@ -105,7 +92,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
   });
 
   const portals = [
-    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: [-10.8, 1, -16.25] as Vec3, label: "Private Bedroom" },
+    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: FLOOR_PORTAL_POSITION as Vec3, label: "2F Private Room" },
   ];
   const rooms: RoomPlan[] = roomSpecs.map((room) => ({
     ...room,
@@ -127,7 +114,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     tour: rooms.map((room) => ({
       roomId: room.id,
       label: room.title,
-      camera: [room.center[0] + 6.8, 7.2, room.center[2] + 8.2],
+      camera: [0, room.center[1] + 1.62, 3.05],
     })),
     metrics: {
       rooms: rooms.length,
