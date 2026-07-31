@@ -1,0 +1,280 @@
+/* ============================================================
+   Coordinate picker — a surveyor's tool laid over a museum-
+   plaque visual language: dark charcoal, brass/parchment accents,
+   monospace coordinate readouts.
+   ============================================================ */
+
+@font-face {
+  font-family: "Fraunces-fallback";
+  src: local("Georgia");
+}
+
+:root{
+  --ink: #131210;
+  --ink-soft: #1c1a17;
+  --panel: rgba(19,18,16,0.92);
+  --parchment: #efe7d6;
+  --parchment-dim: #a89d88;
+  --brass: #b8935c;
+  --brass-bright: #e3b878;
+  --rule: rgba(239, 231, 214, 0.14);
+  --danger: #c1654f;
+  color-scheme: dark;
+}
+
+*{ box-sizing: border-box; }
+
+html, body{
+  margin: 0;
+  height: 100%;
+  background: var(--ink);
+  color: var(--parchment);
+  font-family: "Inter", -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+.mono{ font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+#canvas-host{ position: fixed; inset: 0; cursor: crosshair; }
+canvas{ display: block; }
+
+/* center reticle */
+#canvas-host::before,
+#canvas-host::after{
+  content: "";
+  position: fixed;
+  top: 50%; left: 50%;
+  background: rgba(239,231,214,0.55);
+  pointer-events: none;
+  z-index: 5;
+}
+#canvas-host::before{ width: 14px; height: 1px; transform: translate(-50%,-50%); }
+#canvas-host::after{ width: 1px; height: 14px; transform: translate(-50%,-50%); }
+
+.eyebrow{
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass-bright);
+}
+
+/* ---------- top-left title panel ---------- */
+#panelTop{
+  position: fixed;
+  top: 20px; left: 20px;
+  z-index: 10;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--brass);
+  padding: 14px 18px 12px;
+  max-width: 360px;
+  backdrop-filter: blur(6px);
+}
+#panelTop h1{
+  font-family: "Fraunces", "Fraunces-fallback", Georgia, serif;
+  font-weight: 500;
+  font-size: 1.35rem;
+  margin: 4px 0 8px;
+}
+#panelTop .hint{
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--parchment-dim);
+}
+#panelTop .hint b{ color: var(--parchment); font-weight: 600; }
+
+/* ---------- hover coordinate badge, follows cursor ---------- */
+#hoverBadge{
+  position: fixed;
+  z-index: 8;
+  top: 0; left: 0;
+  transform: translate(-9999px,-9999px);
+  background: rgba(19,18,16,0.88);
+  border: 1px solid var(--brass);
+  color: var(--brass-bright);
+  font-size: 11px;
+  padding: 4px 8px;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- right points panel ---------- */
+#panelPoints{
+  position: fixed;
+  top: 20px; right: 20px; bottom: 20px;
+  width: 320px;
+  z-index: 10;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--brass);
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panelHead{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--rule);
+  flex: none;
+}
+.headBtns{ display: flex; gap: 6px; }
+
+.chip{
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--parchment-dim);
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.chip:hover{ border-color: var(--brass); color: var(--parchment); }
+.chip-danger:hover{ border-color: var(--danger); color: var(--danger); }
+.chip:focus-visible{ outline: 2px solid var(--brass-bright); outline-offset: 2px; }
+
+#pointList{
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+#pointList::-webkit-scrollbar{ width: 6px; }
+#pointList::-webkit-scrollbar-thumb{ background: var(--rule); }
+
+.empty{
+  margin: 0;
+  padding: 0 16px 16px;
+  font-size: 11px;
+  color: var(--parchment-dim);
+  line-height: 1.6;
+}
+
+.pointRow{
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: rowIn 0.35s ease;
+}
+@keyframes rowIn{
+  from{ opacity: 0; transform: translateY(-4px); }
+  to{ opacity: 1; transform: none; }
+}
+
+.pointRow .rowHead{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pointRow .idx{
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--brass-bright);
+  letter-spacing: 0.06em;
+}
+.pointRow .swatch{
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.pointRow .coords{
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--parchment);
+  letter-spacing: 0.01em;
+}
+.pointRow .meta{
+  font-size: 10px;
+  color: var(--parchment-dim);
+}
+.pointRow .rowBtns{
+  display: flex;
+  gap: 6px;
+}
+.pointRow .rowBtns button{
+  background: none;
+  border: none;
+  color: var(--parchment-dim);
+  cursor: pointer;
+  font-size: 10px;
+  font-family: "IBM Plex Mono", monospace;
+  padding: 2px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pointRow .rowBtns button:hover{ color: var(--brass-bright); }
+
+/* ---------- loading bar ---------- */
+#loadWrap{
+  position: fixed;
+  left: 20px; bottom: 20px;
+  z-index: 10;
+  width: 260px;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+#loadWrap.hidden{ opacity: 0; visibility: hidden; }
+#loadBar{
+  height: 2px;
+  background: var(--rule);
+  margin-bottom: 6px;
+}
+#loadFill{
+  height: 100%;
+  width: 0%;
+  background: var(--brass);
+  transition: width 0.2s ease;
+}
+#loadLabel{
+  font-size: 10.5px;
+  color: var(--parchment-dim);
+  letter-spacing: 0.05em;
+}
+
+/* ---------- toast ---------- */
+#toast{
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translate(-50%, 12px);
+  z-index: 20;
+  background: var(--brass-bright);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 9px 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+#toast.show{ opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- wall boundary vignette ---------- */
+#wallVignette{
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(193,101,79,0.9) 130%);
+  transition: opacity 0.15s ease;
+}
+
+@media (max-width: 820px){
+  #panelPoints{ width: 260px; }
+  #panelTop{ max-width: 260px; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .pointRow{ animation: none; }
+}

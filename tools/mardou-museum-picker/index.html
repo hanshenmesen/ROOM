@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Mardou Museum — Coordinate Picker</title>
+<link rel="stylesheet" href="picker.css" />
+</head>
+<body>
+
+  <div id="canvas-host"></div>
+
+  <!-- flashes briefly when the camera is held back at the containment boundary -->
+  <div id="wallVignette"></div>
+
+  <!-- crosshair reticle at screen center is drawn in CSS; this is the hover readout -->
+  <div id="hoverBadge" class="mono">—</div>
+
+  <!-- top-left: tool title + how-to -->
+  <div id="panelTop">
+    <div class="eyebrow mono">COORDINATE PICKER</div>
+    <h1>The Mardou Museum</h1>
+    <p class="hint">拖动＝旋转视角　·　右键拖动＝平移　·　滚轮＝缩放　·　<b>左键点击模型＝取点</b><br>视角被限制在模型内部，不会穿墙或飞出范围</p>
+  </div>
+
+  <!-- right: picked points list -->
+  <div id="panelPoints">
+    <div class="panelHead">
+      <span class="eyebrow mono">采样点 <span id="ptCount">0</span></span>
+      <div class="headBtns">
+        <button id="copyAllBtn" class="chip" title="复制全部坐标为 JSON">复制全部</button>
+        <button id="clearBtn" class="chip chip-danger" title="清空所有采样点">清空</button>
+      </div>
+    </div>
+    <div id="pointList"></div>
+    <p id="emptyNote" class="mono empty">点击模型上的任意一点，坐标会出现在这里</p>
+  </div>
+
+  <!-- bottom-left: loading -->
+  <div id="loadWrap">
+    <div id="loadBar"><div id="loadFill"></div></div>
+    <div id="loadLabel" class="mono">加载模型中… 0%</div>
+  </div>
+
+  <!-- toast -->
+  <div id="toast"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="picker.js"></script>
+</body>
+</html>

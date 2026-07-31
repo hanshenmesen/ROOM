@@ -767,10 +767,10 @@ export function RoomStudio() {
           {privateGateOpen ? (
             <section className="private-gate-card" role="dialog" aria-modal="true" aria-labelledby="private-gate-title">
               <p>PRIVATE AREA · 01</p>
-              <h2 id="private-gate-title">进入私人卧室</h2>
+              <h2 id="private-gate-title">进入二层私密展区</h2>
               <div className="private-gate-copy">进入前先选择身份。本人可以写入本机日记；参观者只能浏览已保存内容。文字和图片只保存在当前浏览器，不会上传。</div>
               <form onSubmit={unlockPrivateRoom}>
-                <fieldset className="private-mode-picker" aria-label="选择卧室访问身份">
+                <fieldset className="private-mode-picker" aria-label="选择私密展区访问身份">
                   {(Object.entries(BEDROOM_ACCESS_COPY) as [BedroomAccessMode, typeof BEDROOM_ACCESS_COPY[BedroomAccessMode]][]).map(([mode, copy]) => (
                     <button
                       key={mode}
@@ -817,7 +817,7 @@ export function RoomStudio() {
 
         <nav className="journey-nav" aria-label="空间导航">
           {activeRoom === "exterior" ? (
-            <span className="journey-primary">点击画面中的大门 · 进入客厅</span>
+            <span className="journey-primary">点击画面中的入口 · 进入主展厅</span>
           ) : (
             <>
               <button
@@ -826,12 +826,12 @@ export function RoomStudio() {
                   leavePrivateRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
                 }}
               >
-                ← {activeRoom === "room-lobby" ? "回到别墅外" : "返回客厅"}
+                ← {activeRoom === "room-lobby" ? "回到展馆外" : "返回主展厅"}
               </button>
               {activeRoom === "room-lobby" ? (
                 <>
                   <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
-                    私人卧室 · 选择身份
+                    二层私密展区 · 选择身份
                   </button>
                   {projectPageCount > 1 ? (
                     <>
@@ -885,13 +885,13 @@ export function RoomStudio() {
             <>
               <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭访客留言板">×</button>
               <p>VISITOR CORNER</p>
-              <h2>在客厅留句话</h2>
+              <h2>在展厅留句话</h2>
               <div className="memory-description">留言会保存在这台浏览器中，并立即出现在 3D 留言板上。</div>
               <form className="memory-form" onSubmit={saveGuestbookEntry}>
                 <label htmlFor="guest-name">名字</label>
                 <input id="guest-name" value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="匿名访客" maxLength={32} />
                 <label htmlFor="guest-message">留言</label>
-                <textarea id="guest-message" value={guestMessage} onChange={(event) => { setGuestMessage(event.target.value); setGuestbookError(""); }} placeholder="这间客厅让你想到什么？" maxLength={160} rows={4} />
+                <textarea id="guest-message" value={guestMessage} onChange={(event) => { setGuestMessage(event.target.value); setGuestbookError(""); }} placeholder="这座展馆让你想到什么？" maxLength={160} rows={4} />
                 <div className="memory-error" aria-live="polite">{guestbookError}</div>
                 <button type="submit">保存到留言板</button>
               </form>
@@ -959,7 +959,7 @@ export function RoomStudio() {
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "移动鼠标环视 · 点击桌上的日记本 · 返回客厅继续浏览"}
+                : "移动鼠标环视 · 点击桌上的日记本 · 返回主展厅继续浏览"}
         </div>
       </section>
     </main>

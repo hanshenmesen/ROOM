@@ -22,13 +22,24 @@ import {
   type CreativeSubject,
 } from "@/lib/agents/creative-subjects";
 import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
-import { AuthoredRoomScene } from "./AuthoredRoomScene";
 import {
-  OpenSourceExteriorDressing,
-  OpenSourceRoomDressing,
   PortfolioEnvironment,
   RendererLook,
 } from "./OpenSourceRoomDressing";
+import {
+  MARDOU_CREATIVE_CORNER_POSITION,
+  MARDOU_DIARY_FOCUS,
+  MARDOU_DIARY_POSITION,
+  MARDOU_ENTRANCE_ROUTE,
+  MARDOU_EXTERIOR_FOCUS,
+  MARDOU_GUESTBOOK_PLACEMENT,
+  MARDOU_LOBBY_FOCUS,
+  MARDOU_PRIVATE_FOCUS,
+  MARDOU_PRIVATE_ROUTE,
+  MARDOU_PROJECT_PLACEMENTS,
+  MARDOU_SURFACE_PLACEMENTS,
+} from "./MardouMuseumLayout";
+import { MardouMuseumScene } from "./MardouMuseumScene";
 import {
   SceneTextureLoader,
 } from "./SceneAssetLoaders";
@@ -51,10 +62,8 @@ import {
 
 const INK = "#19171b";
 const DARK_WOOD = "#34231f";
-const BRASS = "#d4a15c";
 const TEAL = "#65d7c3";
 const CORAL = "#ff8b61";
-const PROJECT_WALL_PREFIX = "project-wall:";
 const EMPTY_INFORMATION_DETAILS: string[] = [];
 const PROJECTS_PER_PAGE = 4;
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
@@ -71,37 +80,14 @@ function sceneMediaUrl(url: string) {
     : url;
 }
 
-const PROJECT_STAND_SPACING_X = 7.4;
-const PROJECT_STAND_FRONT_Z = -3.35;
-const PROJECT_STAND_REAR_Z = -7.85;
 const PROJECT_STAND_BASE_SIZE = [1.88, 0.26, 1.56] as const;
 const PROJECT_STAND_TOP_SIZE = [1.54, 0.16, 1.28] as const;
 const PROJECT_CARD_SIZE = [1.68, 1.12, 0.09] as const;
 const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
 
-const projectDisplayPositions: Vec3[] = [
-  [-PROJECT_STAND_SPACING_X / 2, 0, PROJECT_STAND_FRONT_Z],
-  [PROJECT_STAND_SPACING_X / 2, 0, PROJECT_STAND_FRONT_Z],
-  [-PROJECT_STAND_SPACING_X / 2, 0, PROJECT_STAND_REAR_Z],
-  [PROJECT_STAND_SPACING_X / 2, 0, PROJECT_STAND_REAR_Z],
-];
-
-type ProjectWallPlacement = {
-  position: Vec3;
-  rotation: Vec3;
-  camera: Vec3;
-};
-
-const projectWallPlacements: ProjectWallPlacement[] = [
-  { position: [-10.62, 2.1, -4.4], rotation: [0, Math.PI / 2, 0], camera: [-6.25, 1.66, -4.4] },
-  { position: [-10.62, 2.1, -10.6], rotation: [0, Math.PI / 2, 0], camera: [-6.25, 1.66, -10.6] },
-  { position: [10.62, 2.1, -10.6], rotation: [0, -Math.PI / 2, 0], camera: [6.25, 1.66, -10.6] },
-  { position: [10.62, 2.1, -4.4], rotation: [0, -Math.PI / 2, 0], camera: [6.25, 1.66, -4.4] },
-];
-
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
-  "showroom-guestbook": { target: [-10.58, 1.7, 2.5], camera: [-7.35, 1.66, 2.5], fov: 46 },
-  "bedroom-diary": { target: [-20.2, 0.96, -16.25], camera: [-16.55, 1.56, -16.25], fov: 48 },
+  "showroom-guestbook": MARDOU_GUESTBOOK_PLACEMENT.focus,
+  "bedroom-diary": MARDOU_DIARY_FOCUS,
 };
 
 type CameraRoute = {
@@ -115,74 +101,67 @@ type CameraRoute = {
 
 function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string; selectedExhibit?: string; world: WorldPlan }) {
   const { camera, pointer } = useThree();
-  const lookAt = useMemo(() => new THREE.Vector3(0, 3.1, 5.6), []);
-  const lookAtTarget = useMemo(() => new THREE.Vector3(0, 3.1, 5.6), []);
-  const mouseLookTarget = useMemo(() => new THREE.Vector3(0, 3.1, 5.6), []);
-  const destination = useMemo(() => new THREE.Vector3(0, 1.05, 23.5), []);
+  const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.target), []);
+  const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.target), []);
+  const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.target), []);
+  const destination = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.camera), []);
   const frameDestination = useMemo(() => new THREE.Vector3(), []);
   const viewDirection = useMemo(() => new THREE.Vector3(), []);
   const viewRight = useMemo(() => new THREE.Vector3(), []);
   const viewUp = useMemo(() => new THREE.Vector3(), []);
-  const desiredFov = useRef(48);
+  const desiredFov = useRef(MARDOU_EXTERIOR_FOCUS.fov);
   const previousRoom = useRef(activeRoom);
   const previousExhibit = useRef(selectedExhibit);
   const route = useRef<CameraRoute | null>(null);
 
   useEffect(() => {
     const room = world.rooms.find((item) => item.id === activeRoom);
-    const wallProjectId = selectedExhibit?.startsWith(PROJECT_WALL_PREFIX)
-      ? selectedExhibit.slice(PROJECT_WALL_PREFIX.length)
-      : undefined;
-    const exhibit = world.exhibits.find((item) => item.id === (wallProjectId || selectedExhibit));
+    const exhibit = world.exhibits.find((item) => item.id === selectedExhibit);
     const exhibitRoom = exhibit ? world.rooms.find((item) => item.id === exhibit.roomId) : undefined;
+    const surfaceIndex = selectedExhibit
+      ? world.displaySurfaces.findIndex((surface) => surface.id === selectedExhibit)
+      : -1;
     const authoredFocus = selectedExhibit
-      ? world.displaySurfaces.find((surface) => surface.id === selectedExhibit)?.focusTarget
+      ? (surfaceIndex >= 0 ? MARDOU_SURFACE_PLACEMENTS[surfaceIndex]?.focus : undefined)
         || localFeatureFocusTargets[selectedExhibit]
       : undefined;
     const projectIndex = exhibit?.eyebrow === "PROJECT"
       ? world.exhibits.filter((item) => item.eyebrow === "PROJECT").findIndex((item) => item.id === exhibit.id)
       : -1;
-    const displayedProjectPosition = projectIndex >= 0
-      ? projectDisplayPositions[projectIndex % PROJECTS_PER_PAGE]
-      : undefined;
-    const wallFocus = wallProjectId && projectIndex >= 0
-      ? projectWallPlacements[projectIndex % PROJECTS_PER_PAGE]
+    const displayedProjectPlacement = projectIndex >= 0
+      ? MARDOU_PROJECT_PLACEMENTS[projectIndex % PROJECTS_PER_PAGE]
       : undefined;
     if (authoredFocus) {
       lookAtTarget.set(...authoredFocus.target);
       destination.set(...authoredFocus.camera);
       desiredFov.current = authoredFocus.fov;
-    } else if (wallFocus) {
-      lookAtTarget.set(...wallFocus.position);
-      destination.set(...wallFocus.camera);
-      desiredFov.current = 50;
     } else if (exhibit) {
-      const exhibitPosition = displayedProjectPosition || exhibit.position;
-      lookAtTarget.set(exhibitPosition[0], Math.max(1, exhibitPosition[1]), exhibitPosition[2]);
-      if (displayedProjectPosition) {
-        destination.set(exhibitPosition[0], 1.66, exhibitPosition[2] + 3.8);
-        desiredFov.current = 50;
+      if (displayedProjectPlacement) {
+        lookAtTarget.set(...displayedProjectPlacement.focus.target);
+        destination.set(...displayedProjectPlacement.focus.camera);
+        desiredFov.current = displayedProjectPlacement.focus.fov;
       } else {
+        lookAtTarget.set(exhibit.position[0], Math.max(1, exhibit.position[1]), exhibit.position[2]);
         const centralSide = exhibitRoom && exhibitRoom.center[0] < 0 ? 1 : -1;
         destination.set(exhibit.position[0] + centralSide * 3.9, 1.66, exhibit.position[2]);
         desiredFov.current = 48;
       }
     } else if (room?.kind === "lobby") {
-      lookAtTarget.set(0, 2.05, -16.3);
-      destination.set(0, 1.66, 2.7);
-      desiredFov.current = 62;
+      lookAtTarget.set(...MARDOU_LOBBY_FOCUS.target);
+      destination.set(...MARDOU_LOBBY_FOCUS.camera);
+      desiredFov.current = MARDOU_LOBBY_FOCUS.fov;
     } else if (room?.kind === "bedroom") {
-      lookAtTarget.set(-20.2, 1.02, -16.25);
-      destination.set(-13.85, 1.66, -16.25);
-      desiredFov.current = 58;
+      lookAtTarget.set(...MARDOU_PRIVATE_FOCUS.target);
+      destination.set(...MARDOU_PRIVATE_FOCUS.camera);
+      desiredFov.current = MARDOU_PRIVATE_FOCUS.fov;
     } else if (room) {
       lookAtTarget.set(room.center[0] - room.size[0] * 0.12, 1.52, room.center[2]);
       destination.set(room.center[0] + room.size[0] * 0.32, 1.66, room.center[2]);
       desiredFov.current = 64;
     } else {
-      lookAtTarget.set(0, 3.1, 5.6);
-      destination.set(0, 1.08, 22.5);
-      desiredFov.current = 45;
+      lookAtTarget.set(...MARDOU_EXTERIOR_FOCUS.target);
+      destination.set(...MARDOU_EXTERIOR_FOCUS.camera);
+      desiredFov.current = MARDOU_EXTERIOR_FOCUS.fov;
     }
 
     const roomChanged = previousRoom.current !== activeRoom;
@@ -194,64 +173,72 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
     const fromFov = camera instanceof THREE.PerspectiveCamera ? camera.fov : desiredFov.current;
     let positionPoints = [startPosition, destination.clone()];
     let targetPoints = [startTarget, lookAtTarget.clone()];
-    let duration = exhibit || authoredFocus || wallFocus ? 1.7 : 2.2;
+    let duration = exhibit || authoredFocus ? 1.7 : 2.2;
 
     if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
       positionPoints = [
         startPosition,
-        new THREE.Vector3(0, 1.45, 11.8),
-        new THREE.Vector3(0, 1.64, 6.9),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.threshold),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.gallery),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
-        new THREE.Vector3(0, 2.05, 7.3),
-        new THREE.Vector3(0, 1.55, -2.8),
+        new THREE.Vector3(2, 2, 8),
+        new THREE.Vector3(2, 1.6, -2),
+        new THREE.Vector3(0, 1.5, -10),
         lookAtTarget.clone(),
       ];
-      duration = 2.7;
+      duration = 3;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "room-private") {
       positionPoints = [
         startPosition,
-        new THREE.Vector3(-6.2, 1.66, -11.8),
-        new THREE.Vector3(-10.15, 1.66, -16.25),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.ground),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.stairs),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.landing),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
-        new THREE.Vector3(-10.8, 1.42, -16.25),
-        new THREE.Vector3(-14.4, 1.4, -16.25),
+        new THREE.Vector3(2.5, 1.85, -13),
+        new THREE.Vector3(2.5, 3.4, -15),
+        new THREE.Vector3(0, 4.2, -18),
         lookAtTarget.clone(),
       ];
-      duration = 2.8;
+      duration = 3;
     } else if (previousRoom.current === "room-private" && activeRoom === "room-lobby") {
       positionPoints = [
         startPosition,
-        new THREE.Vector3(-11.45, 1.66, -16.25),
-        new THREE.Vector3(-7.1, 1.66, -11.8),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.landing),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.stairs),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.ground),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
-        new THREE.Vector3(-10.2, 1.52, -16.25),
-        new THREE.Vector3(-3.4, 1.55, -7),
+        new THREE.Vector3(2.5, 3.4, -15),
+        new THREE.Vector3(2.5, 1.85, -13),
+        new THREE.Vector3(0, 1.5, -10),
         lookAtTarget.clone(),
       ];
-      duration = 2.6;
+      duration = 3;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "exterior") {
       positionPoints = [
         startPosition,
-        new THREE.Vector3(0, 1.66, 7.85),
-        new THREE.Vector3(0, 1.48, 11.2),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.gallery),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.threshold),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
-        new THREE.Vector3(0, 1.55, 8.8),
-        new THREE.Vector3(0, 2.3, 16),
+        new THREE.Vector3(0, 1.5, -10),
+        new THREE.Vector3(2, 1.6, -2),
+        new THREE.Vector3(2, 2, 8),
         lookAtTarget.clone(),
       ];
-      duration = 2.7;
+      duration = 3;
     }
 
     route.current = {
@@ -855,7 +842,7 @@ function CreativeSubjectCorner({ subjects }: { subjects: CreativeSubject[] }) {
   const pet = findRenderableCreativeSubject(subjects, "pet");
   if (!person) return null;
   return (
-    <group position={[8.45, 0, -16.5]} rotation={[0, -0.35, 0]}>
+    <group position={MARDOU_CREATIVE_CORNER_POSITION} rotation={[0, -0.35, 0]}>
       <CreativePersonFigure subject={person} />
       {pet ? <CreativePetFigure subject={pet} /> : null}
     </group>
@@ -867,7 +854,11 @@ function LivingInformationWall({ world, interactive, selectedId, onSelect }: { w
   return (
     <group>
       {world.displaySurfaces.map((surface, index) => {
-        const layout = surface.layout || fallbackSurfaceLayout(surface, index);
+        const authoredLayout = surface.layout || fallbackSurfaceLayout(surface, index);
+        const pickedPlacement = MARDOU_SURFACE_PLACEMENTS[index];
+        const layout = pickedPlacement
+          ? { ...authoredLayout, position: pickedPlacement.position, rotation: pickedPlacement.rotation }
+          : authoredLayout;
         const details = detailLinesForSurface(world, surface);
         return (
           <InformationFrame
@@ -896,32 +887,11 @@ function LivingInformationWall({ world, interactive, selectedId, onSelect }: { w
 }
 
 function ShowroomDetails({ lit }: { lit: boolean }) {
-  const rug = useRugTextures(undefined, 13.8 / 11.2);
-  return (
-    <group>
-      <TextPanel
-        title="OPEN ARCHIVE"
-        subtitle="NOTES · BOOKS · AUDIO"
-        position={[-8.55, 3.55, 4.85]}
-        rotation={[0, Math.PI, 0]}
-        width={3}
-      />
-      <mesh receiveShadow position={[0, -0.055, -8]}>
-        <boxGeometry args={[13.8, 0.07, 11.2]} />
-        <meshStandardMaterial map={rug.map} bumpMap={rug.bumpMap} bumpScale={0.055} color="#d8bba4" roughness={0.94} />
-      </mesh>
-      <mesh receiveShadow position={[8.5, 0.12, 4.1]}>
-        <cylinderGeometry args={[0.9, 1.02, 0.24, 20]} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.7} metalness={0.08} />
-      </mesh>
-      <mesh position={[8.5, 0.25, 4.1]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.7, 0.88, 32]} />
-        <meshBasicMaterial color={BRASS} toneMapped={false} />
-      </mesh>
-      {lit ? <pointLight position={[0, 3.35, -6]} intensity={8} distance={11} decay={2} color="#ffe2b2" /> : null}
-      {lit ? <pointLight position={[8.5, 2.6, 4.1]} intensity={2.6} distance={5.2} decay={2} color="#9fc6b8" /> : null}
-    </group>
-  );
+  if (!lit) return null;
+  return <group>
+    <pointLight position={[-2, 3.2, -12]} intensity={7} distance={12} decay={2} color="#ffe2b2" />
+    <pointLight position={[1, 5.4, -19]} intensity={3} distance={9} decay={2} color="#9fc6b8" />
+  </group>;
 }
 
 function GuestbookBoard({ messages, interactive, selected, onSelect }: { messages: string[]; interactive: boolean; selected: boolean; onSelect: () => void }) {
@@ -933,8 +903,8 @@ function GuestbookBoard({ messages, interactive, selected, onSelect }: { message
       kicker="VISITOR CORNER"
       title="访客留言板"
       body={body}
-      position={[-10.58, 1.7, 2.5]}
-      rotation={[0, Math.PI / 2, 0]}
+      position={MARDOU_GUESTBOOK_PLACEMENT.position}
+      rotation={MARDOU_GUESTBOOK_PLACEMENT.rotation}
       width={2.45}
       height={1.52}
       accent="#7088d4"
@@ -951,7 +921,7 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
   const rug = useRugTextures(undefined, 4.6 / 3.2);
   return (
     <group
-      position={[-20.2, 0, -16.25]}
+      position={MARDOU_DIARY_POSITION}
       rotation={[0, Math.PI / 2, 0]}
       onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
       onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
@@ -995,7 +965,7 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
   );
 }
 
-function VillaExterior({ name, open, interactive, onEnter }: { name: string; open: boolean; interactive: boolean; onEnter: () => void }) {
+export function VillaExterior({ name, open, interactive, onEnter }: { name: string; open: boolean; interactive: boolean; onEnter: () => void }) {
   const [hovered, setHovered] = useState(false);
   const [doorOpen, setDoorOpen] = useState(open);
   const [showExterior, setShowExterior] = useState(true);
@@ -1079,47 +1049,6 @@ function VillaExterior({ name, open, interactive, onEnter }: { name: string; ope
       {[-10.2, -5.4, 5.4, 10.2].map((x, index) => <LowPolyPlant key={x} position={[x, -0.14, 9]} scale={index % 2 ? 1.25 : 1.55} />)}
       {[0, 1, 2].map((step) => <mesh key={step} receiveShadow position={[0, -0.25 - step * 0.17, 8.45 + step * 0.55]}><boxGeometry args={[4.8 - step * 0.35, 0.18, 1.2]} /><meshStandardMaterial color={step % 2 ? "#a56e4f" : "#c58a61"} /></mesh>)}
       <mesh receiveShadow position={[0, -0.97, 15]}><boxGeometry args={[3.2, 0.05, 12]} /><meshStandardMaterial color="#92735e" roughness={1} /></mesh>
-    </group>
-  );
-}
-
-const roomDoorSpecs: Array<{ roomId: string; position: Vec3; side: "left" | "right"; color: string }> = [
-  { roomId: "room-private", position: [-10.71, 0, -16.25], side: "left", color: "#4b466f" },
-];
-
-function RoomDoor({ spec, open, interactive, onEnter }: { spec: (typeof roomDoorSpecs)[number]; open: boolean; interactive: boolean; onEnter: (roomId: string) => void }) {
-  const [hovered, setHovered] = useState(false);
-  const [doorOpen, setDoorOpen] = useState(open);
-  const door = useRef<THREE.Group>(null);
-  const rotationY = spec.side === "left" ? Math.PI / 2 : -Math.PI / 2;
-  useEffect(() => {
-    const syncTimer = window.setTimeout(() => setDoorOpen(open), open ? 0 : 2100);
-    return () => window.clearTimeout(syncTimer);
-  }, [open]);
-  useFrame(() => {
-    if (door.current) door.current.rotation.y = THREE.MathUtils.lerp(door.current.rotation.y, doorOpen ? 1.48 : 0, 0.1);
-  });
-
-  function enterRoom() {
-    if (!interactive || open) return;
-    onEnter(spec.roomId);
-  }
-
-  return (
-    <group
-      position={spec.position}
-      rotation={[0, rotationY, 0]}
-      onClick={interactive && !open ? (event) => { event.stopPropagation(); enterRoom(); } : undefined}
-      onPointerOver={interactive && !open ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
-      onPointerOut={interactive && !open ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
-    >
-      {[-1, 1].map((x) => <mesh key={x} position={[x, 1.6, 0]}><boxGeometry args={[0.16, 3.2, 0.28]} /><meshStandardMaterial color={BRASS} /></mesh>)}
-      <mesh position={[0, 3.17, 0]}><boxGeometry args={[2.15, 0.18, 0.3]} /><meshStandardMaterial color={DARK_WOOD} /></mesh>
-      <group ref={door} position={[-0.9, 0, 0.04]}>
-        <mesh position={[0.9, 1.5, 0]}><planeGeometry args={[1.8, 2.9]} /><meshStandardMaterial color={spec.color} emissive={hovered ? spec.color : INK} emissiveIntensity={hovered ? 0.38 : 0.05} roughness={0.82} side={THREE.DoubleSide} /></mesh>
-        <mesh position={[1.62, 1.35, 0.07]}><sphereGeometry args={[0.1, 10, 8]} /><meshStandardMaterial color={BRASS} /></mesh>
-      </group>
-      <mesh position={[0, 0.05, 0.58]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[2.15, 1]} /><meshBasicMaterial color={hovered ? CORAL : TEAL} transparent opacity={hovered ? 0.4 : 0.14} toneMapped={false} /></mesh>
     </group>
   );
 }
@@ -1357,37 +1286,6 @@ function EmptyProjectPedestal({ position, slot }: { position: Vec3; slot: number
   );
 }
 
-function ProjectWallArchive({ exhibits, world, displayStart, selectedId, interactive, onSelect }: { exhibits: ExhibitPlan[]; world: WorldPlan; displayStart: number; selectedId?: string; interactive: boolean; onSelect: (id: string) => void }) {
-  return (
-    <group>
-      {exhibits.map((exhibit, index) => {
-        const placement = projectWallPlacements[index];
-        const sourceItem = world.profile.items.find((item) => item.id === exhibit.sourceItemId);
-        const wallId = `${PROJECT_WALL_PREFIX}${exhibit.id}`;
-        return (
-          <InformationFrame
-            key={wallId}
-            kicker={`PROJECT ${String(displayStart + index + 1).padStart(2, "0")}`}
-            title={exhibit.title}
-            body={exhibit.body}
-            details={[sourceItem?.subtitle || "", exhibit.body]}
-            position={placement.position}
-            rotation={placement.rotation}
-            width={2.65}
-            height={1.7}
-            accent={projectAccent(exhibit.title)}
-            footer="WALL ARCHIVE · CLICK TO INSPECT"
-            variant="project"
-            interactive={interactive}
-            selected={selectedId === wallId}
-            onSelect={() => onSelect(wallId)}
-          />
-        );
-      })}
-    </group>
-  );
-}
-
 class OptionalAssetBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
@@ -1512,7 +1410,7 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
   return (
     <>
       <SceneLoadingReporter onLoadProgress={onLoadProgress} onLoadState={onLoadState} />
-      <Canvas dpr={[1, 1.35]} shadows={{ type: THREE.PCFShadowMap }} camera={{ position: [0, 1.08, 22.5], fov: 45, near: 0.08, far: 120 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => onSelect("")}>
+      <Canvas dpr={[1, 1.35]} shadows={{ type: THREE.PCFShadowMap }} camera={{ position: MARDOU_EXTERIOR_FOCUS.camera, fov: MARDOU_EXTERIOR_FOCUS.fov, near: 0.08, far: 120 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => onSelect("")}>
         <color attach="background" args={["#91adbd"]} />
         <fog attach="fog" args={["#91adbd", 32, 74]} />
         <ambientLight intensity={0.5} color="#ead9c4" />
@@ -1523,13 +1421,14 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
         <RendererLook />
         <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} world={world} />
         <Suspense fallback={null}>
-          <VillaExterior name={world.profile.name} open={activeRoom !== "exterior"} interactive={activeRoom === "exterior"} onEnter={() => onRoomChange("room-lobby")} />
-          {world.rooms.map((room) => <AuthoredRoomScene key={`architecture-${room.id}`} room={room} active={activeRoom === room.id} onBackgroundClick={() => onSelect("")} />)}
+          <MardouMuseumScene
+            activeRoom={activeRoom}
+            onEnter={() => onRoomChange("room-lobby")}
+            onBackgroundClick={() => onSelect("")}
+          />
           <OptionalAssetBoundary key={world.id}>
             <Suspense fallback={null}>
               <PortfolioEnvironment />
-              <OpenSourceExteriorDressing />
-              {world.rooms.map((room) => <OpenSourceRoomDressing key={`dressing-${room.id}`} room={room} />)}
             </Suspense>
           </OptionalAssetBoundary>
           <LivingInformationWall
@@ -1540,17 +1439,9 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
           />
           <ShowroomDetails lit={activeRoom === "room-lobby"} />
           <CreativeSubjectCorner subjects={creativeSubjects} />
-          <ProjectWallArchive
-            exhibits={visibleProjectExhibits}
-            world={world}
-            displayStart={projectStart}
-            interactive={activeRoom === "room-lobby"}
-            selectedId={selectedExhibit}
-            onSelect={onSelect}
-          />
           <GuestbookBoard
             messages={guestbookMessages}
-            interactive={activeRoom === "room-lobby"}
+            interactive={activeRoom !== "exterior"}
             selected={selectedExhibit === "showroom-guestbook"}
             onSelect={() => onSelect("showroom-guestbook")}
           />
@@ -1559,29 +1450,20 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
             selected={selectedExhibit === "bedroom-diary"}
             onSelect={() => onSelect("bedroom-diary")}
           />
-          {roomDoorSpecs.map((spec) => (
-            <RoomDoor
-              key={spec.roomId}
-              spec={spec}
-              open={activeRoom === spec.roomId}
-              interactive={activeRoom === "room-lobby"}
-              onEnter={onRoomChange}
-            />
-          ))}
-          {projectDisplayPositions.map((position, slot) => {
+          {MARDOU_PROJECT_PLACEMENTS.map((placement, slot) => {
             const exhibit = visibleProjectExhibits[slot];
             return exhibit ? (
               <ProjectPedestal
                 key={exhibit.id}
                 exhibit={exhibit}
-                position={position}
+                position={placement.position}
                 displayIndex={projectStart + slot + 1}
-                selected={selectedExhibit === exhibit.id || selectedExhibit === `${PROJECT_WALL_PREFIX}${exhibit.id}`}
+                selected={selectedExhibit === exhibit.id}
                 interactive={activeRoom === "room-lobby"}
                 onSelect={onSelect}
               />
             ) : (
-              <EmptyProjectPedestal key={`empty-project-${slot}`} position={position} slot={slot} />
+              <EmptyProjectPedestal key={`empty-project-${slot}`} position={placement.position} slot={slot} />
             );
           })}
           <mesh position={[0, -1.13, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[90, 90]} /><meshStandardMaterial color="#596b52" roughness={1} /></mesh>

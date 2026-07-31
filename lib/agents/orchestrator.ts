@@ -18,7 +18,7 @@ const roomSpecs: Array<{
   size: Vec3;
 }> = [
   { id: "room-lobby", kind: "lobby", title: "客厅", subtitle: "人物、项目、能力与档案", center: [0, 0, -7], size: [21.6, 0.3, 28] },
-  { id: "room-private", kind: "bedroom", title: "Private Bedroom", subtitle: "需密码进入 · 私人日记", center: [-18.8, 0, -16.25], size: [16, 0.3, 20] },
+  { id: "room-private", kind: "bedroom", title: "Private Upper Gallery", subtitle: "需密码进入 · 私人日记", center: [0, 3.53, -20], size: [10, 0.3, 12] },
 ];
 
 function positionFor(center: Vec3, size: Vec3, index: number, count: number): Vec3 {
@@ -187,7 +187,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
   });
 
   const portals = [
-    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: [-10.8, 1, -16.25] as Vec3, label: "Private Bedroom" },
+    { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: [2.5, 3.53, -15] as Vec3, label: "Private Upper Gallery" },
   ];
   const rooms: RoomPlan[] = roomSpecs.map((room) => ({
     ...room,

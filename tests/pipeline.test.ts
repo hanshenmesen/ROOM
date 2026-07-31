@@ -59,9 +59,9 @@ test("orchestrator maps every résumé item into the public showroom and keeps r
   assert.equal(result.world.rooms.length, 2);
   assert.equal(result.world.portals.length, 1);
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-lobby")?.size, [21.6, 0.3, 28]);
-  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.size, [16, 0.3, 20]);
-  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.center, [-18.8, 0, -16.25]);
-  assert.deepEqual(result.world.portals[0]?.position, [-10.8, 1, -16.25]);
+  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.size, [10, 0.3, 12]);
+  assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.center, [0, 3.53, -20]);
+  assert.deepEqual(result.world.portals[0]?.position, [2.5, 3.53, -15]);
   assert.ok(result.world.exhibits.every((item) => item.roomId === "room-lobby"));
   assert.equal(result.world.rooms.find((room) => room.id === "room-private")?.kind, "bedroom");
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.exhibitIds, []);
