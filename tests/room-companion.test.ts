@@ -25,7 +25,8 @@ test("room companion patrol points stay on the lobby floor and away from blocked
 });
 
 test("room companion is neutral, procedural, and does not consume parsed pet material", () => {
-  assert.match(companionSource, /name="room-neutral-companion"/);
+  assert.match(companionSource, /name="room-companion-xiaobai"/);
+  assert.match(companionSource, /companionName: ROOM_COMPANION_NAME/);
   assert.match(companionSource, /icosahedronGeometry/);
   assert.match(companionSource, /capsuleGeometry/);
   assert.match(companionSource, /coneGeometry/);
@@ -35,9 +36,10 @@ test("room companion is neutral, procedural, and does not consume parsed pet mat
   assert.doesNotMatch(companionSource, /petName|petAsset|parsedPet|sourcePet/i);
 });
 
-test("room companion pauses for QA and resumes through frame refs instead of per-frame React state", () => {
+test("room companion freezes and faces the camera during Xiaobai QA, then resumes through frame refs", () => {
   assert.match(companionSource, /qaOpen/);
-  assert.match(companionSource, /dialoguePoint/);
+  assert.match(companionSource, /if \(qaOpen\) \{[\s\S]{0,260}state\.camera\.position/);
+  assert.match(companionSource, /position\.y = MARDOU_COMPANION_SAFE_ZONE\.floorY \+ \(qaOpen \? 0/);
   assert.match(companionSource, /onOpenQa\(\)/);
   assert.match(companionSource, /pauseUntil\.current/);
   assert.match(companionSource, /useFrame/);
@@ -45,4 +47,5 @@ test("room companion pauses for QA and resumes through frame refs instead of per
   assert.match(companionSource, /root\.current\.position\.addScaledVector/);
   assert.match(studioSource, /className="companion-qa-launch"/);
   assert.match(studioSource, /aria-controls="pet-qa-panel"/);
+  assert.match(studioSource, /问问\{ROOM_COMPANION_NAME\}/);
 });

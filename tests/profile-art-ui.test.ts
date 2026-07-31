@@ -11,7 +11,8 @@ const viteConfig = readFileSync(new URL("../vite.config.ts", import.meta.url), "
 test("world opening replaces a source portrait before compiling the visible scene", () => {
   assert.match(source, /profileWithPortraitUrl\(editedProfile, abstractPortraitPlaceholder\(\)\)/);
   assert.match(source, /const next = compileProfile\(displayProfile\)/);
-  assert.match(source, /if \(sourcePortrait\) void generateAbstractPortrait\(sourcePortrait, next\.profile\)/);
+  assert.match(source, /if \(shouldGeneratePortraitArt\) void generateAbstractPortrait\(sourcePortrait, next\.profile\)/);
+  assert.match(source, /profile\.id !== FICTIONAL_DEMO_PROFILE_ID/);
 });
 
 test("scene reveal waits for automatic abstract portrait generation to settle", () => {
@@ -31,11 +32,14 @@ test("intake discloses automatic photo transformation", () => {
   assert.match(design, /source photo is an identity input, never a public exhibit/i);
 });
 
-test("second-page Agent settings expose portrait-art provider configuration", () => {
-  assert.match(setupDialog, /抽象肖像图像服务/);
+test("second-page Agent settings keep portrait configuration behind progressive disclosure", () => {
+  assert.match(setupDialog, /能力路由/);
+  assert.match(setupDialog, /高级设置/);
+  assert.match(setupDialog, /自定义抽象肖像图像服务/);
   assert.match(setupDialog, /图像 API Key（可选）/);
   assert.match(setupDialog, /Image Base URL/);
   assert.match(setupDialog, /Image Model/);
+  assert.match(setupDialog, /customPetQaProvider[\s\S]*\{ \.\.\.maas, apiKey: "" \}/);
   assert.match(source, /browserPortraitArtConfigHeaders\(browserAgentConfig\)/);
 });
 

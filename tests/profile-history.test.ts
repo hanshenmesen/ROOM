@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { hanchenDemoProfile } from "../lib/data/hanchen-demo-profile.ts";
+import { fictionalDemoProfile } from "../lib/data/fictional-demo-profile.ts";
 import {
   MAX_SAVED_PROFILES,
   isSavedProfileRecord,
@@ -10,7 +10,7 @@ import {
 
 test("generated profiles are deduplicated, newest-first, and bounded", () => {
   const records = Array.from({ length: MAX_SAVED_PROFILES }, (_, index) => ({
-    profile: { ...hanchenDemoProfile, id: `profile-${index}`, name: `Person ${index}` },
+    profile: { ...fictionalDemoProfile, id: `profile-${index}`, name: `Person ${index}` },
     savedAt: `2026-07-${String(index + 1).padStart(2, "0")}`,
   }));
   const updated = upsertSavedProfile(records, records[2]!.profile, "latest");
@@ -22,7 +22,7 @@ test("generated profiles are deduplicated, newest-first, and bounded", () => {
 
 test("saved profile records reject malformed local data", () => {
   assert.equal(isSavedProfileRecord(null), false);
-  assert.equal(isSavedProfileRecord({ profile: hanchenDemoProfile, savedAt: "now" }), true);
+  assert.equal(isSavedProfileRecord({ profile: fictionalDemoProfile, savedAt: "now" }), true);
   assert.equal(isSavedProfileRecord({ profile: { id: "x", name: "X", items: [] }, savedAt: "now" }), false);
 });
 

@@ -9,7 +9,7 @@ test("the first entrance uses one continuous arc-length camera curve", () => {
   assert.doesNotMatch(worldSource, /new THREE\.CurvePath/);
   assert.match(worldSource, /positionCurve = silkyCameraCurve\(positionPoints\)/);
   assert.match(worldSource, /new THREE\.CatmullRomCurve3\(points, false, "centripetal", 0\.42\)/);
-  assert.match(worldSource, /position\.getPointAt\(eased, camera\.position\)/);
+  assert.match(worldSource, /sampleCameraCurve\(route\.current\.position, eased, camera\.position\)/);
   assert.match(worldSource, /Math\.min\(delta, 1 \/ 24\)/);
 });
 

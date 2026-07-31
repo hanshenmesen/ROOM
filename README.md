@@ -40,6 +40,11 @@ IMAGE_MAAS_MODEL=gpt-image-2
 PET_QA_API_KEY=
 PET_QA_BASE_URL=https://maas.devops.rednote.life/hackson
 PET_QA_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
+NEXT_PUBLIC_PET_TTS_ENABLED=1
+NEXT_PUBLIC_PET_TTS_REALTIME_URL=wss://joiagent.devops.beta.xiaohongshu.com/tts/qwen3cus/v1/audio/speech/stream
+NEXT_PUBLIC_PET_TTS_MODEL=Qwen3-TTS-12Hz-1.7B-CustomVoice
+NEXT_PUBLIC_PET_TTS_VOICE=vivian
+NEXT_PUBLIC_PET_TTS_MAX_NEW_TOKENS=1024
 ```
 
 Only one valid API key is required. `MAAS_BASE_URL`, `MAAS_MODEL`, `WEBSITE_AGENT_BASE_URL`, and `WEBSITE_AGENT_MODEL` have working defaults, while a dedicated Website Agent key is optional.
@@ -48,7 +53,7 @@ The entrance checks `/api/config` for deployment-level readiness and opens the i
 
 Local secrets are loaded only by the development server. Production builds expect the same names as deployment-platform secrets and do not embed `.env.local` values. Configure those values in the deployment platform rather than committing an environment file.
 
-Open `http://localhost:3000` at the public entrance. Choose the precompiled Han Chen demo to enter its world immediately without reparsing or configuring an API, or configure the Agent service and import another résumé or public portfolio.
+Open `http://localhost:3000` at the public entrance. Choose the built-in fictional Lin Che demo to enter its world immediately without reparsing or configuring an API, or configure the Agent service and import another résumé or public portfolio.
 
 The demo supports:
 
@@ -60,12 +65,14 @@ The demo supports:
 - A password-gated upper gallery for the local private diary and personal scene.
 - Clickable exhibits that complete their camera approach before opening a centered, face-forward reading screen with line-level source evidence.
 - A seeded and locally cumulative exhibit-heat sidebar whose entries route back to their exhibit views.
-- A neutral roaming 3D companion with profile-grounded QA, citations, and entrance-level provider configuration.
+- A neutral roaming 3D companion with profile-grounded QA, citations, and Qwen3-TTS realtime spoken answers. The voice player queues 24 kHz PCM frames as they arrive, supports automatic playback, replay, stop, volume persistence, background-music ducking, and browser-voice fallback.
 - Quiet procedural background music with a persistent local toggle.
 - Deterministic checks for omissions, overlap, dead click targets, room connectivity, and mobile budgets.
 - A license-aware reference catalog plus a syncable local RAG corpus.
 
 This version deliberately does not include racing navigation, generative Blender assets, accounts, or persistent visitor comments. Those remain follow-up iterations.
+
+The Qwen3-TTS integration connects from the browser to the configured WebSocket endpoint so the first PCM frames can play without waiting for a complete audio file. `NEXT_PUBLIC_PET_TTS_*` values are public configuration and must never contain credentials. If the upstream later requires authentication, replace the direct connection with an authenticated server-side relay before deployment.
 
 ## Phase 1: Agent-powered Mardou home
 

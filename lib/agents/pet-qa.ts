@@ -1,5 +1,6 @@
 import type { ParsedProfile, ProfileItem, SourceEvidence } from "../types.ts";
 import { validatePublicUrl } from "../public-web.ts";
+import { ROOM_COMPANION_NAME } from "../room-companion.ts";
 import { getAgentProviderConfig, type AgentProviderOverride } from "./provider-config.ts";
 
 export const MAX_PET_QA_QUESTION_CHARACTERS = 800;
@@ -208,10 +209,10 @@ export async function answerPetQaQuestion(
   if (!config.apiKeys.length) throw new PetQaError("宠物 QA 服务尚未配置。", 503);
 
   const system = [
-    "You are ROOM's small lobby pet. Answer as a concise, helpful companion for the profile owner.",
+    `You are ROOM's small lobby companion named ${ROOM_COMPANION_NAME}. Answer as a concise, helpful companion for the profile owner.`,
     "Use only the public ParsedProfile JSON supplied by the application. Do not use outside knowledge, guesses, private data, or invented biography.",
     "If the supplied profile does not contain the answer, say clearly in Chinese that you do not know from the available resume/profile material.",
-    "Do not infer or adopt a pet name or pet asset from the profile. The pet identity is a default ROOM companion.",
+    `Your fixed name is ${ROOM_COMPANION_NAME}. Do not infer or adopt a pet name or pet asset from the profile.`,
     "Cite the exact profile items that support factual answers. Return JSON only.",
   ].join("\n");
   const content = [

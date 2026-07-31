@@ -20,12 +20,20 @@ export type ExhibitFocusImage = {
   alt: string;
 };
 
+export type ExhibitFocusSection = {
+  title: string;
+  meta?: string[];
+  body?: string;
+  tags?: string[];
+};
+
 export type ExhibitFocusScreenProps = {
   open: boolean;
   title: string;
   exhibitType: string;
   body?: string;
   bullets?: string[];
+  sections?: ExhibitFocusSection[];
   image?: ExhibitFocusImage;
   sourceLinks?: ExhibitFocusSourceLink[];
   currentIndex?: number;
@@ -57,6 +65,7 @@ export function ExhibitFocusScreen({
   exhibitType,
   body,
   bullets = [],
+  sections = [],
   image,
   sourceLinks = [],
   currentIndex,
@@ -140,41 +149,67 @@ export function ExhibitFocusScreen({
           </div>
         </header>
 
-        <div className="exhibit-focus-content">
-          {image ? (
-            <figure className="exhibit-focus-image">
-              <img src={image.src} alt={image.alt} />
-            </figure>
+        <div className="exhibit-focus-scroll-region">
+          <div className="exhibit-focus-content">
+            {image ? (
+              <figure className="exhibit-focus-image">
+                <img src={image.src} alt={image.alt} />
+              </figure>
+            ) : null}
+
+            <div className="exhibit-focus-copy" id={descriptionId}>
+              {sections.length ? (
+                <div className="exhibit-focus-sections" aria-label="展台内容分组">
+                  {sections.map((section, index) => (
+                    <article className="exhibit-focus-section" key={`${section.title}:${index}`}>
+                      <header className="exhibit-focus-section-header">
+                        <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                        <div>
+                          <h3>{section.title}</h3>
+                          {section.meta?.length ? (
+                            <div className="exhibit-focus-section-meta">
+                              {section.meta.map((item) => <span key={item}>{item}</span>)}
+                            </div>
+                          ) : null}
+                        </div>
+                      </header>
+                      {section.body ? <p>{section.body}</p> : null}
+                      {section.tags?.length ? (
+                        <div className="exhibit-focus-section-tags" aria-label="相关标签">
+                          {section.tags.map((tag) => <span key={tag}>{tag}</span>)}
+                        </div>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              ) : body ? <p>{body}</p> : null}
+              {bullets.length ? (
+                <ul>
+                  {bullets.map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+
+          {sourceLinks.length ? (
+            <nav className="exhibit-focus-sources" aria-label="展台来源链接">
+              {sourceLinks.map((link) => (
+                <a key={`${link.label}:${link.url}`} href={link.url} target="_blank" rel="noreferrer">
+                  {link.label}
+                </a>
+              ))}
+            </nav>
           ) : null}
 
-          <div className="exhibit-focus-copy" id={descriptionId}>
-            {body ? <p>{body}</p> : null}
-            {bullets.length ? (
-              <ul>
-                {bullets.map((bullet) => (
-                  <li key={bullet}>{bullet}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
+          {hasActions ? (
+            <div className="exhibit-focus-actions" aria-label="展台编辑操作">
+              {projectEditSlot}
+              {portraitRegenerateSlot}
+            </div>
+          ) : null}
         </div>
-
-        {sourceLinks.length ? (
-          <nav className="exhibit-focus-sources" aria-label="展台来源链接">
-            {sourceLinks.map((link) => (
-              <a key={`${link.label}:${link.url}`} href={link.url} target="_blank" rel="noreferrer">
-                {link.label}
-              </a>
-            ))}
-          </nav>
-        ) : null}
-
-        {hasActions ? (
-          <div className="exhibit-focus-actions" aria-label="展台编辑操作">
-            {projectEditSlot}
-            {portraitRegenerateSlot}
-          </div>
-        ) : null}
 
         {hasNavigation ? (
           <footer className="exhibit-focus-navigation">

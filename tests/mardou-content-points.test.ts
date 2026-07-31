@@ -104,7 +104,8 @@ test("projects and the interactive gramophone use the supplied pedestal assets",
   assert.match(worldSource, /EXHIBIT_PEDESTAL_URL = "\/vendor\/mardou\/exhibit-pedestal-2\.glb"/);
   assert.match(worldSource, /GRAMOPHONE_URL = "\/vendor\/mardou\/gramophone\.glb"/);
   assert.match(worldSource, /name="showroom-gramophone"/);
-  assert.match(studioSource, /当前未设置音乐，请先选择本地音频/);
+  assert.match(studioSource, /MUSIC_BOX_TRACKS\.map/);
+  assert.match(studioSource, /当前曲目暂时无法播放/);
 });
 
 test("project screens use a higher reading angle on all three islands", () => {

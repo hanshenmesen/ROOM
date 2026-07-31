@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import {
   getSceneMediaTextureRegistrySize,
   retainSceneMediaTexture,
+  SCENE_MEDIA_TEXTURE_RELEASE_DELAY_MS,
 } from "../components/SceneMediaTextureRegistry.ts";
 
 function createTrackedTexture() {
@@ -14,11 +15,12 @@ function createTrackedTexture() {
   };
 }
 
-async function waitForReleaseTimer() {
-  await new Promise((resolve) => setTimeout(resolve, 0));
+function releaseTimer(context: TestContext) {
+  context.mock.timers.tick(SCENE_MEDIA_TEXTURE_RELEASE_DELAY_MS);
 }
 
-test("scene media texture registry keeps shared URL references alive", async () => {
+test("scene media texture registry keeps shared URL references alive", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
   const texture = createTrackedTexture();
   const cleared: string[] = [];
   const releasePanel = retainSceneMediaTexture("/api/media?url=avatar", texture, (cacheKey) => {
@@ -29,21 +31,22 @@ test("scene media texture registry keeps shared URL references alive", async () 
   });
 
   releasePanel();
-  await waitForReleaseTimer();
+  releaseTimer(context);
 
   assert.equal(texture.disposeCalls, 0);
   assert.deepEqual(cleared, []);
   assert.equal(getSceneMediaTextureRegistrySize(), 1);
 
   releaseHost();
-  await waitForReleaseTimer();
+  releaseTimer(context);
 
   assert.equal(texture.disposeCalls, 1);
   assert.deepEqual(cleared, ["/api/media?url=avatar"]);
   assert.equal(getSceneMediaTextureRegistrySize(), 0);
 });
 
-test("scene media texture registry disposes and clears after the final release", async () => {
+test("scene media texture registry disposes and clears after the final release", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
   const texture = createTrackedTexture();
   const cleared: string[] = [];
   const release = retainSceneMediaTexture("/api/media?url=project", texture, (cacheKey) => {
@@ -51,14 +54,15 @@ test("scene media texture registry disposes and clears after the final release",
   });
 
   release();
-  await waitForReleaseTimer();
+  releaseTimer(context);
 
   assert.equal(texture.disposeCalls, 1);
   assert.deepEqual(cleared, ["/api/media?url=project"]);
   assert.equal(getSceneMediaTextureRegistrySize(), 0);
 });
 
-test("scene media texture registry cancels same tick release when texture is retained again", async () => {
+test("scene media texture registry cancels delayed release when texture is retained again", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
   const texture = createTrackedTexture();
   const cleared: string[] = [];
   const releaseFirst = retainSceneMediaTexture("/api/media?url=strict", texture, (cacheKey) => {
@@ -69,21 +73,22 @@ test("scene media texture registry cancels same tick release when texture is ret
   const releaseSecond = retainSceneMediaTexture("/api/media?url=strict", texture, (cacheKey) => {
     cleared.push(cacheKey);
   });
-  await waitForReleaseTimer();
+  releaseTimer(context);
 
   assert.equal(texture.disposeCalls, 0);
   assert.deepEqual(cleared, []);
   assert.equal(getSceneMediaTextureRegistrySize(), 1);
 
   releaseSecond();
-  await waitForReleaseTimer();
+  releaseTimer(context);
 
   assert.equal(texture.disposeCalls, 1);
   assert.deepEqual(cleared, ["/api/media?url=strict"]);
   assert.equal(getSceneMediaTextureRegistrySize(), 0);
 });
 
-test("scene media texture registry release is idempotent", async () => {
+test("scene media texture registry release is idempotent", (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
   const texture = createTrackedTexture();
   const cleared: string[] = [];
   const release = retainSceneMediaTexture("/api/media?url=once", texture, (cacheKey) => {
@@ -92,7 +97,7 @@ test("scene media texture registry release is idempotent", async () => {
 
   release();
   release();
-  await waitForReleaseTimer();
+  releaseTimer(context);
 
   assert.equal(texture.disposeCalls, 1);
   assert.deepEqual(cleared, ["/api/media?url=once"]);

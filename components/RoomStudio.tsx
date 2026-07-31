@@ -26,7 +26,7 @@ import {
   type BrowserAgentConfig,
 } from "@/lib/browser-agent-config";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
-import { hanchenDemoProfile } from "@/lib/data/hanchen-demo-profile";
+import { FICTIONAL_DEMO_PROFILE_ID, fictionalDemoProfile } from "@/lib/data/fictional-demo-profile";
 import {
   DIARY_STORAGE_KEY,
   MAX_DIARY_IMAGE_BYTES,
@@ -59,13 +59,20 @@ import {
   type ExhibitHeatItem,
 } from "@/lib/exhibit-heat";
 import { sceneReadinessProgress } from "@/lib/scene-entry";
-import type { ContentFamily, ParsedProfile, PipelineResult, ProfileItem, SourceEvidence } from "@/lib/types";
+import {
+  DEFAULT_MUSIC_BOX_TRACK,
+  MUSIC_BOX_TRACKS,
+  musicBoxTrack,
+} from "@/lib/background-music";
+import { sanitizeDisplayText } from "@/lib/display-copy";
+import { ROOM_COMPANION_NAME } from "@/lib/room-companion";
+import type { ContentFamily, ParsedProfile, PipelineResult, ProfileItem } from "@/lib/types";
 import {
   beginSceneLoading,
   type SceneLoadingSnapshot,
 } from "./SceneLoadingStore";
 import { AgentSetupDialog } from "./AgentSetupDialog";
-import { ExhibitFocusScreen } from "./ExhibitFocusScreen";
+import { ExhibitFocusScreen, type ExhibitFocusSection } from "./ExhibitFocusScreen";
 import { ExhibitHeatPanel } from "./ExhibitHeatPanel";
 import { BackgroundMusicController, type BackgroundMusicControllerHandle } from "./BackgroundMusicController";
 import { PetQaPanel } from "./PetQaPanel";
@@ -104,7 +111,7 @@ function profileStats(profile: ParsedProfile) {
   };
 }
 
-const hanchenDemoStats = profileStats(hanchenDemoProfile);
+const fictionalDemoStats = profileStats(fictionalDemoProfile);
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
   publication: "论文 / 研究",
   talk: "演讲",
@@ -123,10 +130,16 @@ type GuestbookEntry = {
 type BedroomAccessMode = "owner" | "visitor";
 type PrivateFrameImages = Partial<Record<MardouPrivateFrameSlot, string>>;
 
+const FICTIONAL_DEMO_FRAME_IMAGES: PrivateFrameImages = {
+  "private-frame-1": "./assets/demo/frame-xhs-lobby.jpg",
+  "private-frame-2": "./assets/demo/frame-buildathon-workspace.jpg",
+  "private-frame-3": "./assets/demo/frame-buildathon-camp.jpg",
+};
+
 type PortraitArtStatus = "idle" | "generating" | "ready" | "error";
 type ExhibitFocusPhase = "idle" | "travelling" | "presented";
 
-export const BEDROOM_ACCESS_COPY: Record<BedroomAccessMode, { label: string; password: string; canEditDiary: boolean; description: string }> = {
+const BEDROOM_ACCESS_COPY: Record<BedroomAccessMode, { label: string; password: string; canEditDiary: boolean; description: string }> = {
   owner: {
     label: "本人",
     password: OWNER_PRIVATE_PASSWORD,
@@ -141,15 +154,15 @@ export const BEDROOM_ACCESS_COPY: Record<BedroomAccessMode, { label: string; pas
   },
 };
 
-export function canEditPrivateDiary(mode: BedroomAccessMode | "") {
+function canEditPrivateDiary(mode: BedroomAccessMode | "") {
   return mode === "owner";
 }
 
-export function isValidBedroomPassword(mode: BedroomAccessMode | "", password: string) {
+function isValidBedroomPassword(mode: BedroomAccessMode | "", password: string) {
   return Boolean(mode) && BEDROOM_ACCESS_COPY[mode as BedroomAccessMode].password === password;
 }
 
-export function profileWithPortraitUrl(profile: ParsedProfile, portraitUrl: string) {
+function profileWithPortraitUrl(profile: ParsedProfile, portraitUrl: string) {
   return {
     ...profile,
     media: profile.media.map((media) => (
@@ -166,7 +179,7 @@ function portraitSourceRequestUrl(url: string) {
     : url;
 }
 
-export function abstractPortraitPlaceholder() {
+function abstractPortraitPlaceholder() {
   const svg = [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">',
     '<rect width="512" height="512" fill="#f7f4ed"/>',
@@ -193,15 +206,14 @@ type SelectedDetail = {
   eyebrow: string;
   title: string;
   body: string;
+  sections?: ExhibitFocusSection[];
   sourceItemId?: string;
   imageUrl?: string;
   editableProject?: boolean;
   metadata?: {
     label: string;
     value: string;
-    evidence?: string;
   }[];
-  source: string;
   sourceUrl?: string;
 };
 
@@ -228,30 +240,14 @@ function collectSourceLinks(profile: ParsedProfile | null, item?: ProfileItem): 
   return Array.from(links.entries()).map(([url, label]) => ({ label, url }));
 }
 
-function formatSourceLabel(profileType: "url" | "text", evidenceOrLocator?: SourceEvidence | string) {
-  if (typeof evidenceOrLocator === "object" && evidenceOrLocator.origin === "system-generated") {
-    return "系统生成占位 · 非原始来源";
-  }
-  const locator = typeof evidenceOrLocator === "string" ? evidenceOrLocator : evidenceOrLocator?.locator;
-  const sourceLabel = profileType === "url" ? "公开网页" : "原始简历";
-  return locator ? `来源定位：${locator} · 来自${sourceLabel}` : `来源定位：未定位 · 来自${sourceLabel}`;
-}
-
-function formatCollectionSourceLabel(profileType: "url" | "text") {
-  return `逐项来源定位见正文 · 来自${profileType === "url" ? "公开网页" : "原始简历"}`;
-}
-
 function appendLocation(headline: string, location?: string) {
   if (!location || headline.toLocaleLowerCase().includes(location.toLocaleLowerCase())) return headline;
   return `${headline} · ${location}`;
 }
 
-function formatContactLines(contacts: string[], contactEvidence: Record<string, SourceEvidence[]>) {
+function formatContactLines(contacts: string[]) {
   return contacts.length
-    ? contacts.map((contact) => {
-      const locator = contactEvidence[contact]?.[0]?.locator;
-      return `${contact} (${locator ? `${locator}` : "来源定位缺失"})`;
-    }).join("\n")
+    ? contacts.map(sanitizeDisplayText).join("\n")
     : "暂无可展示的联系方式。";
 }
 
@@ -261,8 +257,7 @@ function formatJourneyDetail(item: ProfileItem) {
   return [
     heading,
     sameAsHeading ? "" : item.summary,
-    `证据定位：${item.evidence[0]?.locator || "未定位"}`,
-  ].filter(Boolean).join("\n");
+  ].filter((value): value is string => Boolean(value)).map(sanitizeDisplayText).join("\n");
 }
 
 function readStoredEntries<T>(key: string): T[] {
@@ -396,15 +391,12 @@ function formatHighlightDetail(item: ProfileItem) {
   const label = item.contentFamily
     ? CONTENT_FAMILY_LABELS[item.contentFamily]
     : "成就";
-  const evidence = item.evidence[0]?.locator;
   return [
     `[${label}] ${item.title}`,
     item.subtitle,
     item.summary,
     item.tags.length ? `关键词：${item.tags.join(" · ")}` : "",
-    item.sourceUrl ? `原始来源：${item.sourceUrl}` : "",
-    evidence ? `证据定位：${evidence}` : "",
-  ].filter(Boolean).join("\n");
+  ].filter((value): value is string => Boolean(value)).map(sanitizeDisplayText).join("\n");
 }
 
 function formatProjectIndexDetail(item: ProfileItem) {
@@ -416,9 +408,30 @@ function formatProjectIndexDetail(item: ProfileItem) {
     item.timeRange ? `时间：${item.timeRange}` : "",
     item.role ? `角色：${item.role}` : "",
     item.techStack?.length ? `技术栈：${item.techStack.join(" · ")}` : "",
-    item.projectUrl ? `项目链接：${item.projectUrl}` : item.sourceUrl ? `原始来源：${item.sourceUrl}` : "",
-    `证据定位：${item.evidence[0]?.locator || "未定位"}`,
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean).map(sanitizeDisplayText).join("\n");
+}
+
+function detailSectionForItem(item: ProfileItem, semanticRole?: string): ExhibitFocusSection {
+  const heading = sanitizeDisplayText(item.title);
+  const summary = sanitizeDisplayText(item.summary);
+  const sameAsHeading = summary.replace(/\s+/g, " ").trim() === heading.replace(/\s+/g, " ").trim();
+  const meta = [
+    semanticRole === "achievement" && item.contentFamily
+      ? CONTENT_FAMILY_LABELS[item.contentFamily]
+      : "",
+    item.subtitle,
+    item.timeRange,
+    item.role,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(sanitizeDisplayText)
+    .filter((value, index, values) => values.indexOf(value) === index);
+  return {
+    title: heading,
+    meta,
+    body: sameAsHeading ? undefined : summary,
+    tags: item.techStack?.map(sanitizeDisplayText).filter(Boolean),
+  };
 }
 
 function projectMetadataForDetail(exhibit: PipelineResult["world"]["exhibits"][number]) {
@@ -427,28 +440,24 @@ function projectMetadataForDetail(exhibit: PipelineResult["world"]["exhibits"][n
     metadata.push({
       label: "时间",
       value: exhibit.timeRange,
-      evidence: exhibit.fieldEvidence?.timeRange?.[0]?.locator,
     });
   }
   if (exhibit.role) {
     metadata.push({
       label: "角色",
       value: exhibit.role,
-      evidence: exhibit.fieldEvidence?.role?.[0]?.locator,
     });
   }
   if (exhibit.techStack?.length) {
     metadata.push({
       label: "技术栈",
       value: exhibit.techStack.join(" · "),
-      evidence: exhibit.fieldEvidence?.techStack?.[0]?.locator,
     });
   }
   if (exhibit.projectUrl) {
     metadata.push({
       label: "项目链接",
       value: exhibit.projectUrl,
-      evidence: exhibit.fieldEvidence?.projectUrl?.[0]?.locator,
     });
   }
   return metadata;
@@ -550,10 +559,12 @@ export function RoomStudio() {
   const [sourceBrowserProjectId, setSourceBrowserProjectId] = useState("");
   const [privateFrameImages, setPrivateFrameImages] = useState<PrivateFrameImages>({});
   const [privateFrameMessage, setPrivateFrameMessage] = useState("");
-  const [gramophoneMusicUrl, setGramophoneMusicUrl] = useState("");
-  const [gramophoneMusicName, setGramophoneMusicName] = useState("");
+  const [gramophoneTrackId, setGramophoneTrackId] = useState<string>(DEFAULT_MUSIC_BOX_TRACK.id);
+  const [gramophoneMusicUrl, setGramophoneMusicUrl] = useState<string>(DEFAULT_MUSIC_BOX_TRACK.src);
+  const [gramophoneMusicName, setGramophoneMusicName] = useState<string>(DEFAULT_MUSIC_BOX_TRACK.title);
   const [gramophoneVolume, setGramophoneVolume] = useState(0.7);
   const [gramophonePlaying, setGramophonePlaying] = useState(false);
+  const [petSpeechActive, setPetSpeechActive] = useState(false);
   const [gramophoneMessage, setGramophoneMessage] = useState("");
   const [originalPortraitUrl, setOriginalPortraitUrl] = useState("");
   const [abstractPortraitUrl, setAbstractPortraitUrl] = useState("");
@@ -608,18 +619,16 @@ export function RoomStudio() {
   const selectedFocusIndex = focusableExhibitIds.indexOf(selectedId);
   const selectedDetail = useMemo<SelectedDetail | undefined>(() => {
     if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary" || selectedId === GRAMOPHONE_ID) return undefined;
-    const sourceType = result.profile.source.type;
     const exhibit = result.world.exhibits.find((item) => item.id === selectedId);
     if (exhibit) {
       return {
         eyebrow: exhibit.eyebrow,
-        title: exhibit.title,
-        body: exhibit.body,
+        title: sanitizeDisplayText(exhibit.title),
+        body: exhibit.body.split("\n").map(sanitizeDisplayText).filter(Boolean).join("\n"),
         sourceItemId: exhibit.sourceItemId,
         imageUrl: exhibit.imageUrl,
         editableProject: exhibit.eyebrow === "PROJECT",
         metadata: projectMetadataForDetail(exhibit),
-        source: formatSourceLabel(sourceType, exhibit.evidence[0]),
         sourceUrl: safeExternalHref(exhibit.projectUrl) || safeExternalHref(exhibit.sourceUrl),
       };
     }
@@ -644,16 +653,6 @@ export function RoomStudio() {
         eyebrow: "PROFILE 01",
         title: result.profile.name,
         body: `${appendLocation(result.profile.headline, result.profile.location)}\n\n${result.profile.summary}`,
-        source: formatSourceLabel(
-          sourceType,
-          Array.from(
-            new Set(
-              ["name", "headline", "location", "summary"]
-                .flatMap((field) => result.profile.identityEvidence[field as keyof typeof result.profile.identityEvidence] || [])
-                .map((item) => item.locator),
-            ),
-          ).join(" · ") || undefined,
-        ),
         sourceUrl,
       };
     }
@@ -664,8 +663,7 @@ export function RoomStudio() {
       return {
         eyebrow: eyebrowByRole.skills,
         title: surface.title || `技能工具 · ${skills.length}`,
-        body: skills.map((skill) => `${skill}（${result.profile.skillEvidence[skill]?.[0]?.locator || "来源定位缺失"}）`).join("\n"),
-        source: formatCollectionSourceLabel(sourceType),
+        body: skills.map(sanitizeDisplayText).join("\n"),
         sourceUrl,
       };
     }
@@ -677,8 +675,7 @@ export function RoomStudio() {
       return {
         eyebrow: eyebrowByRole.contact,
         title: surface.title || `联系方式 · ${contacts.length}`,
-        body: formatContactLines(contacts, result.profile.contactEvidence),
-        source: formatCollectionSourceLabel(sourceType),
+        body: formatContactLines(contacts),
         sourceUrl,
       };
     }
@@ -693,7 +690,9 @@ export function RoomStudio() {
       body: surfaceItems.length
         ? surfaceItems.map(formatItem).join("\n\n")
         : "原始资料中暂未识别到可展示内容。",
-      source: formatCollectionSourceLabel(sourceType),
+      sections: surfaceItems.length
+        ? surfaceItems.map((item) => detailSectionForItem(item, surface.semanticRole))
+        : undefined,
       sourceUrl,
     };
   }, [result, selectedId]);
@@ -717,6 +716,9 @@ export function RoomStudio() {
   const visiblePortraitUrl = abstractPortraitUrl
     || result?.profile.media.find((media) => media.category === "profile-photo")?.url
     || "";
+  const displayedPrivateFrameImages = result?.profile.id === FICTIONAL_DEMO_PROFILE_ID
+    ? { ...FICTIONAL_DEMO_FRAME_IMAGES, ...privateFrameImages }
+    : privateFrameImages;
 
   useEffect(() => {
     let cancelled = false;
@@ -762,8 +764,12 @@ export function RoomStudio() {
   }, [abstractPortraitUrl]);
 
   useEffect(() => {
-    if (gramophoneAudio.current) gramophoneAudio.current.volume = gramophoneVolume;
-  }, [gramophoneVolume]);
+    if (gramophoneAudio.current) {
+      gramophoneAudio.current.volume = petSpeechActive
+        ? Math.min(gramophoneVolume, 0.12)
+        : gramophoneVolume;
+    }
+  }, [gramophoneVolume, petSpeechActive]);
 
   useEffect(() => () => {
     if (gramophoneMusicUrl.startsWith("blob:")) URL.revokeObjectURL(gramophoneMusicUrl);
@@ -816,8 +822,11 @@ export function RoomStudio() {
   }
 
   function prewarmMuseum() {
-    void import("./MardouMuseumScene")
-      .then(({ preloadMardouMuseum }) => preloadMardouMuseum())
+    void Promise.all([import("./MardouMuseumPreload"), import("./WorldCanvasPreload")])
+      .then(([{ preloadMardouMuseum }, { preloadWorldCanvasAssets }]) => {
+        preloadMardouMuseum();
+        preloadWorldCanvasAssets();
+      })
       .catch(() => {
         // The normal Canvas loader remains the fallback if speculative preloading is unavailable.
       });
@@ -848,7 +857,8 @@ export function RoomStudio() {
     const storedProjectEdits = readStoredProjectEdits(profile.id);
     const editedProfile = applyProjectEdits(profile, storedProjectEdits);
     const sourcePortrait = editedProfile.media.find((media) => media.category === "profile-photo")?.url || "";
-    const displayProfile = sourcePortrait
+    const shouldGeneratePortraitArt = Boolean(sourcePortrait) && profile.id !== FICTIONAL_DEMO_PROFILE_ID;
+    const displayProfile = shouldGeneratePortraitArt
       ? profileWithPortraitUrl(editedProfile, abstractPortraitPlaceholder())
       : editedProfile;
     const next = compileProfile(displayProfile);
@@ -870,15 +880,15 @@ export function RoomStudio() {
     setActiveRoom("room-lobby");
     setSourceBrowserProjectId("");
     setPendingProfile(null);
-    setOriginalPortraitUrl(sourcePortrait);
+    setOriginalPortraitUrl(shouldGeneratePortraitArt ? sourcePortrait : "");
     setAbstractPortraitUrl("");
-    setPortraitArtStatus(sourcePortrait ? "generating" : "idle");
-    setPortraitArtMessage(sourcePortrait ? "正在创作抽象肖像，真人照片不会出现在展厅中…" : "");
-    setPortraitGenerationSettled(!sourcePortrait);
+    setPortraitArtStatus(shouldGeneratePortraitArt ? "generating" : "idle");
+    setPortraitArtMessage(shouldGeneratePortraitArt ? "正在创作抽象肖像，真人照片不会出现在展厅中…" : "");
+    setPortraitGenerationSettled(!shouldGeneratePortraitArt);
     setPetQaOpen(false);
     resetPrivateAccess();
     setMessage("");
-    if (sourcePortrait) void generateAbstractPortrait(sourcePortrait, next.profile);
+    if (shouldGeneratePortraitArt) void generateAbstractPortrait(sourcePortrait, next.profile);
   }
 
   async function generateAbstractPortrait(sourceUrl = originalPortraitUrl, baseProfile?: ParsedProfile) {
@@ -982,6 +992,14 @@ export function RoomStudio() {
     setSelectedId("");
     setFocusPhase("idle");
     setActiveRoom(roomId);
+    if (roomId !== PRIVATE_ROOM_ID) {
+      setPrivateGateOpen(false);
+      setPrivateAccessMode("");
+      setPrivatePassword("");
+      setPrivatePasswordError("");
+      setPrivateUnlocked(false);
+      setPrivateUnlockedMode("");
+    }
   }, []);
 
   function leavePrivateRoom(nextRoom: string) {
@@ -1093,7 +1111,7 @@ export function RoomStudio() {
   }
 
   function openDemo() {
-    openWorld(hanchenDemoProfile);
+    openWorld(fictionalDemoProfile);
   }
 
   function saveBrowserAgentConfig(config: BrowserAgentConfig) {
@@ -1143,15 +1161,29 @@ export function RoomStudio() {
     gramophoneAudio.current?.pause();
     setGramophonePlaying(false);
     void musicController.current?.start();
+    setGramophoneTrackId("local");
     setGramophoneMusicUrl(URL.createObjectURL(file));
     setGramophoneMusicName(file.name);
     setGramophoneMessage("音乐已载入当前会话，尚未自动播放。");
   }
 
+  function selectBundledMusic(trackId: string) {
+    const track = musicBoxTrack(trackId);
+    if (!track || track.id === gramophoneTrackId) return;
+    gramophoneAudio.current?.pause();
+    setGramophonePlaying(false);
+    void musicController.current?.start();
+    setGramophoneTrackId(track.id);
+    setGramophoneMusicUrl(track.src);
+    setGramophoneMusicName(track.title);
+    setGramophoneMessage(`已切换到 ${track.title}，点击播放。`);
+    if (gramophoneFileInput.current) gramophoneFileInput.current.value = "";
+  }
+
   async function toggleGramophoneMusic() {
     const audio = gramophoneAudio.current;
     if (!audio || !gramophoneMusicUrl) {
-      setGramophoneMessage("当前未设置音乐，请先选择本地音频。");
+      setGramophoneMessage("当前曲目暂时无法播放，请换一首再试。");
       return;
     }
     if (gramophonePlaying) {
@@ -1175,9 +1207,10 @@ export function RoomStudio() {
     gramophoneAudio.current?.pause();
     setGramophonePlaying(false);
     void musicController.current?.start();
-    setGramophoneMusicUrl("");
-    setGramophoneMusicName("");
-    setGramophoneMessage("音乐已清空。");
+    setGramophoneTrackId(DEFAULT_MUSIC_BOX_TRACK.id);
+    setGramophoneMusicUrl(DEFAULT_MUSIC_BOX_TRACK.src);
+    setGramophoneMusicName(DEFAULT_MUSIC_BOX_TRACK.title);
+    setGramophoneMessage("已恢复默认曲目。");
     if (gramophoneFileInput.current) gramophoneFileInput.current.value = "";
   }
 
@@ -1250,6 +1283,14 @@ export function RoomStudio() {
     });
   }, [selectedId]);
   const openPetQa = useCallback(() => setPetQaOpen(true), []);
+  const handlePetSpeechStart = useCallback(() => {
+    setPetSpeechActive(true);
+    musicController.current?.stop();
+  }, []);
+  const handlePetSpeechEnd = useCallback(() => {
+    setPetSpeechActive(false);
+    if (sceneReady && !gramophonePlaying) void musicController.current?.start();
+  }, [gramophonePlaying, sceneReady]);
 
   function closeExhibitFocus() {
     setSelectedId("");
@@ -1499,8 +1540,10 @@ export function RoomStudio() {
               type="button"
               onClick={() => setAgentSetupOpen(true)}
             >
-              <span aria-hidden="true" />
-              {browserAgentConfig ? "当前会话已配置" : agentConfig?.ready ? "解析服务已就绪" : agentConfigChecked ? "配置解析服务" : "检测解析服务"}
+              <span className="agent-status-dot" aria-hidden="true" />
+              <span className="agent-status-label">
+                {browserAgentConfig ? "当前会话已配置" : agentConfig?.ready ? "解析服务已就绪" : agentConfigChecked ? "配置解析服务" : "检测解析服务"}
+              </span>
             </button>
             <span className="edition">PRIVATE BETA · 01</span>
           </div>
@@ -1601,12 +1644,12 @@ export function RoomStudio() {
                 })}
                 <article className="demo-panel demo-single">
                   <div className="demo-person">
-                    <span>韩</span>
-                    <div><strong>韩晨</strong><small>中科院 · LLM-Agent / 多智能体系统</small></div>
+                    <span>林</span>
+                    <div><strong>林澈 <em>虚构 Demo</em></strong><small>创意技术 · AI 体验设计</small></div>
                   </div>
-                  <p>{hanchenDemoStats.projects} 个项目 · {hanchenDemoStats.journey} 段经历与教育 · {hanchenDemoStats.skills} 项技能 · {hanchenDemoStats.achievements} 项成就</p>
+                  <p>{fictionalDemoStats.projects} 个项目 · {fictionalDemoStats.journey} 段经历与教育 · {fictionalDemoStats.skills} 项技能 · {fictionalDemoStats.achievements} 项成就</p>
                   <button type="button" disabled={loading} onClick={openDemo}>
-                    进入韩晨的小家 <span aria-hidden="true">→</span>
+                    进入林澈的博物馆 <span aria-hidden="true">→</span>
                   </button>
                 </article>
               </div>
@@ -1664,7 +1707,7 @@ export function RoomStudio() {
           sceneReady={sceneReady}
           selectedExhibit={selectedId}
           guestbookMessages={guestbookEntries.map((entry) => entry.message)}
-          privateFrameImages={privateFrameImages}
+          privateFrameImages={displayedPrivateFrameImages}
           petQaOpen={petQaOpen}
           onSelect={selectWorldObject}
           onRoomChange={requestRoomChange}
@@ -1677,6 +1720,8 @@ export function RoomStudio() {
         <audio
           ref={gramophoneAudio}
           src={gramophoneMusicUrl || undefined}
+          loop
+          preload="metadata"
           onEnded={() => {
             setGramophonePlaying(false);
             void musicController.current?.start();
@@ -1699,7 +1744,7 @@ export function RoomStudio() {
           aria-controls="pet-qa-panel"
         >
           <span aria-hidden="true">◇</span>
-          问问小伙伴
+          问问{ROOM_COMPANION_NAME}
         </button>
 
         <div className={`private-gate ${privateGateOpen ? "is-open" : ""}`} aria-hidden={!privateGateOpen}>
@@ -1786,6 +1831,7 @@ export function RoomStudio() {
           title={selectedDetail?.title || ""}
           exhibitType={selectedDetail?.eyebrow || "SHOWROOM"}
           body={selectedDetail?.body}
+          sections={selectedDetail?.sections}
           image={selectedDetail?.imageUrl ? { src: selectedDetail.imageUrl, alt: `${selectedDetail.title} 展台图片` } : undefined}
           sourceLinks={selectedDetail?.sourceUrl ? [{ label: "在来源终端打开源文件 ↗", url: selectedDetail.sourceUrl }] : []}
           currentIndex={selectedFocusIndex >= 0 ? selectedFocusIndex : undefined}
@@ -1793,7 +1839,11 @@ export function RoomStudio() {
           onClose={closeExhibitFocus}
           onPrevious={selectedFocusIndex >= 0 ? () => focusAdjacentExhibit(-1) : undefined}
           onNext={selectedFocusIndex >= 0 ? () => focusAdjacentExhibit(1) : undefined}
-          projectEditSlot={selectedDetail ? (
+          projectEditSlot={selectedDetail && (
+            (portraitDetailSelected && originalPortraitUrl)
+            || selectedDetail.editableProject
+            || selectedDetail.metadata?.length
+          ) ? (
             <>
               {portraitDetailSelected && originalPortraitUrl ? (
                 <section className="portrait-art-control" aria-labelledby="portrait-art-title">
@@ -1813,7 +1863,7 @@ export function RoomStudio() {
                     ) : null}
                   </div>
                   <p className="portrait-art-privacy">
-                    展厅只展示抽象画。原始照片仅用于生成，不会作为展品出现，也不会覆盖其来源证据；生成图本次仅保留在当前会话。
+                    展厅只展示抽象画。原始照片仅用于生成，不会作为展品出现；生成图本次仅保留在当前会话。
                   </p>
                   <button
                     className="portrait-art-generate"
@@ -1839,7 +1889,7 @@ export function RoomStudio() {
                 <form className="project-editor" onSubmit={saveProjectEdit}>
                   <div className="project-editor-heading">
                     <strong>{selectedMaterialIsPublication ? "EDIT PAPER MATERIAL" : "EDIT THIS MATERIAL"}</strong>
-                    <span>展框自动精简 · 原始证据保留</span>
+                    <span>展框自动精简 · 完整资料保留</span>
                   </div>
                   <label htmlFor="project-edit-title">{selectedMaterialIsPublication ? "论文完整标题" : "项目名称"}</label>
                   <input
@@ -1886,17 +1936,11 @@ export function RoomStudio() {
                   {selectedDetail.metadata.map((item) => (
                     <div key={item.label}>
                       <dt>{item.label}</dt>
-                      <dd>
-                        {item.value}
-                        {item.evidence ? <small>证据定位：{item.evidence}</small> : null}
-                      </dd>
+                      <dd>{item.value}</dd>
                     </div>
                   ))}
                 </dl>
               ) : null}
-              <small>
-                {selectedDetail.source}
-              </small>
             </>
           ) : null}
         />
@@ -1906,6 +1950,8 @@ export function RoomStudio() {
           config={browserAgentConfig}
           open={petQaOpen}
           onClose={() => setPetQaOpen(false)}
+          onSpeechStart={handlePetSpeechStart}
+          onSpeechEnd={handlePetSpeechEnd}
         />
 
         <aside className={`memory-panel ${selectedId === "showroom-guestbook" ? "is-open" : ""}`} aria-hidden={selectedId !== "showroom-guestbook"}>
@@ -1973,13 +2019,31 @@ export function RoomStudio() {
               <p>MUSEUM GRAMOPHONE</p>
               <h2>展厅音乐</h2>
               <div className="memory-description">
-                默认不设置音乐。你可以从本机选择一段音频，仅在当前页面播放，不会上传或保存。
+                已内置三首 CC0 无歌词循环音乐，可以随时切换；也可以选择一段仅在当前页面播放的本地音频。
               </div>
               <section className="gramophone-controls">
                 <div className="gramophone-track">
                   <span>当前曲目</span>
                   <strong>{gramophoneMusicName || "未设置音乐"}</strong>
                 </div>
+                <div className="gramophone-library" aria-label="默认开源音乐">
+                  {MUSIC_BOX_TRACKS.map((track, index) => (
+                    <button
+                      key={track.id}
+                      className={gramophoneTrackId === track.id ? "is-active" : ""}
+                      type="button"
+                      onClick={() => selectBundledMusic(track.id)}
+                    >
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <div><strong>{track.title}</strong><small>{track.artist} · {track.license}</small></div>
+                    </button>
+                  ))}
+                </div>
+                {musicBoxTrack(gramophoneTrackId) ? (
+                  <a className="gramophone-license" href={musicBoxTrack(gramophoneTrackId)?.sourceUrl} target="_blank" rel="noreferrer">
+                    查看当前曲目来源与 CC0 许可 ↗
+                  </a>
+                ) : null}
                 <label className="picture-file-button" htmlFor="gramophone-file">选择本地音频</label>
                 <input
                   ref={gramophoneFileInput}
@@ -2005,7 +2069,7 @@ export function RoomStudio() {
                   <button type="button" onClick={() => void toggleGramophoneMusic()} disabled={!gramophoneMusicUrl}>
                     {gramophonePlaying ? "暂停" : "播放"}
                   </button>
-                  <button type="button" onClick={clearGramophoneMusic} disabled={!gramophoneMusicUrl}>清空</button>
+                  <button type="button" onClick={clearGramophoneMusic} disabled={gramophoneTrackId === DEFAULT_MUSIC_BOX_TRACK.id}>恢复默认</button>
                 </div>
               </section>
               <div className="memory-error" aria-live="polite">{gramophoneMessage}</div>
@@ -2023,7 +2087,9 @@ export function RoomStudio() {
               <p>PRIVATE GALLERY FRAME</p>
               <h2>二楼自由相框</h2>
               <div className="memory-description">
-                这个墙面相框默认为空。选择一张本地图片后会即时显示，图片只保存在当前浏览器。
+                {result.profile.id === FICTIONAL_DEMO_PROFILE_ID
+                  ? "林澈 Demo 已内置三张相框图片；选择本地图片后可在当前浏览器覆盖默认图。"
+                  : "这个墙面相框默认为空。选择一张本地图片后会即时显示，图片只保存在当前浏览器。"}
               </div>
               <div className="private-frame-tabs" role="group" aria-label="选择二楼相框">
                 {PRIVATE_FRAME_SLOTS.map((slot) => (
@@ -2040,15 +2106,12 @@ export function RoomStudio() {
               <section className="picture-config-card private-frame-config-card">
                 <header>
                   <strong>{selectedPrivateFrameSlot.replace("private-frame-", "FRAME ")}</strong>
-                  <span>{privateFrameImages[selectedPrivateFrameSlot] ? "已上传图片" : "空相框"}</span>
+                  <span>{displayedPrivateFrameImages[selectedPrivateFrameSlot] ? "已保存图片" : "空相框"}</span>
                 </header>
-                {privateFrameImages[selectedPrivateFrameSlot] ? (
-                  <Image
-                    src={privateFrameImages[selectedPrivateFrameSlot]}
+                {displayedPrivateFrameImages[selectedPrivateFrameSlot] ? (
+                  <img
+                    src={displayedPrivateFrameImages[selectedPrivateFrameSlot]}
                     alt="当前相框图片预览"
-                    width={480}
-                    height={320}
-                    unoptimized
                   />
                 ) : <div className="private-frame-empty-preview">EMPTY FRAME</div>}
                 <label className="picture-file-button" htmlFor={`private-frame-file-${selectedPrivateFrameSlot}`}>选择本地图片</label>
@@ -2058,7 +2121,9 @@ export function RoomStudio() {
                   accept="image/*"
                   onChange={(event) => void readPrivateFrameImage(selectedPrivateFrameSlot, event)}
                 />
-                <button type="button" className="private-frame-reset" onClick={() => resetPrivateFrame(selectedPrivateFrameSlot)}>恢复为空相框</button>
+                <button type="button" className="private-frame-reset" onClick={() => resetPrivateFrame(selectedPrivateFrameSlot)}>
+                  {result.profile.id === FICTIONAL_DEMO_PROFILE_ID ? "恢复 Demo 默认图" : "恢复为空相框"}
+                </button>
               </section>
               <div className="memory-error" aria-live="polite">{privateFrameMessage}</div>
             </>

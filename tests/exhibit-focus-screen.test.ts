@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("../components/ExhibitFocusScreen.tsx", import.meta.url), "utf8");
+const studioSource = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
 
 test("exhibit focus screen exposes the immersive center-screen contract", () => {
   assert.match(source, /export type ExhibitFocusScreenProps/);
@@ -10,6 +11,7 @@ test("exhibit focus screen exposes the immersive center-screen contract", () => 
   assert.match(source, /exhibitType: string/);
   assert.match(source, /body\?: string/);
   assert.match(source, /bullets\?: string\[\]/);
+  assert.match(source, /sections\?: ExhibitFocusSection\[\]/);
   assert.match(source, /image\?: ExhibitFocusImage/);
   assert.match(source, /sourceLinks\?: ExhibitFocusSourceLink\[\]/);
   assert.match(source, /onPrevious\?: \(\) => void/);
@@ -43,4 +45,16 @@ test("exhibit focus screen supports exhibit navigation and source links", () => 
   assert.match(source, /aria-label="展台来源链接"/);
   assert.match(source, /target="_blank"/);
   assert.match(source, /rel="noreferrer"/);
+  assert.match(source, /className="exhibit-focus-scroll-region"/);
+});
+
+test("long grouped exhibit copy is rendered as soft semantic cards", () => {
+  assert.match(source, /aria-label="展台内容分组"/);
+  assert.match(source, /className="exhibit-focus-section"/);
+  assert.match(source, /className="exhibit-focus-section-header"/);
+  assert.match(source, /className="exhibit-focus-section-meta"/);
+  assert.match(source, /className="exhibit-focus-section-tags"/);
+  assert.match(studioSource, /function detailSectionForItem/);
+  assert.match(studioSource, /surfaceItems\.map\(\(item\) => detailSectionForItem\(item, surface\.semanticRole\)\)/);
+  assert.match(studioSource, /sections=\{selectedDetail\?\.sections\}/);
 });

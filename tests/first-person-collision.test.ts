@@ -25,6 +25,27 @@ test("collision sweep accounts for camera radius instead of probing only the cen
   );
 });
 
+test("collision sweep ignores interactive sprites that require a camera raycaster", () => {
+  const scene = new THREE.Scene();
+  const navigationSign = new THREE.Sprite(new THREE.SpriteMaterial());
+  navigationSign.position.set(0, 1.5, -0.3);
+  scene.add(navigationSign);
+  scene.updateMatrixWorld(true);
+
+  assert.doesNotThrow(() => {
+    assert.equal(
+      sceneMovementBlocked(
+        scene,
+        new THREE.Vector3(0, 1.5, 0),
+        new THREE.Vector3(0, 0, -0.5),
+        0.42,
+        new THREE.Raycaster(),
+      ),
+      false,
+    );
+  });
+});
+
 test("blocked diagonal movement falls back to an unblocked sliding axis", () => {
   const origin = new THREE.Vector3();
   const movement = new THREE.Vector3(1, 0, -1);

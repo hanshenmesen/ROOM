@@ -6,6 +6,7 @@ export type ExhibitHeatTarget = {
   id: string;
   label: string;
   eyebrow: string;
+  kind: "information-stand" | "project-pedestal";
   projectPage?: number;
 };
 
@@ -45,16 +46,23 @@ export function publicHeatTargets(world: WorldPlan, projectsPerPage = 3): Exhibi
       id: surface.id,
       label: surface.title || surface.kicker || surface.semanticRole || "个人资料",
       eyebrow: surface.semanticRole?.toUpperCase() || "SHOWROOM",
+      kind: "information-stand" as const,
     }));
   let projectIndex = 0;
   const exhibits = world.exhibits
-    .filter((exhibit) => exhibit.roomId === "room-lobby" && exhibit.interaction.clickable)
+    .filter((exhibit) => (
+      exhibit.roomId === "room-lobby"
+      && exhibit.interaction.clickable
+      && exhibit.eyebrow === "PROJECT"
+      && exhibit.kind === "pedestal"
+    ))
     .map((exhibit) => {
-      const currentProjectIndex = exhibit.eyebrow === "PROJECT" ? projectIndex++ : -1;
+      const currentProjectIndex = projectIndex++;
       return {
         id: exhibit.id,
         label: exhibit.title,
         eyebrow: exhibit.eyebrow,
+        kind: "project-pedestal" as const,
         projectPage: currentProjectIndex >= 0 ? Math.floor(currentProjectIndex / projectsPerPage) : undefined,
       };
     });

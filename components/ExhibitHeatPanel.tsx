@@ -18,13 +18,13 @@ export function ExhibitHeatPanel({ items, open, onToggle, onSelect }: ExhibitHea
       </button>
       {open ? (
         <div className="heat-panel">
-          <header><div><p>DEMO HEAT</p><h2>展台浏览热度</h2></div><small>预设 + 本机累计</small></header>
+          <header><div><p>PHYSICAL STANDS</p><h2>实体展台热度</h2></div><small>可聚焦展台 · 预设 + 本机累计</small></header>
           <ol>
             {items.map((item, index) => (
               <li key={item.id}>
                 <button type="button" onClick={() => onSelect(item)}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div><strong>{item.label}</strong><small>{item.eyebrow}</small></div>
+                  <div><strong>{item.label}</strong><small>{item.kind === "project-pedestal" ? "项目展台" : "信息展台"} · {item.eyebrow}</small></div>
                   <em>{item.total}</em>
                 </button>
               </li>

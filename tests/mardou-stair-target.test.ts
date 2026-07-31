@@ -4,6 +4,7 @@ import test from "node:test";
 import { MARDOU_STAIR_CLICK_TARGETS } from "../components/MardouMuseumLayout.ts";
 
 const sceneSource = await readFile(new URL("../components/MardouMuseumScene.tsx", import.meta.url), "utf8");
+const worldSource = await readFile(new URL("../components/WorldCanvas.tsx", import.meta.url), "utf8");
 
 test("stair targets follow every real tread and the intermediate landing", () => {
   assert.equal(MARDOU_STAIR_CLICK_TARGETS.length, 21);
@@ -23,6 +24,14 @@ test("stair targets follow every real tread and the intermediate landing", () =>
   for (let index = 1; index < MARDOU_STAIR_CLICK_TARGETS.length; index += 1) {
     assert.ok(MARDOU_STAIR_CLICK_TARGETS[index].position[1] > MARDOU_STAIR_CLICK_TARGETS[index - 1].position[1]);
   }
+});
+
+test("stairs expose one translucent floor-aware navigation sign", () => {
+  assert.match(worldSource, /function StairwayNavigation/);
+  assert.match(worldSource, /activeRoom === "room-private" \? "点击下楼" : "点击上楼"/);
+  assert.match(worldSource, /stairNavigationSign: true/);
+  assert.match(worldSource, /rgba\(11, 18, 23, \.58\)/);
+  assert.match(worldSource, /onRoomChange\(activeRoom === "room-private" \? "room-lobby" : "room-private"\)/);
 });
 
 test("museum background no longer promotes a broad coordinate region to stairs", () => {
