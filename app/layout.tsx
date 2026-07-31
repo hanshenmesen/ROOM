@@ -13,7 +13,6 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: "ROOM — 把你的经历变成一个世界",
   description:
     "上传个人网页或简历，让 ROOM 把你的经历编排成可以探索的 3D 世界。",

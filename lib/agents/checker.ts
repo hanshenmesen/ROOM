@@ -60,6 +60,21 @@ export function checkWorld(world: WorldPlan): CheckReport {
     );
   }
 
+  const surfaceMapped = new Set(world.displaySurfaces.flatMap((surface) => surface.sourceItemIds));
+  const surfaceMissing = world.exhibits
+    .filter((exhibit) => exhibit.eyebrow !== "PROJECT" && !surfaceMapped.has(exhibit.sourceItemId));
+  if (surfaceMissing.length) {
+    issues.push(
+      issue(
+        "content",
+        "error",
+        `${surfaceMissing.length} 项履历内容没有进入可点击展示表面。`,
+        surfaceMissing.map((item) => item.sourceItemId),
+        "将来源条目映射到对应的聚合墙面。",
+      ),
+    );
+  }
+
   for (const room of world.rooms) {
     const exhibits = world.exhibits.filter((exhibit) => exhibit.roomId === room.id);
     for (let a = 0; a < exhibits.length; a += 1) {
@@ -93,6 +108,24 @@ export function checkWorld(world: WorldPlan): CheckReport {
         `${inactive.length} 件展品没有有效点击目标。`,
         inactive.map((item) => item.id),
         "补充点击动作与大于零的 hitbox。",
+      ),
+    );
+  }
+  const inactiveSurfaces = world.displaySurfaces.filter(
+    (surface) =>
+      !surface.interaction.clickable ||
+      !surface.interaction.action ||
+      surface.focusTarget.fov <= 0 ||
+      surface.focusTarget.fov >= 180,
+  );
+  if (inactiveSurfaces.length) {
+    issues.push(
+      issue(
+        "interaction",
+        "error",
+        `${inactiveSurfaces.length} 个展示表面没有有效点击或聚焦目标。`,
+        inactiveSurfaces.map((surface) => surface.id),
+        "补充展示表面的点击动作与相机聚焦目标。",
       ),
     );
   }

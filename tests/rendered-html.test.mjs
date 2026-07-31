@@ -20,9 +20,11 @@ test("server-renders ROOM product shell and metadata", async () => {
   assert.match(html, /把你的经历/);
   assert.match(html, /上传你的 CV/);
   assert.match(html, /https:\/\/yourname\.com/);
-  assert.match(html, /FEATURED DEMO · 从简历到别墅/);
-  assert.match(html, /林澈/);
-  assert.match(html, /进入林澈的别墅/);
+  assert.match(html, /DEMO · 从简历到别墅/);
+  assert.match(html, /示例数据，仅用于快速体验/);
+  assert.match(html, /示例人物/);
+  assert.match(html, /进入示例别墅/);
+  assert.doesNotMatch(html, /林澈/);
   assert.doesNotMatch(html, /产品设计|空间艺术/);
   assert.doesNotMatch(html, /没有简历？直接查看生成结果/);
   assert.doesNotMatch(html, /FOUR AGENTS ONLINE|Agent trace|RAG references/);

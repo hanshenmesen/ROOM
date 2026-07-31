@@ -1,0 +1,98 @@
+{
+  "version": 2,
+  "generatedAt": "2026-07-31",
+  "purpose": "Public personal homepage and CV audit samples for reproducible parsing tests.",
+  "requiredRoles": ["designer", "engineer", "researcher", "artist", "student", "content_creator"],
+  "samples": [
+    {
+      "id": "hanshenmesen",
+      "url": "https://hanshenmesen.github.io/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public GitHub Pages academic homepage; only public-page structure is needed for extraction."
+      },
+      "roles": ["researcher", "engineer"],
+      "expectedFields": ["name", "headline", "summary", "items", "skills", "contacts", "media"],
+      "expectedMediaCategories": ["profile-photo", "project-cover"]
+    },
+    {
+      "id": "claire-lee",
+      "url": "https://claireelee.github.io/portfolio/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public UX portfolio page with resume access and case-study navigation."
+      },
+      "roles": ["designer"],
+      "expectedFields": ["name", "headline", "summary", "items", "contacts", "media"],
+      "expectedMediaCategories": ["profile-photo", "project-cover"]
+    },
+    {
+      "id": "xia-su",
+      "url": "https://xiasu.github.io/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public academic homepage with research, education, and experience sections."
+      },
+      "roles": ["researcher", "engineer"],
+      "expectedFields": ["name", "headline", "summary", "items", "contacts", "media"],
+      "expectedMediaCategories": ["profile-photo", "logo"]
+    },
+    {
+      "id": "william-svoboda",
+      "url": "https://thisstillwill.github.io/Personal-Website-V2/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public student portfolio with social links, projects, and resume navigation."
+      },
+      "roles": ["student", "engineer"],
+      "expectedFields": ["name", "headline", "summary", "items", "skills", "contacts"],
+      "expectedMediaCategories": []
+    },
+    {
+      "id": "nielisson-mendonca",
+      "url": "https://nielisson.github.io/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public designer and 2D/3D artist portfolio with resume download and external project links."
+      },
+      "roles": ["designer", "artist"],
+      "expectedFields": ["name", "headline", "summary", "items", "contacts", "media"],
+      "expectedMediaCategories": ["profile-photo", "project-cover"],
+      "expectedProjectMetadataFields": ["projectUrl"],
+      "expectedRealProjectCount": 25
+    },
+    {
+      "id": "damilola-aleje",
+      "url": "https://alejek.github.io/damilola.me/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public media portfolio with embedded video/reel references and no login gate."
+      },
+      "roles": ["content_creator", "artist"],
+      "expectedFields": ["name", "headline", "summary", "items", "contacts", "media"],
+      "expectedMediaCategories": ["profile-photo", "project-cover"],
+      "expectedProjectMetadataFields": ["projectUrl"],
+      "expectedRealProjectCount": 5
+    },
+    {
+      "id": "shubhashis-roy",
+      "url": "https://shubhashis-roy.github.io/My-portfolio/",
+      "publicness": {
+        "noLogin": true,
+        "risk": "low",
+        "reason": "Public software-engineering portfolio with explicit per-project dates, roles, technology stacks, demos, and source links."
+      },
+      "roles": ["engineer"],
+      "expectedFields": ["name", "headline", "summary", "items", "contacts", "media"],
+      "expectedMediaCategories": ["profile-photo", "project-cover"],
+      "expectedProjectMetadataFields": ["timeRange", "role", "techStack", "projectUrl"],
+      "expectedRealProjectCount": 8
+    }
+  ]
+}

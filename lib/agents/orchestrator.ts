@@ -1,5 +1,6 @@
 import type {
   CreativeBrief,
+  DisplaySurfacePlan,
   ExhibitPlan,
   ParsedProfile,
   RoomKind,
@@ -27,7 +28,7 @@ function positionFor(center: Vec3, size: Vec3, index: number, count: number): Ve
   const column = index % columns;
   const rowCount = Math.ceil(count / columns);
   const centeredRow = row - (rowCount - 1) / 2;
-  const reservedCenterOffset = centeredRow >= 0 ? centeredRow + 1 : centeredRow - 1;
+  const reservedCenterOffset = centeredRow >= 0 ? centeredRow + 2 : centeredRow - 1;
   const entryClearanceShift = center[0] < -1 ? -1 : 0;
   const x = center[0] + entryClearanceShift + (column - (columns - 1) / 2) * 2.25;
   const z = center[2] + reservedCenterOffset * 3.7;
@@ -36,12 +37,21 @@ function positionFor(center: Vec3, size: Vec3, index: number, count: number): Ve
 
 function projectPosition(center: Vec3, index: number): Vec3 {
   const stations: Vec3[] = [
-    [center[0] - 4.4, 0, center[2] + 2.5],
-    [center[0] + 4.4, 0, center[2] + 2.5],
-    [center[0] - 4.4, 0, center[2] - 4.5],
-    [center[0] + 4.4, 0, center[2] - 4.5],
+    [center[0] - 4, 0, center[2] + 4],
+    [center[0] + 4, 0, center[2] + 4],
+    [center[0] - 4, 0, center[2] - 4],
+    [center[0] + 4, 0, center[2] - 4],
   ];
-  return stations[index] || [center[0] + (index - 1.5) * 4, 0, center[2] - 4.5];
+  if (stations[index]) return stations[index];
+
+  const overflowIndex = index - stations.length;
+  const column = overflowIndex % 4;
+  const row = Math.floor(overflowIndex / 4);
+  return [
+    center[0] + (column - 1.5) * 3,
+    0,
+    center[2] - 7 - row * 2.5,
+  ];
 }
 
 function exhibitKind(kind: string): ExhibitPlan["kind"] {
@@ -52,17 +62,86 @@ function exhibitKind(kind: string): ExhibitPlan["kind"] {
   return "panel";
 }
 
+type SurfaceDraft = {
+  id: string;
+  semanticRole: NonNullable<DisplaySurfacePlan["semanticRole"]>;
+  title: string;
+  kicker: string;
+  accent: string;
+  sourceItemIds: string[];
+  presentationMode: DisplaySurfacePlan["presentationMode"];
+  pageSize?: number;
+  variant: NonNullable<DisplaySurfacePlan["layout"]>["variant"];
+  weight: number;
+};
+
+function widthForSurface(draft: SurfaceDraft) {
+  const base = draft.semanticRole === "profile" ? 4.75 : draft.semanticRole === "works" ? 4.1 : 3.35;
+  const byContent = Math.min(1.2, Math.max(0, draft.sourceItemIds.length - 2) * 0.22);
+  return Number(Math.min(5.05, base + byContent).toFixed(2));
+}
+
+function heightForSurface(draft: SurfaceDraft) {
+  const base = draft.semanticRole === "profile" ? 2.18 : 1.72;
+  const byContent = Math.min(0.48, Math.max(0, draft.sourceItemIds.length - 3) * 0.08);
+  return Number(Math.min(2.28, base + byContent).toFixed(2));
+}
+
+function layoutDisplaySurfaces(drafts: SurfaceDraft[]): DisplaySurfacePlan[] {
+  const rows = [
+    drafts.filter((draft) => ["profile", "education", "experience"].includes(draft.semanticRole)),
+    drafts.filter((draft) => ["achievement", "works", "skills", "contact"].includes(draft.semanticRole)),
+  ].filter((row) => row.length);
+  return rows.flatMap((row, rowIndex) => {
+    const totalWidth = row.reduce((sum, draft) => sum + widthForSurface(draft), 0);
+    const gap = row.length > 1 ? Math.min(0.58, Math.max(0.28, (15.8 - totalWidth) / (row.length - 1))) : 0;
+    let cursor = -(totalWidth + gap * (row.length - 1)) / 2;
+    const y = rowIndex === 0 ? 2.95 : 1.45;
+    return row.map((draft) => {
+      const width = widthForSurface(draft);
+      const height = heightForSurface(draft);
+      const x = Number((cursor + width / 2).toFixed(2));
+      cursor += width + gap;
+      return {
+        id: draft.id,
+        roomId: "room-lobby",
+        semanticRole: draft.semanticRole,
+        title: draft.title,
+        kicker: draft.kicker,
+        accent: draft.accent,
+        sourceItemIds: draft.sourceItemIds,
+        presentationMode: draft.presentationMode,
+        pageSize: draft.pageSize,
+        layout: {
+          position: [x, y, -20.82] as Vec3,
+          width,
+          height,
+          variant: draft.variant,
+        },
+        focusTarget: { target: [x, y, -20.82] as Vec3, camera: [x, Math.max(1.32, y - 0.68), -16.72] as Vec3, fov: rowIndex === 0 ? 46 : 48 },
+        interaction: { clickable: true, action: "open-detail" as const },
+      };
+    });
+  });
+}
+
 export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): WorldPlan {
   const drafts = [
     ...profile.items.map((item) => ({
       sourceItemId: item.id,
       roomId: "room-lobby",
       title: item.title,
+      contentFamily: item.contentFamily,
       eyebrow: item.kind.toUpperCase(),
       body: item.summary,
       tags: item.tags,
       imageUrl: item.imageUrl,
       sourceUrl: item.sourceUrl,
+      timeRange: item.timeRange,
+      role: item.role,
+      techStack: item.techStack,
+      projectUrl: item.projectUrl,
+      fieldEvidence: item.fieldEvidence,
       kind: exhibitKind(item.kind),
       evidence: item.evidence,
     })),
@@ -78,10 +157,13 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     })),
   ];
 
+  const nonProjectDrafts = drafts.filter((item) => item.eyebrow !== "PROJECT");
+  const projectDrafts = drafts.filter((item) => item.eyebrow === "PROJECT");
+
   const exhibits: ExhibitPlan[] = drafts.map((draft, index) => {
-    const siblings = drafts.filter((item) => item.roomId === draft.roomId);
+    const siblings = draft.eyebrow === "PROJECT" ? projectDrafts : nonProjectDrafts;
     const siblingIndex = siblings.findIndex((item) => item.sourceItemId === draft.sourceItemId);
-    const projectSiblings = drafts.filter((item) => item.eyebrow === "PROJECT");
+    const projectSiblings = projectDrafts;
     const projectIndex = projectSiblings.findIndex((item) => item.sourceItemId === draft.sourceItemId);
     const room = roomSpecs.find((item) => item.id === draft.roomId)!;
     return {
@@ -116,6 +198,103 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     exhibitIds: exhibits.filter((exhibit) => exhibit.roomId === room.id).map((exhibit) => exhibit.id),
   }));
 
+  const sourceIdsFor = (...kinds: Array<ParsedProfile["items"][number]["kind"]>) =>
+    profile.items.filter((item) => kinds.includes(item.kind)).map((item) => item.id);
+  const projectSourceIds = sourceIdsFor("project");
+  const achievementSourceIds = sourceIdsFor("achievement");
+  const draftSurface = (surface: SurfaceDraft) => surface;
+  const educationSourceIds = sourceIdsFor("education");
+  const experienceSourceIds = sourceIdsFor("experience");
+  const surfaceDrafts: SurfaceDraft[] = [
+    draftSurface({
+      id: "showroom-profile",
+      semanticRole: "profile" as const,
+      title: profile.name,
+      kicker: "个人介绍",
+      accent: "#ff8b61",
+      sourceItemIds: [
+        ...sourceIdsFor("summary"),
+        ...(["name", "headline", "location", "summary"] as const)
+          .filter((field) => profile.identityEvidence[field]?.length)
+          .map((field) => `identity:${field}`),
+      ],
+      presentationMode: "summary" as const,
+      variant: "profile" as const,
+      weight: 1,
+    }),
+    ...(educationSourceIds.length ? [draftSurface({
+      id: "showroom-education",
+      semanticRole: "education" as const,
+      title: `教育背景 · ${educationSourceIds.length}`,
+      kicker: "教育背景",
+      accent: "#d3aa54",
+      sourceItemIds: educationSourceIds,
+      presentationMode: "summary" as const,
+      variant: "timeline" as const,
+      weight: 2,
+    })] : []),
+    ...(experienceSourceIds.length ? [draftSurface({
+      id: "showroom-experience",
+      semanticRole: "experience" as const,
+      title: `工作经验 · ${experienceSourceIds.length}`,
+      kicker: "工作经验",
+      accent: "#7088d4",
+      sourceItemIds: experienceSourceIds,
+      presentationMode: "summary" as const,
+      variant: "timeline" as const,
+      weight: 3,
+    })] : []),
+    ...(achievementSourceIds.length ? [draftSurface({
+      id: "showroom-highlights",
+      semanticRole: "achievement" as const,
+      title: `成果与成就 · ${achievementSourceIds.length}`,
+      kicker: "成果成就",
+      accent: "#d3aa54",
+      sourceItemIds: achievementSourceIds,
+      presentationMode: achievementSourceIds.length > 6 ? "paged" as const : "summary" as const,
+      pageSize: achievementSourceIds.length > 6 ? 6 : undefined,
+      variant: "timeline" as const,
+      weight: 4,
+    })] : []),
+    ...(projectSourceIds.length ? [draftSurface({
+      id: "showroom-works",
+      semanticRole: "works" as const,
+      title: `项目与作品 · ${projectSourceIds.length}`,
+      kicker: "作品索引",
+      accent: "#8d77bf",
+      sourceItemIds: projectSourceIds,
+      presentationMode: projectSourceIds.length > 6 ? "paged" as const : "summary" as const,
+      pageSize: projectSourceIds.length > 6 ? 6 : undefined,
+      variant: "timeline" as const,
+      weight: 5,
+    })] : []),
+    ...(profile.skills.length ? [draftSurface({
+      id: "showroom-skills",
+      semanticRole: "skills" as const,
+      title: `技能工具 · ${profile.skills.length}`,
+      kicker: "技能工具",
+      accent: "#65d7c3",
+      sourceItemIds: profile.skills.map((skill) => `skill:${skill}`),
+      presentationMode: profile.skills.length > 10 ? "paged" as const : "summary" as const,
+      pageSize: profile.skills.length > 10 ? 10 : undefined,
+      variant: "skills" as const,
+      weight: 6,
+    })] : []),
+    ...(profile.contacts.length ? [draftSurface({
+      id: "showroom-contact",
+      semanticRole: "contact" as const,
+      title: `联系方式 · ${profile.contacts.length}`,
+      kicker: "联系方式",
+      accent: "#9fc6b8",
+      sourceItemIds: profile.contacts.map((_, index) => `contact:${index + 1}`),
+      presentationMode: profile.contacts.length > 5 ? "paged" as const : "summary" as const,
+      pageSize: profile.contacts.length > 5 ? 5 : undefined,
+      variant: "timeline" as const,
+      weight: 7,
+    })] : []),
+  ].sort((a, b) => a.weight - b.weight);
+  const displaySurfaces = layoutDisplaySurfaces(surfaceDrafts);
+
   return {
     version: "0.1.0",
     id: `world-${profile.id}`,
@@ -124,6 +303,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
     rooms,
     portals,
     exhibits,
+    displaySurfaces,
     tour: rooms.map((room) => ({
       roomId: room.id,
       label: room.title,

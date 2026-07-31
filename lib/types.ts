@@ -1,3 +1,10 @@
+export type ContentFamily =
+  | "publication"
+  | "talk"
+  | "exhibition"
+  | "open-source"
+  | "media-coverage";
+
 export type SectionKind =
   | "summary"
   | "project"
@@ -18,11 +25,53 @@ export interface SourceEvidence {
   sourceId: string;
   locator: string;
   excerpt: string;
+  origin?: "source" | "system-generated";
 }
+
+export interface ProfileMedia {
+  url: string;
+  originalUrl: string;
+  sourcePage: string;
+  locator: string;
+  alt?: string;
+  title?: string;
+  linkUrl?: string;
+  kind: "project" | "profile" | "other";
+  category:
+    | "profile-photo"
+    | "project-cover"
+    | "logo"
+    | "screenshot"
+    | "content"
+    | "decorative"
+    | "other";
+  categoryConfidence: number;
+  categoryReason: string;
+}
+
+export interface MediaProvenance {
+  originalUrl: string;
+  sourcePage: string;
+  locator: string;
+  category:
+    | "profile-photo"
+    | "project-cover"
+    | "logo"
+    | "screenshot"
+    | "content"
+    | "decorative"
+    | "other";
+  categoryConfidence: number;
+  categoryReason: string;
+}
+
+export type ProfileItemField = "timeRange" | "role" | "techStack" | "projectUrl";
+export type FieldEvidence = Partial<Record<ProfileItemField, SourceEvidence[]>>;
 
 export interface ProfileItem {
   id: string;
   kind: SectionKind;
+  contentFamily?: ContentFamily;
   title: string;
   subtitle?: string;
   summary: string;
@@ -30,6 +79,12 @@ export interface ProfileItem {
   tags: string[];
   imageUrl?: string;
   sourceUrl?: string;
+  timeRange?: string;
+  role?: string;
+  techStack?: string[];
+  projectUrl?: string;
+  fieldEvidence?: FieldEvidence;
+  mediaProvenance?: MediaProvenance;
   evidence: SourceEvidence[];
 }
 
@@ -37,8 +92,12 @@ export interface ParsedProfile {
   id: string;
   name: string;
   headline: string;
+  location?: string;
   summary: string;
   contacts: string[];
+  media: ProfileMedia[];
+  identityEvidence: Partial<Record<"name" | "headline" | "location" | "summary", SourceEvidence[]>>;
+  contactEvidence: Record<string, SourceEvidence[]>;
   skills: string[];
   skillEvidence: Record<string, SourceEvidence[]>;
   items: ProfileItem[];
@@ -112,11 +171,17 @@ export interface ExhibitPlan {
   sourceItemId: string;
   roomId: string;
   title: string;
+  contentFamily?: ContentFamily;
   eyebrow: string;
   body: string;
   tags: string[];
   imageUrl?: string;
   sourceUrl?: string;
+  timeRange?: string;
+  role?: string;
+  techStack?: string[];
+  projectUrl?: string;
+  fieldEvidence?: FieldEvidence;
   kind: "panel" | "pedestal" | "timeline" | "terminal" | "trophy";
   position: Vec3;
   size: Vec3;
@@ -127,6 +192,34 @@ export interface ExhibitPlan {
     action: "open-detail" | "open-link";
   };
   evidence: SourceEvidence[];
+}
+
+export interface DisplaySurfacePlan {
+  id: string;
+  roomId: string;
+  semanticRole?: "profile" | "education" | "experience" | "skills" | "achievement" | "contact" | "works";
+  title?: string;
+  kicker?: string;
+  accent?: string;
+  sourceItemIds: string[];
+  presentationMode: "single" | "summary" | "paged";
+  pageSize?: number;
+  layout?: {
+    position: Vec3;
+    rotation?: Vec3;
+    width: number;
+    height: number;
+    variant: "text" | "profile" | "timeline" | "skills" | "project";
+  };
+  focusTarget: {
+    target: Vec3;
+    camera: Vec3;
+    fov: number;
+  };
+  interaction: {
+    clickable: boolean;
+    action: "open-detail" | "open-link";
+  };
 }
 
 export interface WorldMetrics {
@@ -145,6 +238,7 @@ export interface WorldPlan {
   rooms: RoomPlan[];
   portals: PortalPlan[];
   exhibits: ExhibitPlan[];
+  displaySurfaces: DisplaySurfacePlan[];
   tour: Array<{ roomId: string; label: string; camera: Vec3 }>;
   metrics: WorldMetrics;
 }

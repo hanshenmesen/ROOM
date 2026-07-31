@@ -4,7 +4,7 @@
 - Status: Active
 - Last refreshed: 2026-07-31
 - Primary product surfaces: intake screen, single demo résumé, explorable Three.js villa
-- Evidence reviewed: `docs/PRODUCT.md`, `docs/TEMPLATE_RESEARCH.md`, `lib/rag/reference-catalog.ts`, `components/RoomStudio.tsx`, `components/WorldCanvas.tsx`, `app/globals.css`
+- Evidence reviewed: `docs/PRODUCT.md`, `docs/TEMPLATE_RESEARCH.md`, `lib/rag/reference-catalog.ts`, `components/RoomStudio.tsx`, `components/WorldCanvas.tsx`, `app/globals.css`, `/Users/hanchen/Documents/room-materials/components/SceneMaterials.tsx`, `/Users/hanchen/Documents/room-materials/public/assets/materials/ASSETS.md`
 
 ## Brand
 - Personality: playful architectural studio, handcrafted digital diorama, personal and discoverable
@@ -54,6 +54,7 @@
 
 ## Visual language
 - Color: warm terracotta and walnut architecture, cream plaster, moss and teal rooms, violet and amber emissive accents; exterior gaps use sky and landscape color, interior gaps use the current room envelope—never black stage color
+- Material system: reuse the local lime-plaster, walnut-herringbone, terracotta-roof, and woven-rug texture sets from the isolated materials branch. They belong to architecture and display furniture only; parsed résumé/project images remain the content layer.
 - Typography: editorial oversized Chinese headline, compact mono labels, readable sans-serif supporting text
 - Spacing/layout rhythm: spacious intake composition; full-viewport 3D field of view; compact floating controls
 - Shape/radius/elevation: architectural hard edges with selectively rounded UI cards; layered podium, facade, roof beams, furniture, and lighting
@@ -79,7 +80,7 @@
 - Pointer behavior: every exhibit responds to click; hover is enhancement only
 
 ## Interaction states
-- Loading: inline progress message while URL/file is read
+- Loading: URL/file parsing uses the inline form message; after a world is generated, an opaque full-viewport architectural loading screen keeps the 3D canvas hidden while local material maps, environment images, GLTF/DRACO objects, and parsed project images load. It shows a rotating mark and monotonic 0–100% progress, reveals the villa only after the Suspense scene has committed, and never exposes partially loaded geometry.
 - Empty: intake screen includes one immediately usable featured résumé
 - Error: concise form message near the input
 - Success: transition directly into the generated house; a correct bedroom password opens the door and starts the camera route; saved guestbook and diary entries reappear after refresh in the same browser
@@ -94,7 +95,7 @@
 ## Implementation constraints
 - Framework/styling system: Next/vinext, React Three Fiber, Three.js, repository-native CSS
 - Design-token constraints: extend existing CSS variables rather than add a second design system
-- Performance constraints: preload and retain the two authored interiors in one canvas for uninterrupted threshold travel, never load complete vendor room scenes, keep the vendor object catalog bounded, cap canvas DPR, and cap diary image uploads at 1 MB
+- Performance constraints: preload and retain the two authored interiors in one canvas for uninterrupted threshold travel; gate first paint until all scene resources reach 100%; never load complete vendor room scenes; keep the vendor object catalog bounded; cap canvas DPR; and cap diary image uploads at 1 MB
 - Compatibility constraints: preserve Cloudflare-compatible build; local-only delivery for this iteration
 - Test/screenshot expectations: pipeline tests, lint, build, rendered HTML smoke test, and desktop browser verification at 1280×720 of exterior → public showroom → wall focus → central project focus → visitor message persistence → password error → password success → diary persistence → return paths
 

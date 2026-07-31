@@ -3,13 +3,29 @@
   "$id": "https://room.dev/schemas/profile.schema.json",
   "title": "ROOM Parsed Profile",
   "type": "object",
-  "required": ["id", "name", "headline", "summary", "contacts", "skills", "skillEvidence", "items", "source"],
+  "required": ["id", "name", "headline", "summary", "contacts", "identityEvidence", "contactEvidence", "media", "skills", "skillEvidence", "items", "source"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "name": { "type": "string", "minLength": 1 },
     "headline": { "type": "string" },
+    "location": { "type": "string" },
     "summary": { "type": "string" },
     "contacts": { "type": "array", "items": { "type": "string" } },
+    "identityEvidence": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "headline": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "location": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "summary": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
+      },
+      "additionalProperties": false
+    },
+    "contactEvidence": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/evidence" } } },
+    "media": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/media" }
+    },
     "skills": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "skillEvidence": { "type": "object", "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/evidence" } } },
     "items": {
@@ -20,12 +36,33 @@
         "properties": {
           "id": { "type": "string" },
           "kind": { "enum": ["summary", "project", "experience", "education", "achievement"] },
+          "contentFamily": {
+            "type": "string",
+            "enum": ["publication", "talk", "exhibition", "open-source", "media-coverage"]
+          },
           "title": { "type": "string" },
           "summary": { "type": "string" },
           "bullets": { "type": "array", "items": { "type": "string" } },
           "tags": { "type": "array", "items": { "type": "string" } },
           "imageUrl": { "type": "string", "format": "uri" },
           "sourceUrl": { "type": "string", "format": "uri" },
+          "timeRange": { "type": "string" },
+          "role": { "type": "string" },
+          "techStack": { "type": "array", "items": { "type": "string" } },
+          "projectUrl": { "type": "string", "format": "uri" },
+          "fieldEvidence": { "$ref": "#/$defs/fieldEvidence" },
+          "mediaProvenance": {
+            "type": "object",
+            "required": ["originalUrl", "sourcePage", "locator", "category", "categoryConfidence", "categoryReason"],
+            "properties": {
+              "originalUrl": { "type": "string" },
+              "sourcePage": { "type": "string" },
+              "locator": { "type": "string" },
+              "category": { "type": "string" },
+              "categoryConfidence": { "type": "number" },
+              "categoryReason": { "type": "string" }
+            }
+          },
           "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
         }
       }
@@ -47,8 +84,36 @@
       "required": ["sourceId", "locator", "excerpt"],
       "properties": {
         "sourceId": { "type": "string" },
-        "locator": { "type": "string", "pattern": "^(line|lines):" },
-        "excerpt": { "type": "string" }
+        "locator": { "type": "string", "pattern": "^(line|lines|char|media|img|paper-box|meta-image|profile-img|system):" },
+        "excerpt": { "type": "string" },
+        "origin": { "enum": ["source", "system-generated"] }
+      }
+    },
+    "fieldEvidence": {
+      "type": "object",
+      "properties": {
+        "timeRange": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "role": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "techStack": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "projectUrl": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
+      },
+      "additionalProperties": false
+    },
+    "media": {
+      "type": "object",
+      "required": ["url", "originalUrl", "sourcePage", "locator", "kind", "category", "categoryConfidence", "categoryReason"],
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "originalUrl": { "type": "string" },
+        "sourcePage": { "type": "string" },
+        "locator": { "type": "string" },
+        "alt": { "type": "string" },
+        "title": { "type": "string" },
+        "linkUrl": { "type": "string", "format": "uri" },
+        "kind": { "type": "string", "enum": ["project", "profile", "other"] },
+        "category": { "type": "string", "enum": ["profile-photo", "project-cover", "logo", "screenshot", "content", "decorative", "other"] },
+        "categoryConfidence": { "type": "number" },
+        "categoryReason": { "type": "string" }
       }
     }
   }

@@ -3,13 +3,14 @@
   "$id": "https://room.dev/schemas/world.schema.json",
   "title": "ROOM World Plan",
   "type": "object",
-  "required": ["version", "id", "profile", "brief", "rooms", "portals", "exhibits", "tour", "metrics"],
+  "required": ["version", "id", "profile", "brief", "rooms", "portals", "exhibits", "displaySurfaces", "tour", "metrics"],
   "properties": {
     "version": { "const": "0.1.0" },
     "id": { "type": "string" },
     "rooms": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/room" } },
     "portals": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/portal" } },
     "exhibits": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/exhibit" } },
+    "displaySurfaces": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/displaySurface" } },
     "tour": { "type": "array" },
     "metrics": {
       "type": "object",
@@ -40,6 +41,15 @@
         "sourceItemId": { "type": "string", "minLength": 1 },
         "imageUrl": { "type": "string", "format": "uri" },
         "sourceUrl": { "type": "string", "format": "uri" },
+        "timeRange": { "type": "string" },
+        "role": { "type": "string" },
+        "techStack": { "type": "array", "items": { "type": "string" } },
+        "projectUrl": { "type": "string", "format": "uri" },
+        "fieldEvidence": { "$ref": "#/$defs/fieldEvidence" },
+        "contentFamily": {
+          "type": "string",
+          "enum": ["publication", "talk", "exhibition", "open-source", "media-coverage"]
+        },
         "position": { "$ref": "#/$defs/vec3" },
         "size": { "$ref": "#/$defs/vec3" },
         "interaction": {
@@ -50,8 +60,72 @@
             "hitbox": { "$ref": "#/$defs/vec3" },
             "action": { "enum": ["open-detail", "open-link"] }
           }
+        },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
+      }
+    },
+    "displaySurface": {
+      "type": "object",
+      "required": ["id", "roomId", "sourceItemIds", "presentationMode", "focusTarget", "interaction"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "roomId": { "type": "string", "minLength": 1 },
+        "semanticRole": { "enum": ["profile", "education", "experience", "skills", "achievement", "contact", "works"] },
+        "title": { "type": "string", "minLength": 1 },
+        "kicker": { "type": "string", "minLength": 1 },
+        "accent": { "type": "string", "minLength": 1 },
+        "sourceItemIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "presentationMode": { "enum": ["single", "summary", "paged"] },
+        "pageSize": { "type": "integer", "minimum": 1 },
+        "layout": {
+          "type": "object",
+          "required": ["position", "width", "height", "variant"],
+          "properties": {
+            "position": { "$ref": "#/$defs/vec3" },
+            "rotation": { "$ref": "#/$defs/vec3" },
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 },
+            "variant": { "enum": ["text", "profile", "timeline", "skills", "project"] }
+          }
+        },
+        "focusTarget": {
+          "type": "object",
+          "required": ["target", "camera", "fov"],
+          "properties": {
+            "target": { "$ref": "#/$defs/vec3" },
+            "camera": { "$ref": "#/$defs/vec3" },
+            "fov": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180 }
+          }
+        },
+        "interaction": {
+          "type": "object",
+          "required": ["clickable", "action"],
+          "properties": {
+            "clickable": { "const": true },
+            "action": { "enum": ["open-detail", "open-link"] }
+          }
         }
       }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["sourceId", "locator", "excerpt"],
+      "properties": {
+        "sourceId": { "type": "string" },
+        "locator": { "type": "string", "pattern": "^(line|lines|char|media|img|paper-box|meta-image|profile-img|system):" },
+        "excerpt": { "type": "string" },
+        "origin": { "enum": ["source", "system-generated"] }
+      }
+    },
+    "fieldEvidence": {
+      "type": "object",
+      "properties": {
+        "timeRange": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "role": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "techStack": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 },
+        "projectUrl": { "type": "array", "items": { "$ref": "#/$defs/evidence" }, "minItems": 1 }
+      },
+      "additionalProperties": false
     }
   }
 }
