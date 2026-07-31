@@ -11,10 +11,23 @@ npm install
 npm run dev
 ```
 
-Configure the server-side Profile Agent in an ignored `.env.local` file:
+Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose either the MAAS or Zhizengzeng provider preset. Each dropdown option supplies its compatible Base URL, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
+
+Advanced settings can enable an independent concurrent Website Agent with a second key and its own provider dropdown. Once the résumé identity pass discovers a personal homepage, that Agent starts immediately while the remaining résumé extraction continues.
+
+Browser-provided keys are kept in the current tab's `sessionStorage` and sent only to ROOM's server-side parsing proxy. They are cleared when that tab session ends and are never written to the repository or `localStorage`.
+
+For shared or deployed instances, server-side environment variables remain supported. Copy the tracked template and configure the deployment environment:
+
+```bash
+cp .env.example .env.local
+```
+
+The relevant settings are:
 
 ```dotenv
 WEBSITE_AGENT_API_KEY=your-independent-website-agent-key
+WEBSITE_AGENT_API_KEY_FALLBACK=
 WEBSITE_AGENT_BASE_URL=https://your-provider.example/v1
 WEBSITE_AGENT_MODEL=claude-sonnet-5
 MAAS_API_KEY=your-primary-key
@@ -23,9 +36,13 @@ MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
 MAAS_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
 ```
 
-Local secrets are loaded only by the development server. Production builds expect the same names as deployment-platform secrets and do not embed `.env.local` values.
+Only one valid API key is required. `MAAS_BASE_URL`, `MAAS_MODEL`, `WEBSITE_AGENT_BASE_URL`, and `WEBSITE_AGENT_MODEL` have working defaults, while a dedicated Website Agent key is optional.
 
-Open `http://localhost:3000` at the public entrance. Choose the precompiled Han Chen demo to enter its world immediately without reparsing, or import another résumé or public portfolio.
+The entrance checks `/api/config` for deployment-level readiness and opens the in-browser configuration form when neither a session key nor a server key is available. A browser session configuration overrides server providers for that user's parse requests without exposing any server-side secret.
+
+Local secrets are loaded only by the development server. Production builds expect the same names as deployment-platform secrets and do not embed `.env.local` values. Configure those values in the deployment platform rather than committing an environment file.
+
+Open `http://localhost:3000` at the public entrance. Choose the precompiled Han Chen demo to enter its world immediately without reparsing or configuring an API, or configure the Agent service and import another résumé or public portfolio.
 
 The demo supports:
 

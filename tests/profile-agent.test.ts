@@ -199,6 +199,87 @@ test("profile Agent uses forced tool output for the primary compatible provider"
   }
 });
 
+test("profile Agent uses a browser session provider without mixing server credentials", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.MAAS_API_KEY;
+  process.env.MAAS_API_KEY = "server-key-that-must-not-be-used";
+  let calls = 0;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    assert.equal(String(input), "https://browser-provider.example/v1/messages");
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("authorization"), "Bearer browser-session-key");
+    const body = JSON.parse(String(init?.body)) as {
+      model: string;
+      output_config: { format: { schema: { properties: Record<string, unknown> } } };
+    };
+    assert.equal(body.model, "browser-session-model");
+    calls += 1;
+    const result = body.output_config.format.schema.properties.identity ? identityResult : itemsResult;
+    return Response.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
+  }) as typeof fetch;
+
+  try {
+    const profile = await extractProfileFromAttachmentWithAgent(
+      { mediaType: "application/pdf", data: "cGRm" },
+      { label: "resume.pdf", format: "pdf", pageCount: 1 },
+      "",
+      {
+        providerConfig: {
+          maasApiKey: "browser-session-key",
+          maasBaseUrl: "https://browser-provider.example/v1",
+          maasModel: "browser-session-model",
+        },
+      },
+    );
+    assert.equal(calls, 2);
+    assert.equal(profile.name, "韩晨");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.MAAS_API_KEY;
+    else process.env.MAAS_API_KEY = originalKey;
+  }
+});
+
+test("profile Agent supports the tool-compatible provider as the primary dropdown choice", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    assert.equal(String(input), "https://api.zhizengzeng.com/v1/messages");
+    const body = JSON.parse(String(init?.body)) as {
+      model: string;
+      tools?: Array<{ input_schema: { properties: Record<string, unknown> } }>;
+      tool_choice?: { name: string };
+      output_config?: unknown;
+    };
+    assert.equal(body.model, "claude-sonnet-5");
+    assert.equal(body.tool_choice?.name, "submit_profile_result");
+    assert.equal(body.output_config, undefined);
+    calls += 1;
+    const result = body.tools?.[0]?.input_schema.properties.identity ? identityResult : itemsResult;
+    return Response.json({ content: [{ type: "tool_use", name: "submit_profile_result", input: result }] });
+  }) as typeof fetch;
+
+  try {
+    const profile = await extractProfileFromAttachmentWithAgent(
+      { mediaType: "application/pdf", data: "cGRm" },
+      { label: "resume.pdf", format: "pdf", pageCount: 1 },
+      "",
+      {
+        providerConfig: {
+          maasApiKey: "browser-tool-key",
+          maasBaseUrl: "https://api.zhizengzeng.com/v1",
+          maasModel: "claude-sonnet-5",
+          maasMode: "tool",
+        },
+      },
+    );
+    assert.equal(calls, 2);
+    assert.equal(profile.name, "韩晨");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("personal website callback starts before the resume items shard completes", async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.MAAS_API_KEY;

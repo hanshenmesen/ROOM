@@ -7,9 +7,11 @@ import {
   type ProfileAgentSource,
 } from "@/lib/agents/profile-agent";
 import { extractWebPage, type ExtractedMedia } from "@/lib/extract-webpage";
-import { fetchPublicWebPage } from "@/lib/public-web";
+import { fetchPublicWebPage, validatePublicUrl } from "@/lib/public-web";
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfiles } from "@/lib/profile-merge";
+import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
+import type { AgentProviderOverride } from "@/lib/agents/provider-config";
 import type { ParsedProfile } from "@/lib/types";
 
 export const runtime = "edge";
@@ -58,7 +60,32 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-function startWebsiteAgent(website: string): WebsiteAgentTask {
+function requestProviderConfig(request: Request): AgentProviderOverride | undefined {
+  const config = readBrowserAgentConfigHeaders(request.headers);
+  if (!config) return undefined;
+  if (config.maasApiKey.length > 1_024 || config.websiteApiKey.length > 1_024) {
+    throw new ProfileAgentError("API Key 长度不合法。", 400);
+  }
+  if (config.maasModel.length > 200 || config.websiteModel.length > 200) {
+    throw new ProfileAgentError("模型名称过长。", 400);
+  }
+  const safeBaseUrl = (value: string, label: string) => {
+    try {
+      const url = validatePublicUrl(value);
+      if (url.protocol !== "https:" || url.search || url.hash) throw new Error("unsafe provider URL");
+      return url.href.replace(/\/$/, "");
+    } catch {
+      throw new ProfileAgentError(`${label} 必须是公开的 HTTPS 地址。`, 400);
+    }
+  };
+  return {
+    ...config,
+    maasBaseUrl: safeBaseUrl(config.maasBaseUrl, "MAAS Base URL"),
+    websiteBaseUrl: safeBaseUrl(config.websiteBaseUrl, "Website Agent Base URL"),
+  };
+}
+
+function startWebsiteAgent(website: string, providerConfig?: AgentProviderOverride): WebsiteAgentTask {
   const result = (async (): Promise<WebsiteAgentResult> => {
     const page = await fetchPublicWebPage(website);
     const extracted = page.contentType.includes("text/html")
@@ -69,7 +96,7 @@ function startWebsiteAgent(website: string): WebsiteAgentTask {
       label: extracted.title || page.url,
       media: extracted.media,
       format: "text",
-    }, { providerScope: "website" });
+    }, { providerScope: "website", providerConfig });
     return { profile: websiteProfile, pageUrl: page.url };
   })().catch((error): WebsiteAgentResult => ({
     error: error instanceof Error ? error.message : "个人网站补充失败。",
@@ -81,10 +108,11 @@ async function enrichFromPersonalWebsite(
   profile: ParsedProfile,
   originalLabel: string,
   pendingTask?: WebsiteAgentTask,
+  providerConfig?: AgentProviderOverride,
 ) {
   const website = profile.personalWebsite;
   if (!website) return { profile, enrichment: { attempted: false, succeeded: false } };
-  const task = pendingTask?.website === website ? pendingTask : startWebsiteAgent(website);
+  const task = pendingTask?.website === website ? pendingTask : startWebsiteAgent(website, providerConfig);
   const websiteResult = await task.result;
   if (websiteResult.profile && websiteResult.pageUrl) {
     const enriched = mergeProfiles(profile, websiteResult.profile, `${originalLabel} + ${websiteResult.pageUrl}`);
@@ -104,7 +132,7 @@ async function enrichFromPersonalWebsite(
   };
 }
 
-async function parseJson(request: Request) {
+async function parseJson(request: Request, providerConfig?: AgentProviderOverride) {
   const body = await request.json() as ParseJsonBody;
   const source: ProfileAgentSource = {
     id: body.sourceId,
@@ -117,19 +145,20 @@ async function parseJson(request: Request) {
   let websiteTask: WebsiteAgentTask | undefined;
   const profile = await extractProfileWithAgent(body.text || "", source, {
     providerScope: source.type === "url" ? "website" : "resume",
+    providerConfig,
     ...(shouldFollowWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website);
+        websiteTask ||= startWebsiteAgent(website, providerConfig);
       },
     } : {}),
   });
   if (!shouldFollowWebsite) {
     return { profile, enrichment: { attempted: false, succeeded: false } };
   }
-  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask);
+  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask, providerConfig);
 }
 
-async function parseFile(request: Request) {
+async function parseFile(request: Request, providerConfig?: AgentProviderOverride) {
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) throw new ProfileAgentError("请选择要解析的文件。", 400);
@@ -141,9 +170,10 @@ async function parseFile(request: Request) {
   let websiteTask: WebsiteAgentTask | undefined;
   const agentOptions = {
     providerScope: "resume" as const,
+    providerConfig,
     ...(shouldFollowWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website);
+        websiteTask ||= startWebsiteAgent(website, providerConfig);
       },
     } : {}),
   };
@@ -173,15 +203,16 @@ async function parseFile(request: Request) {
   }
   return !shouldFollowWebsite
     ? { profile, enrichment: { attempted: false, succeeded: false } }
-    : enrichFromPersonalWebsite(profile, file.name, websiteTask);
+    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig);
 }
 
 export async function POST(request: Request) {
   try {
+    const providerConfig = requestProviderConfig(request);
     const contentType = request.headers.get("content-type") || "";
     const result = contentType.includes("multipart/form-data")
-      ? await parseFile(request)
-      : await parseJson(request);
+      ? await parseFile(request, providerConfig)
+      : await parseJson(request, providerConfig);
     return NextResponse.json(result);
   } catch (error) {
     const timedOut = error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name);

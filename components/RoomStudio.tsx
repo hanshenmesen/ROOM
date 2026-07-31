@@ -14,6 +14,13 @@ import {
   type FormEvent,
 } from "react";
 import { compileProfile } from "@/lib/agents/pipeline";
+import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
+import {
+  BROWSER_AGENT_SESSION_KEY,
+  browserAgentConfigHeaders,
+  normalizeBrowserAgentConfig,
+  type BrowserAgentConfig,
+} from "@/lib/browser-agent-config";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
 import { hanchenDemoProfile } from "@/lib/data/hanchen-demo-profile";
 import {
@@ -28,6 +35,7 @@ import {
   beginSceneLoading,
   type SceneLoadingSnapshot,
 } from "./SceneLoadingStore";
+import { AgentSetupDialog } from "./AgentSetupDialog";
 
 const WorldCanvas = dynamic(
   () => import("./WorldCanvas").then((module) => module.WorldCanvas),
@@ -200,6 +208,17 @@ function writeStoredProjectEdits(profileId: string, edits: ProjectEdits) {
   window.localStorage.setItem(`${PROJECT_EDITS_STORAGE_PREFIX}${profileId}`, JSON.stringify(edits));
 }
 
+function readBrowserAgentConfig() {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.sessionStorage.getItem(BROWSER_AGENT_SESSION_KEY);
+    if (!stored) return null;
+    return normalizeBrowserAgentConfig(JSON.parse(stored));
+  } catch {
+    return null;
+  }
+}
+
 function resizeProjectCover(file: File) {
   return new Promise<string>((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
@@ -338,8 +357,18 @@ function DetailBody({ body }: { body: string }) {
   );
 }
 
+async function fetchAgentConfigStatus() {
+  const response = await fetch("/api/config", { cache: "no-store" });
+  if (!response.ok) throw new Error("configuration status unavailable");
+  return response.json() as Promise<PublicAgentConfigStatus>;
+}
+
 export function RoomStudio() {
   const [result, setResult] = useState<PipelineResult | null>(null);
+  const [agentConfig, setAgentConfig] = useState<PublicAgentConfigStatus | null>(null);
+  const [browserAgentConfig, setBrowserAgentConfig] = useState<BrowserAgentConfig | null>(null);
+  const [agentConfigChecked, setAgentConfigChecked] = useState(false);
+  const [agentSetupOpen, setAgentSetupOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -375,6 +404,9 @@ export function RoomStudio() {
   const projectCount = result?.world.exhibits.filter((item) => item.eyebrow === "PROJECT").length || 0;
   const projectPageCount = Math.max(1, Math.ceil(projectCount / PROJECTS_PER_PAGE));
   const diaryWritable = canEditPrivateDiary(privateUnlockedMode);
+  const agentReady = Boolean(
+    browserAgentConfig?.maas.apiKey || browserAgentConfig?.website.apiKey || agentConfig?.ready,
+  );
   const selectedDetail = useMemo<SelectedDetail | undefined>(() => {
     if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary") return undefined;
     const sourceType = result.profile.source.type;
@@ -483,6 +515,28 @@ export function RoomStudio() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+    const storedBrowserConfig = readBrowserAgentConfig();
+    const configTimer = window.setTimeout(() => setBrowserAgentConfig(storedBrowserConfig), 0);
+    void fetchAgentConfigStatus()
+      .then((status) => {
+        if (cancelled) return;
+        setAgentConfig(status);
+        setAgentConfigChecked(true);
+        if (!status.ready && !storedBrowserConfig) setAgentSetupOpen(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAgentConfig(null);
+        setAgentConfigChecked(true);
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(configTimer);
+    };
+  }, []);
+
+  useEffect(() => {
     const hydrationTimer = window.setTimeout(() => {
       setGuestbookEntries(readStoredEntries<GuestbookEntry>(GUESTBOOK_STORAGE_KEY));
       setDiaryEntries(readStoredEntries<DiaryEntry>(DIARY_STORAGE_KEY));
@@ -502,6 +556,7 @@ export function RoomStudio() {
       setPrivateAccessMode("");
       setPrivatePassword("");
       setPrivatePasswordError("");
+      setAgentSetupOpen(false);
     }
 
     window.addEventListener("keydown", closeTransientUi);
@@ -566,7 +621,10 @@ export function RoomStudio() {
   ) {
     const response = await fetch("/api/parse", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...browserAgentConfigHeaders(browserAgentConfig),
+      },
       body: JSON.stringify({
         text,
         label,
@@ -627,6 +685,11 @@ export function RoomStudio() {
   async function extractUrl() {
     const value = url.trim();
     if (!value) return;
+    if (!agentReady && agentConfigChecked) {
+      setAgentSetupOpen(true);
+      setMessage("请先配置 Profile Agent，再解析新的个人网页。");
+      return;
+    }
     setLoading(true);
     setMessage("正在读取网页…");
     try {
@@ -653,13 +716,22 @@ export function RoomStudio() {
 
   async function readFile(file?: File) {
     if (!file) return;
+    if (!agentReady && agentConfigChecked) {
+      setAgentSetupOpen(true);
+      setMessage("请先配置 Profile Agent，再上传新的简历。");
+      return;
+    }
     setLoading(true);
     setMessage("Claude Profile Agent 正在读取简历，并准备追踪个人网站…");
     try {
       const form = new FormData();
       form.set("file", file);
       form.set("followWebsite", "true");
-      const response = await fetch("/api/parse", { method: "POST", body: form });
+      const response = await fetch("/api/parse", {
+        method: "POST",
+        headers: browserAgentConfigHeaders(browserAgentConfig),
+        body: form,
+      });
       const data = await response.json() as { profile?: ParsedProfile; error?: string; details?: string[] };
       if (!response.ok || !data.profile) {
         throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
@@ -684,6 +756,19 @@ export function RoomStudio() {
 
   function openDemo() {
     openWorld(hanchenDemoProfile);
+  }
+
+  function saveBrowserAgentConfig(config: BrowserAgentConfig) {
+    window.sessionStorage.setItem(BROWSER_AGENT_SESSION_KEY, JSON.stringify(config));
+    setBrowserAgentConfig(config);
+    setMessage("Agent 配置已保存到当前标签页，可以开始解析。");
+    setAgentSetupOpen(false);
+  }
+
+  function clearBrowserAgentConfig() {
+    window.sessionStorage.removeItem(BROWSER_AGENT_SESSION_KEY);
+    setBrowserAgentConfig(null);
+    setMessage(agentConfig?.ready ? "已恢复使用服务端 Agent 配置。" : "当前会话配置已清除。");
   }
 
   const selectWorldObject = useCallback((id: string) => {
@@ -848,7 +933,17 @@ export function RoomStudio() {
       <main className="intake-page">
         <header className="minimal-header">
           <Link className="wordmark" href="/" aria-label="ROOM home">ROOM</Link>
-          <span className="edition">PRIVATE BETA · 01</span>
+          <div className="header-tools">
+            <button
+              className={`agent-status-button ${agentReady ? "is-ready" : agentConfigChecked ? "is-missing" : "is-checking"}`}
+              type="button"
+              onClick={() => setAgentSetupOpen(true)}
+            >
+              <span aria-hidden="true" />
+              {browserAgentConfig ? "当前会话已配置" : agentConfig?.ready ? "解析服务已就绪" : agentConfigChecked ? "配置解析服务" : "检测解析服务"}
+            </button>
+            <span className="edition">PRIVATE BETA · 01</span>
+          </div>
         </header>
 
         <section className="intake-hero">
@@ -893,7 +988,7 @@ export function RoomStudio() {
             <button
               className={`upload-zone ${dragging ? "is-dragging" : ""}`}
               type="button"
-              onClick={() => fileInput.current?.click()}
+              onClick={() => !agentReady && agentConfigChecked ? setAgentSetupOpen(true) : fileInput.current?.click()}
               onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
               onDragOver={(event) => event.preventDefault()}
               onDragLeave={() => setDragging(false)}
@@ -934,6 +1029,17 @@ export function RoomStudio() {
             </section>
           </div>
         </section>
+
+        {agentSetupOpen ? (
+          <AgentSetupDialog
+            key={browserAgentConfig ? "configured" : "unconfigured"}
+            status={agentConfig}
+            config={browserAgentConfig}
+            onClose={() => setAgentSetupOpen(false)}
+            onSave={saveBrowserAgentConfig}
+            onClear={clearBrowserAgentConfig}
+          />
+        ) : null}
 
         <footer className="minimal-footer">
           <span>One source in.</span>

@@ -6,11 +6,12 @@ import type {
   SourceEvidence,
 } from "../types.ts";
 import { validateProfile } from "../validate.ts";
-
-const DEFAULT_MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
-const DEFAULT_MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
-const FALLBACK_MAAS_MODEL = "bedrock-claude-sonnet-5/claude-sonnet-5";
-const DEFAULT_WEBSITE_AGENT_BASE_URL = "https://api.zhizengzeng.com/v1";
+import {
+  DEFAULT_WEBSITE_AGENT_MODEL,
+  FALLBACK_MAAS_MODEL,
+  getAgentProviderConfig,
+  type AgentProviderOverride,
+} from "./provider-config.ts";
 const MAX_SOURCE_CHARACTERS = 160_000;
 const MAX_AGENT_ATTEMPTS = 2;
 
@@ -144,6 +145,7 @@ export type ProfileAgentSource = {
 export type ProfileAgentOptions = {
   onPersonalWebsite?: (website: string) => void;
   providerScope?: "resume" | "website";
+  providerConfig?: AgentProviderOverride;
 };
 
 export type AgentAttachment = {
@@ -554,35 +556,30 @@ async function callMaas(
   content: string | MaasContentBlock[],
   schema: typeof IDENTITY_DRAFT_SCHEMA | typeof ITEMS_DRAFT_SCHEMA,
   providerScope: NonNullable<ProfileAgentOptions["providerScope"]>,
+  providerOverride?: AgentProviderOverride,
 ) {
-  const maasApiKeys = [...new Set([
-    process.env.MAAS_API_KEY,
-    process.env.MAAS_API_KEY_FALLBACK,
-  ].filter((value): value is string => Boolean(value)))];
-  const websiteApiKeys = [...new Set([
-    process.env.WEBSITE_AGENT_API_KEY,
-    process.env.WEBSITE_AGENT_API_KEY_FALLBACK,
-  ].filter((value): value is string => Boolean(value)))];
+  const providerConfig = getAgentProviderConfig(providerOverride);
+  const maasApiKeys = providerConfig.maas.apiKeys;
+  const websiteApiKeys = providerConfig.website.apiKeys;
   if (!websiteApiKeys.length && !maasApiKeys.length) {
     throw new ProfileAgentError("服务端尚未配置 Profile Agent API key。", 503);
   }
-  const maasBaseUrl = (process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL).replace(/\/$/, "");
-  const configuredModel = process.env.MAAS_MODEL;
+  const messagesBaseUrl = (baseUrl: string) => /\/v1$/i.test(baseUrl) ? baseUrl : `${baseUrl}/v1`;
   const maasModels = [...new Set([
-    configuredModel || DEFAULT_MAAS_MODEL,
-    FALLBACK_MAAS_MODEL,
+    providerConfig.maas.model,
+    ...(providerConfig.maas.mode === "json-schema" ? [FALLBACK_MAAS_MODEL] : []),
   ])];
   const websiteProviders = websiteApiKeys.length ? [{
-      baseUrl: (process.env.WEBSITE_AGENT_BASE_URL || DEFAULT_WEBSITE_AGENT_BASE_URL).replace(/\/$/, ""),
+      baseUrl: messagesBaseUrl(providerConfig.website.baseUrl),
       apiKeys: websiteApiKeys,
-      models: [process.env.WEBSITE_AGENT_MODEL || "claude-sonnet-5"],
-      mode: "tool" as const,
+      models: [providerConfig.website.model || DEFAULT_WEBSITE_AGENT_MODEL],
+      mode: providerConfig.website.mode,
     }] : [];
   const maasProviders = maasApiKeys.length ? [{
-      baseUrl: `${maasBaseUrl}/v1`,
+      baseUrl: messagesBaseUrl(providerConfig.maas.baseUrl),
       apiKeys: maasApiKeys,
       models: maasModels,
-      mode: "json-schema" as const,
+      mode: providerConfig.maas.mode,
     }] : [];
   const providers = providerScope === "website"
     ? [...websiteProviders, ...maasProviders]
@@ -683,12 +680,14 @@ async function extractWithAgent(
       contentFor("identity"),
       IDENTITY_DRAFT_SCHEMA,
       providerScope,
+      options.providerConfig,
     );
     const itemsOutputPromise = callMaas(
       systemPrompt(source.format, "items"),
       contentFor("items"),
       ITEMS_DRAFT_SCHEMA,
       providerScope,
+      options.providerConfig,
     );
     const identityOutput = await identityOutputPromise;
     try {
