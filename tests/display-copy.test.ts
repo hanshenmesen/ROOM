@@ -28,6 +28,14 @@ function noisyProfile(): ParsedProfile {
     contactEvidence: {
       "Email: ada@example.com source: portfolio line:8": [contactEvidence],
     },
+    foods: ["Sushi line:10 evidence"],
+    foodEvidence: {
+      "Sushi line:10 evidence": [evidence("line:10", "Sushi")],
+    },
+    hobbies: ["Street photography line:11 evidence"],
+    hobbyEvidence: {
+      "Street photography line:11 evidence": [evidence("line:11", "Street photography")],
+    },
     skills: ["Three.js - lines:9-10 evidence"],
     skillEvidence: {
       "Three.js - lines:9-10 evidence": [skillEvidence],
@@ -73,6 +81,8 @@ test("normalizeDisplayProfile cleans presentation fields and remaps evidence map
   assert.equal(normalized.location, "London");
   assert.equal(normalized.summary, "Builds spatial interfaces.");
   assert.deepEqual(normalized.contacts, ["Email: ada@example.com"]);
+  assert.deepEqual(normalized.foods, ["Sushi"]);
+  assert.deepEqual(normalized.hobbies, ["Street photography"]);
   assert.deepEqual(normalized.skills, ["Three.js"]);
   assert.equal(normalized.items[0]?.title, "Room System");
   assert.equal(normalized.items[0]?.subtitle, "Interactive world");
@@ -81,6 +91,8 @@ test("normalizeDisplayProfile cleans presentation fields and remaps evidence map
   assert.deepEqual(normalized.items[0]?.techStack, ["Three.js"]);
 
   assert.equal(normalized.contactEvidence["Email: ada@example.com"]?.[0]?.locator, "line:8");
+  assert.equal(normalized.foodEvidence?.Sushi?.[0]?.locator, "line:10");
+  assert.equal(normalized.hobbyEvidence?.["Street photography"]?.[0]?.locator, "line:11");
   assert.equal(normalized.skillEvidence["Three.js"]?.[0]?.locator, "lines:9-10");
   assert.equal(normalized.identityEvidence.name?.[0]?.locator, "line:1");
   assert.equal(normalized.identityEvidence.name?.[0]?.excerpt, "Ada Lovelace line:1");

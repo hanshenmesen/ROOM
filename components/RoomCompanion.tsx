@@ -6,11 +6,13 @@ import { useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { ThreeEvent } from "@react-three/fiber";
-import { ROOM_COMPANION_NAME } from "@/lib/room-companion";
+import {
+  normalizePetCustomization,
+  type PetCustomization,
+  type PetEarStyle,
+} from "@/lib/profile-space-customization";
 import { MARDOU_COMPANION_SAFE_ZONE, MARDOU_COMPANION_SPEED } from "./MardouMuseumLayout";
 
-const BODY_COLOR = "#d8c7a7";
-const ACCENT_COLOR = "#6fd6c9";
 const INK_COLOR = "#17151a";
 const SHADOW_COLOR = "#7a6b58";
 const TURN_SPEED = 8;
@@ -21,10 +23,26 @@ export type RoomCompanionProps = {
   activeRoom: string;
   sceneReady?: boolean;
   qaOpen?: boolean;
+  customization?: PetCustomization;
   seed?: string;
   visible?: boolean;
   onOpenQa: () => void;
 };
+
+function CompanionEar({ side, style, color }: { side: -1 | 1; style: PetEarStyle; color: string }) {
+  const position: [number, number, number] = [side * 0.18, style === "droop" ? 0.18 : 0.26, -0.03];
+  const rotation: [number, number, number] = style === "droop"
+    ? [0.12, 0, side * 0.74]
+    : [0.08, 0, side * -0.24];
+  return (
+    <mesh castShadow position={position} rotation={rotation}>
+      {style === "pointed" ? <coneGeometry args={[0.12, 0.24, 4]} /> : null}
+      {style === "round" ? <sphereGeometry args={[0.12, 8, 6]} /> : null}
+      {style === "droop" ? <capsuleGeometry args={[0.055, 0.16, 3, 6]} /> : null}
+      <meshStandardMaterial color={color} roughness={0.82} />
+    </mesh>
+  );
+}
 
 function hashSeed(seed: string) {
   let hash = 2166136261;
@@ -91,6 +109,7 @@ export function RoomCompanion({
   activeRoom,
   sceneReady = true,
   qaOpen = false,
+  customization,
   seed = "room-neutral-companion",
   visible = true,
   onOpenQa,
@@ -118,6 +137,7 @@ export function RoomCompanion({
   const target = useMemo(() => new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome), []);
   const direction = useMemo(() => new THREE.Vector3(), []);
   const firstPosition = MARDOU_COMPANION_SAFE_ZONE.entranceSpawn;
+  const appearance = useMemo(() => normalizePetCustomization(customization), [customization]);
 
   const nextRandom = useCallback(() => {
     let value = randomState.current;
@@ -245,7 +265,7 @@ export function RoomCompanion({
     <group
       ref={root}
       name="room-companion-xiaobai"
-      userData={{ companionName: ROOM_COMPANION_NAME }}
+      userData={{ companionName: appearance.name, personality: appearance.personality }}
       position={[firstPosition[0], firstPosition[1], firstPosition[2]]}
       scale={0.52}
       onClick={handleClick}
@@ -264,25 +284,28 @@ export function RoomCompanion({
 
       <mesh castShadow position={[0, MARDOU_COMPANION_SAFE_ZONE.bodyHeight, 0]}>
         <icosahedronGeometry args={[0.45, 1]} />
-        <meshStandardMaterial color={BODY_COLOR} roughness={0.82} metalness={0.02} />
+        <meshStandardMaterial color={appearance.bodyColor} roughness={0.82} metalness={0.02} />
       </mesh>
 
       <group ref={head} position={[0, 0.95, 0.38]}>
         <mesh castShadow>
           <icosahedronGeometry args={[0.34, 1]} />
-          <meshStandardMaterial color="#ead8b9" roughness={0.78} />
+          <meshStandardMaterial color={appearance.bodyColor} roughness={0.78} />
         </mesh>
-        {[-1, 1].map((side) => (
-          <mesh
-            key={side}
-            castShadow
-            position={[side * 0.18, 0.26, -0.03]}
-            rotation={[0.08, 0, side * -0.24]}
-          >
-            <coneGeometry args={[0.12, 0.24, 4]} />
-            <meshStandardMaterial color={BODY_COLOR} roughness={0.82} />
+        <CompanionEar side={-1} style={appearance.earStyle} color={appearance.bodyColor} />
+        <CompanionEar side={1} style={appearance.earStyle} color={appearance.bodyColor} />
+        {appearance.markingStyle === "mask" ? [-1, 1].map((side) => (
+          <mesh key={`mask-${side}`} position={[side * 0.12, 0.06, 0.285]} scale={[1.8, 1.05, 0.45]}>
+            <sphereGeometry args={[0.075, 8, 6]} />
+            <meshBasicMaterial color={appearance.accentColor} />
           </mesh>
-        ))}
+        )) : null}
+        {appearance.markingStyle === "star" ? (
+          <mesh position={[0, 0.18, 0.295]} scale={[0.72, 1, 0.32]} rotation={[0, 0, Math.PI / 4]}>
+            <octahedronGeometry args={[0.075, 0]} />
+            <meshBasicMaterial color={appearance.accentColor} />
+          </mesh>
+        ) : null}
         {[-1, 1].map((side) => (
           <mesh key={side} position={[side * 0.12, 0.05, 0.3]}>
             <sphereGeometry args={[0.036, 8, 6]} />
@@ -291,14 +314,14 @@ export function RoomCompanion({
         ))}
         <mesh position={[0, -0.04, 0.32]}>
           <sphereGeometry args={[0.035, 8, 6]} />
-          <meshBasicMaterial color={ACCENT_COLOR} />
+          <meshBasicMaterial color={appearance.accentColor} />
         </mesh>
       </group>
 
       <group ref={tail} position={[0, 0.72, -0.43]} rotation={[0.16, 0, 0]}>
         <mesh castShadow position={[0, 0.05, -0.2]} rotation={[Math.PI / 2, 0, 0]}>
           <coneGeometry args={[0.08, 0.42, 5]} />
-          <meshStandardMaterial color={BODY_COLOR} roughness={0.82} />
+          <meshStandardMaterial color={appearance.bodyColor} roughness={0.82} />
         </mesh>
       </group>
 
@@ -315,13 +338,13 @@ export function RoomCompanion({
           position={[leg.x, 0.34, leg.z]}
         >
           <capsuleGeometry args={[0.07, 0.32, 3, 6]} />
-          <meshStandardMaterial color={BODY_COLOR} roughness={0.84} />
+          <meshStandardMaterial color={appearance.bodyColor} roughness={0.84} />
         </mesh>
       ))}
 
       <mesh ref={signalRing} position={[0, 1.34, 0.04]}>
         <torusGeometry args={[0.24, 0.012, 5, 18]} />
-        <meshBasicMaterial color={ACCENT_COLOR} transparent opacity={0.58} />
+        <meshBasicMaterial color={appearance.accentColor} transparent opacity={0.58} />
       </mesh>
     </group>
   );

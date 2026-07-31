@@ -5,6 +5,7 @@ import test from "node:test";
 const landingSource = readFileSync(new URL("../components/ProductFlowLanding.tsx", import.meta.url), "utf8");
 const landingStyles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const studioSource = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
+const parseRouteSource = readFileSync(new URL("../app/api/parse/route.ts", import.meta.url), "utf8");
 
 test("the landing is rebuilt from independently positioned PPT artwork", () => {
   for (const asset of [
@@ -67,8 +68,23 @@ test("the landing and intake share one editorial visual system", () => {
   assert.match(studioSource, /className="intake-form-heading"/);
   assert.match(landingStyles, /\.intake-page\s*\{[^}]*--intake-ink: #17202a;[^}]*padding: 0 clamp\(22px, 4vw, 72px\);/);
   assert.match(landingStyles, /\.hero-copy\s*\{[^}]*align-self: start;[^}]*border-top: 1px solid var\(--intake-rule\);/);
-  assert.match(landingStyles, /\.hero-copy h1\s*\{[^}]*font-size: clamp\(48px, 4\.6vw, 76px\)/);
+  assert.match(landingStyles, /\.hero-copy h1\s*\{[^}]*font-size: clamp\(58px, 5\.45vw, 92px\)/);
   assert.match(landingStyles, /@keyframes intake-copy-rise/);
+  assert.match(studioSource, /className="intake-build-preview"/);
+  assert.match(landingStyles, /@keyframes intake-preview-scan/);
   assert.match(landingStyles, /\.intake-form\s*\{[^}]*align-self: start;[^}]*border-top: 1px solid rgba\(82, 127, 174, \.46\);/);
   assert.match(landingStyles, /\.demo-panel > button\s*\{[^}]*border-radius: 999px;[^}]*background: #1c3348;/);
+});
+
+test("website and resume sources wait for one explicit generate action", () => {
+  assert.match(studioSource, /const \[sourceFile, setSourceFile\] = useState<File \| null>\(null\)/);
+  assert.match(studioSource, /<form className="intake-form" onSubmit=\{generateFromSources\}>/);
+  assert.match(studioSource, /className="intake-generate"/);
+  assert.match(studioSource, /disabled=\{loading \|\| !hasSourceInput\}/);
+  assert.match(studioSource, /function upload\([\s\S]*setSourceFile\(file\);[\s\S]*确认资料后点击下方生成/);
+  assert.doesNotMatch(studioSource, /function upload\([^}]+readFile/);
+  assert.match(studioSource, /if \(sourceFile\) \{[\s\S]*readFile\(sourceFile, website \|\| undefined\)/);
+  assert.match(studioSource, /if \(website\) form\.set\("website", website\)/);
+  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\(explicitWebsite, providerConfig\)/);
+  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig\)/);
 });

@@ -11,7 +11,8 @@ import {
   type PetVoicePreference,
   type PetTtsStreamState,
 } from "@/lib/pet-voice";
-import { ROOM_COMPANION_NAME } from "@/lib/room-companion";
+import type { PetPersonality } from "@/lib/profile-space-customization";
+import { normalizeRoomCompanionName } from "@/lib/room-companion";
 import type { ParsedProfile } from "@/lib/types";
 
 type PetQaMessage = {
@@ -28,6 +29,8 @@ type PetQaCitation = {
 type PetQaPanelProps = {
   profile: ParsedProfile | null;
   config: BrowserAgentConfig | null;
+  name: string;
+  personality: PetPersonality;
   open: boolean;
   onClose: () => void;
   onSpeechStart?: () => void;
@@ -64,7 +67,8 @@ function voiceStatusLabel(status: PetVoiceStatus, enabled: boolean, available: b
   return "回答后自动朗读";
 }
 
-export function PetQaPanel({ profile, config, open, onClose, onSpeechStart, onSpeechEnd }: PetQaPanelProps) {
+export function PetQaPanel({ profile, config, name, personality, open, onClose, onSpeechStart, onSpeechEnd }: PetQaPanelProps) {
+  const companionName = normalizeRoomCompanionName(name);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<PetQaMessage[]>([]);
   const [citations, setCitations] = useState<PetQaCitation[]>([]);
@@ -234,6 +238,8 @@ export function PetQaPanel({ profile, config, open, onClose, onSpeechStart, onSp
           profile,
           question: trimmed,
           history: messages.slice(-8),
+          name: companionName,
+          personality,
         }),
       });
       const payload = await response.json().catch(() => null) as {
@@ -264,7 +270,7 @@ export function PetQaPanel({ profile, config, open, onClose, onSpeechStart, onSp
       <header>
         <div>
           <span>ROOM PET QA</span>
-          <h2>{ROOM_COMPANION_NAME}</h2>
+          <h2>{companionName}</h2>
         </div>
         <button type="button" onClick={closePanel} aria-label="关闭宠物问答">×</button>
       </header>
@@ -306,9 +312,9 @@ export function PetQaPanel({ profile, config, open, onClose, onSpeechStart, onSp
             {message.content}
           </p>
         )) : (
-          <p className="pet-qa-empty">我是小白，可以根据已解析的简历和个人网站资料，帮主人回答项目、经历、技能相关问题。</p>
+          <p className="pet-qa-empty">我是{companionName}，可以根据已解析的简历和个人网站资料，帮主人回答项目、经历、技能相关问题。</p>
         )}
-        {pending ? <p className="pet-qa-message is-assistant">我正在翻资料……</p> : null}
+        {pending ? <p className="pet-qa-message is-assistant">{companionName}正在翻资料……</p> : null}
       </div>
       {citations.length ? (
         <div className="pet-qa-citations" aria-label="回答引用">
@@ -326,7 +332,7 @@ export function PetQaPanel({ profile, config, open, onClose, onSpeechStart, onSp
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           maxLength={800}
-          placeholder="问小白一个和主人简历相关的问题"
+          placeholder={`问${companionName}一个和主人简历相关的问题`}
           aria-label="宠物 QA 问题"
         />
         <button type="submit" disabled={pending || !question.trim()}>

@@ -14,7 +14,6 @@ import {
   type ChangeEvent,
   type DragEvent,
   type FormEvent,
-  type RefObject,
 } from "react";
 import { compileProfile } from "@/lib/agents/pipeline";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
@@ -65,7 +64,21 @@ import {
   musicBoxTrack,
 } from "@/lib/background-music";
 import { sanitizeDisplayText } from "@/lib/display-copy";
-import { ROOM_COMPANION_NAME } from "@/lib/room-companion";
+import {
+  DEFAULT_PET_CUSTOMIZATION,
+  LEGACY_PRIVATE_FRAME_STORAGE_KEY,
+  PRIVATE_FRAME_SLOTS,
+  defaultProfileSpaceCustomization,
+  normalizePetCustomization,
+  normalizePrivateFrameImages,
+  normalizeProfileSpaceCustomization,
+  profileSpaceStorageKey,
+  type PetCustomization,
+  type PrivateFrameImages,
+  type PrivateFrameSlot,
+  type ProfileSpaceCustomization,
+} from "@/lib/profile-space-customization";
+import { normalizeRoomCompanionName } from "@/lib/room-companion";
 import type { ContentFamily, ParsedProfile, PipelineResult, ProfileItem } from "@/lib/types";
 import {
   beginSceneLoading,
@@ -75,8 +88,8 @@ import { AgentSetupDialog } from "./AgentSetupDialog";
 import { ExhibitFocusScreen, type ExhibitFocusSection } from "./ExhibitFocusScreen";
 import { ExhibitHeatPanel } from "./ExhibitHeatPanel";
 import { BackgroundMusicController, type BackgroundMusicControllerHandle } from "./BackgroundMusicController";
+import { MoveInStudio, type MoveInStep } from "./MoveInStudio";
 import { PetQaPanel } from "./PetQaPanel";
-import type { MardouPrivateFrameSlot } from "./MardouMuseumLayout";
 import { ProductFlowLanding } from "./ProductFlowLanding";
 
 const WorldCanvas = dynamic(
@@ -91,15 +104,6 @@ const VISITOR_PRIVATE_PASSWORD = "visit2026";
 const GUESTBOOK_STORAGE_KEY = "room:guestbook:v1";
 const SOURCE_BROWSER_ID = "showroom-source-browser";
 const GRAMOPHONE_ID = "showroom-gramophone";
-const PRIVATE_FRAME_STORAGE_KEY = "room:mardou-private-frame-images:v2";
-const PRIVATE_FRAME_SLOTS = [
-  "private-frame-1",
-  "private-frame-2",
-  "private-frame-3",
-  "private-frame-4",
-  "private-frame-5",
-  "private-frame-6",
-] as const satisfies ReadonlyArray<MardouPrivateFrameSlot>;
 const PROJECT_EDITS_STORAGE_PREFIX = "room:project-edits:v1:";
 const EMPTY_PROJECT_EDIT: ProjectEdit = { title: "", summary: "" };
 function profileStats(profile: ParsedProfile) {
@@ -128,7 +132,6 @@ type GuestbookEntry = {
 };
 
 type BedroomAccessMode = "owner" | "visitor";
-type PrivateFrameImages = Partial<Record<MardouPrivateFrameSlot, string>>;
 
 const FICTIONAL_DEMO_FRAME_IMAGES: PrivateFrameImages = {
   "private-frame-1": "./assets/demo/frame-xhs-lobby.jpg",
@@ -300,23 +303,30 @@ function readStoredHeatLedger(profileId: string): ExhibitHeatLedger | null {
   }
 }
 
-function normalizePrivateFrameImages(value: unknown): PrivateFrameImages {
-  if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    PRIVATE_FRAME_SLOTS
-      .map((slot) => [slot, (value as Record<string, unknown>)[slot]] as const)
-      .filter((entry): entry is readonly [MardouPrivateFrameSlot, string] => typeof entry[1] === "string" && entry[1].startsWith("data:image/")),
-  );
+function writeStoredProfileSpace(space: ProfileSpaceCustomization) {
+  window.localStorage.setItem(profileSpaceStorageKey(space.profileId), JSON.stringify(space));
 }
 
-function readStoredPrivateFrameImages() {
-  if (typeof window === "undefined") return {};
+function readStoredProfileSpace(profileId: string) {
+  if (typeof window === "undefined") return defaultProfileSpaceCustomization(profileId);
   try {
-    const stored = window.localStorage.getItem(PRIVATE_FRAME_STORAGE_KEY);
-    return stored ? normalizePrivateFrameImages(JSON.parse(stored)) : {};
+    const stored = window.localStorage.getItem(profileSpaceStorageKey(profileId));
+    if (stored) return normalizeProfileSpaceCustomization(JSON.parse(stored), profileId);
+
+    if (profileId !== FICTIONAL_DEMO_PROFILE_ID) {
+      const legacy = window.localStorage.getItem(LEGACY_PRIVATE_FRAME_STORAGE_KEY);
+      const legacyFrames = legacy ? normalizePrivateFrameImages(JSON.parse(legacy)) : {};
+      if (Object.keys(legacyFrames).length) {
+        const migrated = { ...defaultProfileSpaceCustomization(profileId), frameImages: legacyFrames };
+        writeStoredProfileSpace(migrated);
+        window.localStorage.removeItem(LEGACY_PRIVATE_FRAME_STORAGE_KEY);
+        return migrated;
+      }
+    }
   } catch {
-    return {};
+    // Invalid or unavailable local storage falls back to an empty profile space.
   }
+  return defaultProfileSpaceCustomization(profileId);
 }
 
 function readBrowserAgentConfig() {
@@ -330,7 +340,10 @@ function readBrowserAgentConfig() {
   }
 }
 
-function resizeProjectCover(file: File) {
+function resizeProjectCover(
+  file: File,
+  options: { maxWidth?: number; maxHeight?: number; quality?: number } = {},
+) {
   return new Promise<string>((resolve, reject) => {
     if (!file.type.startsWith("image/")) {
       reject(new Error("请选择图片文件。"));
@@ -350,8 +363,8 @@ function resizeProjectCover(file: File) {
       const image = new window.Image();
       image.onerror = () => reject(new Error("这张图片无法解码，请换一张再试。"));
       image.onload = () => {
-        const maxWidth = 1440;
-        const maxHeight = 960;
+        const maxWidth = options.maxWidth || 1440;
+        const maxHeight = options.maxHeight || 960;
         const scale = Math.min(1, maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
         const width = Math.max(1, Math.round(image.naturalWidth * scale));
         const height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -364,7 +377,7 @@ function resizeProjectCover(file: File) {
           return;
         }
         context.drawImage(image, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/jpeg", 0.84));
+        resolve(canvas.toDataURL("image/jpeg", options.quality ?? 0.84));
       };
       image.src = reader.result;
     };
@@ -463,55 +476,6 @@ function projectMetadataForDetail(exhibit: PipelineResult["world"]["exhibits"][n
   return metadata;
 }
 
-type DiaryComposerProps = {
-  idPrefix: string;
-  text: string;
-  imageDataUrl: string;
-  error: string;
-  imageInputRef: RefObject<HTMLInputElement | null>;
-  submitLabel: string;
-  onTextChange: (value: string) => void;
-  onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-};
-
-function DiaryComposer({
-  idPrefix,
-  text,
-  imageDataUrl,
-  error,
-  imageInputRef,
-  submitLabel,
-  onTextChange,
-  onImageChange,
-  onSubmit,
-}: DiaryComposerProps) {
-  const textId = `${idPrefix}-text`;
-  const imageId = `${idPrefix}-image`;
-  return (
-    <form className="memory-form diary-composer" onSubmit={onSubmit}>
-      <label htmlFor={textId}>文字记录</label>
-      <textarea
-        id={textId}
-        value={text}
-        onChange={(event) => onTextChange(event.target.value)}
-        placeholder="写下一段只属于自己的记录……"
-        maxLength={MAX_DIARY_TEXT_LENGTH}
-        rows={5}
-      />
-      <div className="diary-upload-row">
-        <input ref={imageInputRef} id={imageId} type="file" accept="image/*" onChange={onImageChange} />
-        <span>图片上限 1 MB</span>
-      </div>
-      {imageDataUrl ? (
-        <Image className="diary-preview" src={imageDataUrl} alt="即将保存的日记图片预览" width={320} height={200} unoptimized />
-      ) : null}
-      <div className="memory-error" aria-live="polite">{error}</div>
-      <button type="submit">{submitLabel}</button>
-    </form>
-  );
-}
-
 async function fetchAgentConfigStatus() {
   const response = await fetch("/api/config", { cache: "no-store" });
   if (!response.ok) throw new Error("configuration status unavailable");
@@ -527,9 +491,13 @@ export function RoomStudio() {
   const [agentConfigChecked, setAgentConfigChecked] = useState(false);
   const [agentSetupOpen, setAgentSetupOpen] = useState(false);
   const [url, setUrl] = useState("");
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingProfile, setPendingProfile] = useState<ParsedProfile | null>(null);
+  const [moveInStep, setMoveInStep] = useState<MoveInStep>("pet");
+  const [petCustomization, setPetCustomization] = useState<PetCustomization>({ ...DEFAULT_PET_CUSTOMIZATION });
+  const companionName = normalizeRoomCompanionName(petCustomization.name);
   const [savedProfiles, setSavedProfiles] = useState<SavedProfileRecord[]>([]);
   const [sceneProgress, setSceneProgress] = useState(0);
   const [sceneCommitted, setSceneCommitted] = useState(false);
@@ -576,7 +544,6 @@ export function RoomStudio() {
   const [exhibitHeat, setExhibitHeat] = useState<ExhibitHeatLedger | null>(null);
   const [petQaOpen, setPetQaOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const creationDiaryImageInput = useRef<HTMLInputElement>(null);
   const diaryImageInput = useRef<HTMLInputElement>(null);
   const projectImageInput = useRef<HTMLInputElement>(null);
   const musicController = useRef<BackgroundMusicControllerHandle>(null);
@@ -584,13 +551,14 @@ export function RoomStudio() {
   const gramophoneFileInput = useRef<HTMLInputElement>(null);
   const pageTransitionTimer = useRef<number | null>(null);
   const portraitGeneration = useRef(0);
-  const selectedPrivateFrameSlot = PRIVATE_FRAME_SLOTS.includes(selectedId as MardouPrivateFrameSlot)
-    ? selectedId as MardouPrivateFrameSlot
+  const selectedPrivateFrameSlot = PRIVATE_FRAME_SLOTS.includes(selectedId as PrivateFrameSlot)
+    ? selectedId as PrivateFrameSlot
     : undefined;
   const diaryWritable = canEditPrivateDiary(privateUnlockedMode);
   const agentReady = Boolean(
     browserAgentConfig?.maas.apiKey || browserAgentConfig?.website.apiKey || agentConfig?.ready,
   );
+  const hasSourceInput = Boolean(url.trim() || sourceFile);
   const sceneResourcesReady = Boolean(
     sceneLoadState
       && (
@@ -747,7 +715,6 @@ export function RoomStudio() {
     const hydrationTimer = window.setTimeout(() => {
       setGuestbookEntries(readStoredEntries<GuestbookEntry>(GUESTBOOK_STORAGE_KEY));
       setDiaryEntries(readStoredEntries<DiaryEntry>(DIARY_STORAGE_KEY));
-      setPrivateFrameImages(readStoredPrivateFrameImages());
       setSavedProfiles(
         readStoredEntries<unknown>(PROFILE_HISTORY_STORAGE_KEY).filter(isSavedProfileRecord),
       );
@@ -854,7 +821,8 @@ export function RoomStudio() {
     }, 440);
   }
 
-  function openWorld(profile: ParsedProfile) {
+  function openWorld(profile: ParsedProfile, preparedSpace?: ProfileSpaceCustomization) {
+    const profileSpace = preparedSpace || readStoredProfileSpace(profile.id);
     const storedProjectEdits = readStoredProjectEdits(profile.id);
     const editedProfile = applyProjectEdits(profile, storedProjectEdits);
     const sourcePortrait = editedProfile.media.find((media) => media.category === "profile-photo")?.url || "";
@@ -881,6 +849,9 @@ export function RoomStudio() {
     setActiveRoom("room-lobby");
     setSourceBrowserProjectId("");
     setPendingProfile(null);
+    setPetCustomization(profileSpace.pet);
+    setPrivateFrameImages(profileSpace.frameImages);
+    setPrivateFrameMessage("");
     setOriginalPortraitUrl(shouldGeneratePortraitArt ? sourcePortrait : "");
     setAbstractPortraitUrl("");
     setPortraitArtStatus(shouldGeneratePortraitArt ? "generating" : "idle");
@@ -1030,6 +1001,14 @@ export function RoomStudio() {
     setSelectedId("bedroom-diary");
   }
 
+  function beginMoveInDraft() {
+    setPendingProfile(null);
+    setMoveInStep("pet");
+    setPetCustomization({ ...DEFAULT_PET_CUSTOMIZATION });
+    setPrivateFrameImages({});
+    setPrivateFrameMessage("");
+  }
+
   async function extractUrl() {
     const value = url.trim();
     if (!value) return;
@@ -1038,7 +1017,7 @@ export function RoomStudio() {
       setMessage("请先配置 Profile Agent，再解析新的个人网页。");
       return;
     }
-    setPendingProfile(null);
+    beginMoveInDraft();
     setLoading(true);
     setMessage("正在读取网页…");
     try {
@@ -1059,7 +1038,7 @@ export function RoomStudio() {
       setPendingProfile(profile);
       const remembered = rememberGeneratedProfile(profile);
       setMessage(remembered
-        ? "你的小家已经准备好，并已加入最近生成。你可以再写一页日记，然后进入。"
+        ? "Agent 已完成解析。设置好宠物和空间照片后，就可以进入。"
         : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "读取失败，请稍后重试。 ");
@@ -1068,20 +1047,23 @@ export function RoomStudio() {
     }
   }
 
-  async function readFile(file?: File) {
+  async function readFile(file?: File, website?: string) {
     if (!file) return;
     if (!agentReady && agentConfigChecked) {
       setAgentSetupOpen(true);
       setMessage("请先配置 Profile Agent，再上传新的简历。");
       return;
     }
-    setPendingProfile(null);
+    beginMoveInDraft();
     setLoading(true);
-    setMessage("Claude Profile Agent 正在读取简历，并准备追踪个人网站…");
+    setMessage(website
+      ? "Claude Profile Agent 正在并行读取简历和个人网站…"
+      : "Claude Profile Agent 正在读取简历，并准备追踪个人网站…");
     try {
       const form = new FormData();
       form.set("file", file);
       form.set("followWebsite", "true");
+      if (website) form.set("website", website);
       const response = await fetch("/api/parse", {
         method: "POST",
         headers: browserAgentConfigHeaders(browserAgentConfig),
@@ -1094,7 +1076,7 @@ export function RoomStudio() {
       setPendingProfile(data.profile);
       const remembered = rememberGeneratedProfile(data.profile);
       setMessage(remembered
-        ? "你的小家已经准备好，并已加入最近生成。你可以再写一页日记，然后进入。"
+        ? "Agent 已完成解析。设置好宠物和空间照片后，就可以进入。"
         : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取这个文件。");
@@ -1104,13 +1086,41 @@ export function RoomStudio() {
   }
 
   function upload(event: ChangeEvent<HTMLInputElement>) {
-    void readFile(event.target.files?.[0]);
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSourceFile(file);
+    setMessage(`已选择 ${file.name}，确认资料后点击下方生成。`);
   }
 
   function drop(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     setDragging(false);
-    void readFile(event.dataTransfer.files?.[0]);
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    setSourceFile(file);
+    setMessage(`已选择 ${file.name}，确认资料后点击下方生成。`);
+  }
+
+  function clearSourceFile() {
+    setSourceFile(null);
+    if (fileInput.current) fileInput.current.value = "";
+    setMessage(url.trim() ? "个人网站已保留，可以直接生成。" : "请选择个人网站或简历，至少提供一种资料。");
+  }
+
+  function generateFromSources(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!hasSourceInput || loading) return;
+    if (!agentReady && agentConfigChecked) {
+      setAgentSetupOpen(true);
+      setMessage("请先配置 Profile Agent，再开始生成。 ");
+      return;
+    }
+    const website = url.trim();
+    if (sourceFile) {
+      void readFile(sourceFile, website || undefined);
+      return;
+    }
+    void extractUrl();
   }
 
   function openDemo() {
@@ -1126,28 +1136,65 @@ export function RoomStudio() {
 
   function persistPrivateFrameImages(next: PrivateFrameImages) {
     setPrivateFrameImages(next);
+    if (!result) {
+      setPrivateFrameMessage("照片已放入入住草稿，进入小家时会和当前 Profile 一起保存。");
+      return;
+    }
     try {
-      window.localStorage.setItem(PRIVATE_FRAME_STORAGE_KEY, JSON.stringify(next));
-      setPrivateFrameMessage("相框图片已保存到当前浏览器。");
+      writeStoredProfileSpace({
+        version: 1,
+        profileId: result.profile.id,
+        pet: normalizePetCustomization(petCustomization),
+        frameImages: next,
+      });
+      setPrivateFrameMessage("相框图片已保存到当前 Profile。");
     } catch {
       setPrivateFrameMessage("相框已更新，但浏览器存储空间不足，本次只在当前会话保留。");
     }
   }
 
-  async function readPrivateFrameImage(slot: MardouPrivateFrameSlot, event: ChangeEvent<HTMLInputElement>) {
+  async function readPrivateFrameImage(slot: PrivateFrameSlot, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setPrivateFrameMessage("正在优化相框图片…");
     try {
-      const imageUrl = await resizeProjectCover(file);
+      const imageUrl = await resizeProjectCover(file, { maxWidth: 960, maxHeight: 960, quality: 0.78 });
       persistPrivateFrameImages({ ...privateFrameImages, [slot]: imageUrl });
+      event.target.value = "";
     } catch (error) {
       setPrivateFrameMessage(error instanceof Error ? error.message : "这张图片无法处理，请换一张再试。");
       event.target.value = "";
     }
   }
 
-  function resetPrivateFrame(slot: MardouPrivateFrameSlot) {
+  async function readMoveInPhotos(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const openSlots = PRIVATE_FRAME_SLOTS.filter((slot) => !privateFrameImages[slot]);
+    if (!openSlots.length) {
+      setPrivateFrameMessage("6 个相框都已有照片；可以先移除或单独替换其中一张。");
+      event.target.value = "";
+      return;
+    }
+    setPrivateFrameMessage("正在优化照片并放入相框…");
+    const next = { ...privateFrameImages };
+    let added = 0;
+    try {
+      for (const [index, file] of files.slice(0, openSlots.length).entries()) {
+        next[openSlots[index]] = await resizeProjectCover(file, { maxWidth: 960, maxHeight: 960, quality: 0.78 });
+        added += 1;
+      }
+      setPrivateFrameImages(next);
+      setPrivateFrameMessage(`已放入 ${added} 张照片；进入小家时会按当前 Profile 保存。`);
+    } catch (error) {
+      setPrivateFrameImages(next);
+      setPrivateFrameMessage(error instanceof Error ? error.message : "有照片无法处理，请换一张再试。");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  function resetPrivateFrame(slot: PrivateFrameSlot) {
     const next = { ...privateFrameImages };
     delete next[slot];
     persistPrivateFrameImages(next);
@@ -1238,7 +1285,7 @@ export function RoomStudio() {
       : undefined;
     setProjectEditDraft(selectedProject ? projectEditFromItem(selectedProject) : EMPTY_PROJECT_EDIT);
     setProjectEditMessage("");
-    if (PRIVATE_FRAME_SLOTS.includes(id as MardouPrivateFrameSlot)) setPrivateFrameMessage("");
+    if (PRIVATE_FRAME_SLOTS.includes(id as PrivateFrameSlot)) setPrivateFrameMessage("");
     if (id === GRAMOPHONE_ID) setGramophoneMessage("");
     if (projectImageInput.current) projectImageInput.current.value = "";
     setSelectedId(id);
@@ -1347,8 +1394,8 @@ export function RoomStudio() {
     }
   }
 
-  function readDiaryImage(event: ChangeEvent<HTMLInputElement>, allowDuringCreation = false) {
-    if (!allowDuringCreation && !diaryWritable) {
+  function readDiaryImage(event: ChangeEvent<HTMLInputElement>) {
+    if (!diaryWritable) {
       setDiaryError("参观模式只能浏览日记，不能上传图片。");
       event.target.value = "";
       return;
@@ -1390,7 +1437,6 @@ export function RoomStudio() {
       setDiaryText("");
       setDiaryImage("");
       setDiaryError("");
-      if (creationDiaryImageInput.current) creationDiaryImageInput.current.value = "";
       if (diaryImageInput.current) diaryImageInput.current.value = "";
       return "saved" as const;
     } catch {
@@ -1410,17 +1456,21 @@ export function RoomStudio() {
     }
   }
 
-  function saveCreationDiaryEntry(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (persistDiaryDraft() === "empty") {
-      setDiaryError("写一些文字，或选择一张图片再放进日记本。");
-    }
-  }
-
   function enterPendingWorld() {
     if (!pendingProfile) return;
-    if ((diaryText.trim() || diaryImage) && persistDiaryDraft() === "error") return;
-    openWorld(pendingProfile);
+    const profileSpace: ProfileSpaceCustomization = {
+      version: 1,
+      profileId: pendingProfile.id,
+      pet: normalizePetCustomization(petCustomization),
+      frameImages: privateFrameImages,
+    };
+    try {
+      writeStoredProfileSpace(profileSpace);
+      openWorld(pendingProfile, profileSpace);
+    } catch {
+      setMoveInStep("photos");
+      setPrivateFrameMessage("浏览器存储空间不足，暂时无法永久保存。请减少照片或换更小的图片后重试。");
+    }
   }
 
   async function readProjectImage(event: ChangeEvent<HTMLInputElement>) {
@@ -1477,56 +1527,41 @@ export function RoomStudio() {
         <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
         <header className="minimal-header creation-header">
           <span className="wordmark">ROOM</span>
-          <span className="edition">MOVE-IN DESK · PRIVATE LOCAL MEMORY</span>
+          <span className="edition">MOVE-IN STUDIO · PROFILE LOCAL</span>
         </header>
 
-        <section className="creation-workspace" aria-label="个人小家创建进度与日记准备台">
+        <section className="creation-workspace" aria-label="个人小家创建进度与入住设置">
           <section className="creation-progress" aria-live="polite">
             <span className="creation-index">ROOM / BUILD 01</span>
             <div className={`creation-orbit ${creationReady ? "is-complete" : ""}`} aria-hidden="true"><span /></div>
             <p className="creation-kicker">{creationReady ? "YOUR HOME IS READY" : "PROFILE AGENT IS WORKING"}</p>
-            <h1>{creationReady ? "你的小家，已经可以进入。" : "让 Agent 继续搭建，先写点自己的事。"}</h1>
+            <h1>{creationReady ? "你的小家，正在等待你的最后装扮。" : `Agent 继续搭建，你先捏一个${companionName}。`}</h1>
             <p className="creation-message">{message}</p>
             <ol className="creation-steps">
               <li className="is-complete"><span>01</span><div><strong>资料已接收</strong><small>简历与公开信息进入解析队列</small></div></li>
               <li className={creationReady ? "is-complete" : "is-active"}><span>02</span><div><strong>Agent 解析与整合</strong><small>项目、经历和个人网站并行整理</small></div></li>
-              <li className={creationReady ? "is-complete" : ""}><span>03</span><div><strong>生成可进入的小家</strong><small>内容会被编排到展厅和二楼私人日记</small></div></li>
+              <li className={moveInStep === "pet" ? "is-active" : "is-complete"}><span>03</span><div><strong>起名、捏宠物与选性格</strong><small>调整{companionName}的名字、颜色、耳朵、花纹和回答语气</small></div></li>
+              <li className={moveInStep === "photos" ? "is-active" : ""}><span>04</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
             </ol>
           </section>
 
-          <section className="creation-diary">
-            <div className="creation-diary-heading">
-              <div><span>PRIVATE DIARY / MOVE-IN</span><h2>趁等待，先放几页日记进去</h2></div>
-              <strong>{diaryEntries.length.toString().padStart(2, "0")} 页</strong>
-            </div>
-            <p>可以写文字，也可以上传照片。保存后会进入二楼桌上的日记本；内容只留在当前浏览器，不会交给 Agent 或上传服务器。</p>
-            <DiaryComposer
-              idPrefix="creation-diary"
-              text={diaryText}
-              imageDataUrl={diaryImage}
-              error={diaryError}
-              imageInputRef={creationDiaryImageInput}
-              submitLabel="放进二楼日记本"
-              onTextChange={(value) => { setDiaryText(value); setDiaryError(""); }}
-              onImageChange={(event) => readDiaryImage(event, true)}
-              onSubmit={saveCreationDiaryEntry}
-            />
-            <div className="creation-saved" aria-live="polite">
-              {diaryEntries.length ? (
-                <><span>已收进日记本</span><div>{diaryEntries.slice(-3).reverse().map((entry) => (
-                  <small key={entry.id}>{entry.imageDataUrl ? "照片" : "文字"} · {entry.text ? entry.text.slice(0, 18) : "一张私人照片"}</small>
-                ))}</div></>
-              ) : <span>日记本还是空的，第一条记录可以从这里开始。</span>}
-            </div>
-            <button className="creation-enter" type="button" disabled={!creationReady} onClick={enterPendingWorld}>
-              <span>{creationReady ? "进入小家" : "Agent 搭建中"}</span><span aria-hidden="true">{creationReady ? "→" : "···"}</span>
-            </button>
-            <small className="creation-draft-note">进入时，尚未点击保存的文字或图片也会自动收进日记本。</small>
-          </section>
+          <MoveInStudio
+            step={moveInStep}
+            pet={petCustomization}
+            frameImages={privateFrameImages}
+            ready={creationReady}
+            photoMessage={privateFrameMessage}
+            onStepChange={setMoveInStep}
+            onPetChange={setPetCustomization}
+            onPhotosChange={(event) => void readMoveInPhotos(event)}
+            onFrameChange={(slot, event) => void readPrivateFrameImage(slot, event)}
+            onFrameRemove={resetPrivateFrame}
+            onEnter={enterPendingWorld}
+          />
         </section>
 
         <footer className="minimal-footer creation-footer">
-          <span>Agent builds the public story.</span><span>You keep the private memory.</span><span>Local only · No diary upload</span>
+          <span>Agent builds the public story.</span><span>You shape the companion.</span><span>Photos stay local · Diary starts inside</span>
         </footer>
       </main>
     );
@@ -1565,23 +1600,37 @@ export function RoomStudio() {
               <span>开始搭建。</span>
             </h1>
             <p className="intro">
-              提交个人网页或简历。ROOM 会沿着上一页的路径，把项目、经历和技能继续编排成一个可以进入的 3D 小家。
+              提交个人网页、简历，或把两者一起交给 ROOM。Agent 会交叉理解你的项目、经历、技能、食物偏好与爱好，再编排成一个可以进入的 3D 小家。
             </p>
+            <section className="intake-build-preview" aria-label="资料到空间的生成预览">
+              <div className="intake-preview-heading">
+                <span>WHAT ROOM WILL BUILD</span>
+                <small>{hasSourceInput ? "SOURCE READY" : "WAITING FOR SOURCE"}</small>
+              </div>
+              <div className="intake-preview-route" aria-hidden="true">
+                <span className={url.trim() ? "is-ready" : ""}>WEB</span>
+                <i />
+                <span className={sourceFile ? "is-ready" : ""}>CV</span>
+                <i />
+                <strong>ROOM</strong>
+              </div>
+              <div className="intake-preview-items">
+                <div><span>01</span><strong>项目展台</strong><small>作品与成果</small></div>
+                <div><span>02</span><strong>经历路径</strong><small>教育与职业</small></div>
+                <div><span>03</span><strong>食物陈列</strong><small>喜欢的味道</small></div>
+                <div><span>04</span><strong>爱好收藏</strong><small>兴趣与生活方式</small></div>
+                <div><span>05</span><strong>小白知识</strong><small>可追问的公开资料</small></div>
+              </div>
+            </section>
           </div>
 
-          <div className="intake-form">
+          <form className="intake-form" onSubmit={generateFromSources}>
             <div className="intake-form-heading">
               <span>01</span>
-              <div><small>SOURCE</small><strong>选择你的资料来源</strong></div>
+              <div><small>SOURCE · 任选一项或同时提供</small><strong>选择你的资料来源</strong></div>
             </div>
-            <form
-              className="url-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void extractUrl();
-              }}
-            >
-              <label htmlFor="portfolio-url"><span>个人网页</span><small>URL</small></label>
+            <div className="url-form">
+              <label htmlFor="portfolio-url"><span>个人网页</span><small>URL · 可选</small></label>
               <div className="url-row">
                 <input
                   id="portfolio-url"
@@ -1591,27 +1640,25 @@ export function RoomStudio() {
                   placeholder="https://yourname.com"
                   autoComplete="url"
                 />
-                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成小家">
-                  <span>继续</span><span aria-hidden="true">→</span>
-                </button>
+                <span className={url.trim() ? "source-ready-mark is-ready" : "source-ready-mark"} aria-hidden="true">✓</span>
               </div>
-            </form>
+            </div>
 
-            <div className="or"><span>或者</span></div>
+            <div className="or"><span>可以继续补充</span></div>
 
             <button
               className={`upload-zone ${dragging ? "is-dragging" : ""}`}
               type="button"
-              onClick={() => !agentReady && agentConfigChecked ? setAgentSetupOpen(true) : fileInput.current?.click()}
+              onClick={() => fileInput.current?.click()}
               onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
               onDragOver={(event) => event.preventDefault()}
               onDragLeave={() => setDragging(false)}
               onDrop={drop}
               disabled={loading}
             >
-              <span className="upload-icon" aria-hidden="true">↑</span>
-              <span className="upload-title">上传简历或作品资料</span>
-              <span className="upload-note">拖到这里，或点击选择 · PDF / 图片 / 常见文本格式</span>
+              <span className="upload-icon" aria-hidden="true">{sourceFile ? "✓" : "↑"}</span>
+              <span className="upload-title">{sourceFile ? "简历已选择" : "上传简历或作品资料"}</span>
+              <span className="upload-note">{sourceFile ? sourceFile.name : "拖到这里，或点击选择 · PDF / 图片 / 常见文本格式"}</span>
             </button>
             <input
               ref={fileInput}
@@ -1620,9 +1667,23 @@ export function RoomStudio() {
               accept=".pdf,.txt,.md,.markdown,.html,.htm,.json,.csv,.tsv,.xml,.yaml,.yml,.rtf,.log,.jpg,.jpeg,.png,.gif,.webp,application/pdf,text/*,image/jpeg,image/png,image/gif,image/webp"
               onChange={upload}
             />
+            {sourceFile ? (
+              <div className="source-file-row" aria-live="polite">
+                <span><strong>{sourceFile.name}</strong><small>{Math.max(1, Math.ceil(sourceFile.size / 1024))} KB</small></span>
+                <button type="button" onClick={clearSourceFile}>移除</button>
+              </div>
+            ) : null}
             <p className="intake-portrait-disclosure">
               如果资料中识别到头像，ROOM 会自动把它发送至图像服务生成抽象肖像；真人照片不会作为展厅内容展示。
             </p>
+
+            <button className="intake-generate" type="submit" disabled={loading || !hasSourceInput}>
+              <span>
+                <small>{sourceFile && url.trim() ? "网站 + 简历" : sourceFile ? "简历" : url.trim() ? "个人网站" : "至少选择一项资料"}</small>
+                <strong>{loading ? "Agent 正在搭建" : "生成我的 ROOM"}</strong>
+              </span>
+              <span aria-hidden="true">{loading ? "···" : "→"}</span>
+            </button>
 
             <div className={`form-message ${message ? "is-visible" : ""}`} aria-live="polite">
               {loading ? <span className="loading-mark" aria-hidden="true" /> : null}
@@ -1661,7 +1722,7 @@ export function RoomStudio() {
                 </article>
               </div>
             </section>
-          </div>
+          </form>
         </section>
 
         {agentSetupOpen ? (
@@ -1715,6 +1776,7 @@ export function RoomStudio() {
         </button>
         <WorldCanvas
           world={result.world}
+          petCustomization={petCustomization}
           activeRoom={activeRoom}
           sceneReady={sceneReady}
           selectedExhibit={selectedId}
@@ -1757,7 +1819,7 @@ export function RoomStudio() {
           aria-controls="pet-qa-panel"
         >
           <span aria-hidden="true">◇</span>
-          问问{ROOM_COMPANION_NAME}
+          问问{companionName}
         </button>
 
         <div className={`private-gate ${privateGateOpen ? "is-open" : ""}`} aria-hidden={!privateGateOpen}>
@@ -1962,6 +2024,8 @@ export function RoomStudio() {
         <PetQaPanel
           profile={result.profile}
           config={browserAgentConfig}
+          name={companionName}
+          personality={petCustomization.personality}
           open={petQaOpen}
           onClose={() => setPetQaOpen(false)}
           onSpeechStart={handlePetSpeechStart}
@@ -2158,7 +2222,14 @@ export function RoomStudio() {
               {diaryWritable ? (
                 <form className="memory-form" onSubmit={saveDiaryEntry}>
                   <label htmlFor="diary-text">文字记录</label>
-                  <textarea id="diary-text" value={diaryText} onChange={(event) => { setDiaryText(event.target.value); setDiaryError(""); }} placeholder="写下一段只属于自己的记录……" maxLength={1200} rows={5} />
+                  <textarea
+                    id="diary-text"
+                    value={diaryText}
+                    onChange={(event) => { setDiaryText(event.target.value); setDiaryError(""); }}
+                    placeholder="写下一段只属于自己的记录……"
+                    maxLength={MAX_DIARY_TEXT_LENGTH}
+                    rows={5}
+                  />
                   <div className="diary-upload-row">
                     <input ref={diaryImageInput} id="diary-image" type="file" accept="image/*" onChange={readDiaryImage} />
                     <span>图片上限 1 MB</span>

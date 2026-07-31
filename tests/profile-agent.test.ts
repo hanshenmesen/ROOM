@@ -20,6 +20,13 @@ const identityResult = {
     summary: { value: "研究多智能体与可信信息系统。", evidenceLines: [1], evidenceExcerpt: "多智能体与可信信息系统" },
   },
   contacts: [{ value: "han@example.com", evidenceLines: [1], evidenceExcerpt: "han@example.com" }],
+  foods: [
+    { value: "寿司", evidenceLines: [1], evidenceExcerpt: "喜欢的食物：寿司" },
+  ],
+  hobbies: [
+    { value: "摄影", evidenceLines: [1], evidenceExcerpt: "爱好：摄影、爵士乐" },
+    { value: "爵士乐", evidenceLines: [1], evidenceExcerpt: "爱好：摄影、爵士乐" },
+  ],
   skills: [{ value: "Multi-Agent Systems", evidenceLines: [1], evidenceExcerpt: "Multi-Agent Systems" }],
 };
 
@@ -51,7 +58,15 @@ const itemsResult = {
   ],
 };
 
-test("profile Agent merges parallel PDF shards into an evidence-backed display profile", async () => {
+function resultForProperties(
+  properties: Record<string, unknown>,
+  inventory: { sourcePageCount: number | null; items: Array<Record<string, unknown>> } = itemsResult,
+) {
+  if (properties.identity && properties.items) return { ...identityResult, items: inventory.items };
+  return properties.identity ? identityResult : inventory;
+}
+
+test("profile Agent extracts a normal PDF with parallel evidence-backed shards", async () => {
   type MaasRequestBody = {
     output_config: { format: { schema: { properties: Record<string, unknown> } } };
     messages: Array<{ content: unknown }>;
@@ -64,7 +79,7 @@ test("profile Agent merges parallel PDF shards into an evidence-backed display p
     const body = JSON.parse(String(init?.body)) as MaasRequestBody;
     calls.push(body);
     const schema = body.output_config.format.schema;
-    const result = schema.properties.identity ? identityResult : itemsResult;
+    const result = resultForProperties(schema.properties);
     return Response.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
   }) as typeof fetch;
 
@@ -74,8 +89,8 @@ test("profile Agent merges parallel PDF shards into an evidence-backed display p
       { label: "resume.pdf", type: "text", format: "pdf" },
     );
     assert.equal(calls.length, 2);
-    const itemSchema = calls.find((call) => !call.output_config.format.schema.properties.identity)
-      ?.output_config.format.schema.properties.items as { items?: { properties?: Record<string, unknown> } } | undefined;
+    const itemCall = calls.find((call) => call.output_config.format.schema.properties.items);
+    const itemSchema = itemCall?.output_config.format.schema.properties.items as { items?: { properties?: Record<string, unknown> } } | undefined;
     assert.ok(itemSchema?.items?.properties?.subtitle);
     assert.ok(itemSchema?.items?.properties?.bullets);
     assert.ok(itemSchema?.items?.properties?.tags);
@@ -91,6 +106,10 @@ test("profile Agent merges parallel PDF shards into an evidence-backed display p
     assert.equal(profile.name, "韩晨");
     assert.equal(profile.personalWebsite, "https://portfolio.example.com/");
     assert.equal(profile.source.locatorUnit, "page");
+    assert.deepEqual(profile.foods, ["寿司"]);
+    assert.equal(profile.foodEvidence?.寿司?.[0]?.locator, "page:1");
+    assert.deepEqual(profile.hobbies, ["摄影", "爵士乐"]);
+    assert.equal(profile.hobbyEvidence?.摄影?.[0]?.locator, "page:1");
     assert.equal(profile.items.length, 2);
     assert.ok(profile.items.every((item) => item.evidence[0]?.locator === "page:1"));
     assert.equal(profile.items[1]?.contentFamily, "publication");
@@ -113,6 +132,16 @@ test("profile Agent merges parallel PDF shards into an evidence-backed display p
     websiteProfile.identityEvidence.summary = [{ sourceId: "website-source", locator: "line:2", excerpt: "更完整的研究介绍" }];
     websiteProfile.skills.push("RAG");
     websiteProfile.skillEvidence.RAG = [{ sourceId: "website-source", locator: "line:3", excerpt: "RAG" }];
+    websiteProfile.foods = ["寿司", "意面"];
+    websiteProfile.foodEvidence = {
+      ...websiteProfile.foodEvidence,
+      意面: [{ sourceId: "website-source", locator: "line:3", excerpt: "喜欢意面" }],
+    };
+    websiteProfile.hobbies = ["摄影", "爵士乐", "徒步"];
+    websiteProfile.hobbyEvidence = {
+      ...websiteProfile.hobbyEvidence,
+      徒步: [{ sourceId: "website-source", locator: "line:3", excerpt: "周末徒步" }],
+    };
     websiteProfile.items[1] = {
       ...websiteProfile.items[1],
       summary: "网站给出了更完整的论文介绍与图片。",
@@ -126,6 +155,8 @@ test("profile Agent merges parallel PDF shards into an evidence-backed display p
     const merged = mergeProfiles(profile, websiteProfile, "resume.pdf + website");
     assert.equal(merged.items.length, 3);
     assert.equal(merged.skills.includes("RAG"), true);
+    assert.deepEqual(merged.foods, ["寿司", "意面"]);
+    assert.deepEqual(merged.hobbies, ["摄影", "爵士乐", "徒步"]);
     assert.equal(merged.summary, websiteProfile.summary);
     assert.equal(merged.items.find((item) => item.title === "Beyond Detection")?.evidence.length, 2);
   } finally {
@@ -159,7 +190,7 @@ test("profile Agent keeps legacy detail-only item shards compatible", async () =
     const body = JSON.parse(String(init?.body)) as {
       output_config: { format: { schema: { properties: Record<string, unknown> } } };
     };
-    const result = body.output_config.format.schema.properties.identity ? identityResult : legacyItemsResult;
+    const result = resultForProperties(body.output_config.format.schema.properties, legacyItemsResult);
     return Response.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
   }) as typeof fetch;
 
@@ -212,7 +243,7 @@ test("profile Agent switches to Bedrock Sonnet when the configured route returns
     };
     models.push(body.model);
     if (body.model.startsWith("vertex-")) return Response.json({ content: [] });
-    const result = body.output_config.format.schema.properties.identity ? identityResult : itemsResult;
+    const result = resultForProperties(body.output_config.format.schema.properties);
     return Response.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
   }) as typeof fetch;
 
@@ -232,11 +263,11 @@ test("profile Agent switches to Bedrock Sonnet when the configured route returns
   }
 });
 
-test("profile Agent falls back after truncated JSON and gives dense inventories enough output budget", async () => {
+test("profile Agent falls back after truncated JSON and gives complete profiles enough output budget", async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.MAAS_API_KEY;
   const originalModel = process.env.MAAS_MODEL;
-  const requests: Array<{ model: string; max_tokens: number; system: string; isIdentity: boolean }> = [];
+  const requests: Array<{ model: string; max_tokens: number; system: string; hasItems: boolean }> = [];
   process.env.MAAS_API_KEY = "test-key";
   process.env.MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
@@ -246,15 +277,16 @@ test("profile Agent falls back after truncated JSON and gives dense inventories 
       system: string;
       output_config: { format: { schema: { properties: Record<string, unknown> } } };
     };
-    const isIdentity = Boolean(body.output_config.format.schema.properties.identity);
-    requests.push({ model: body.model, max_tokens: body.max_tokens, system: body.system, isIdentity });
+    const properties = body.output_config.format.schema.properties;
+    const hasItems = Boolean(properties.items);
+    requests.push({ model: body.model, max_tokens: body.max_tokens, system: body.system, hasItems });
     if (body.model.startsWith("vertex-")) {
       return Response.json({
         stop_reason: "max_tokens",
         content: [{ type: "text", text: '{"sourcePageCount":1,"items":[' }],
       });
     }
-    const result = isIdentity ? identityResult : itemsResult;
+    const result = resultForProperties(properties);
     return Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(result) }] });
   }) as typeof fetch;
 
@@ -265,8 +297,7 @@ test("profile Agent falls back after truncated JSON and gives dense inventories 
     );
     assert.equal(profile.name, "韩晨");
     assert.ok(requests.some((request) => request.model.startsWith("bedrock-")));
-    assert.equal(requests.find((request) => request.isIdentity)?.max_tokens, 4_000);
-    assert.equal(requests.find((request) => !request.isIdentity)?.max_tokens, 12_000);
+    assert.equal(requests.find((request) => request.hasItems)?.max_tokens, 12_000);
     assert.ok(requests.every((request) => request.system.includes("Return exactly one complete JSON object")));
     assert.ok(requests.every((request) => request.system.includes("last non-whitespace character must be }")));
   } finally {
@@ -282,8 +313,8 @@ test("profile Agent falls back from a valid but incomplete resume inventory", as
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.MAAS_API_KEY;
   process.env.MAAS_API_KEY = "test-key";
-  let itemCalls = 0;
-  const itemPrompts: string[] = [];
+  let inventoryCalls = 0;
+  const inventoryPrompts: string[] = [];
   const item = (kind: "project" | "experience" | "education" | "achievement", title: string) => ({
     kind,
     contentFamily: kind === "achievement" ? "publication" : null,
@@ -310,14 +341,16 @@ test("profile Agent falls back from a valid but incomplete resume inventory", as
       messages: Array<{ content: Array<{ type: string; text?: string }> }>;
       output_config: { format: { schema: { properties: Record<string, unknown> } } };
     };
-    const isIdentity = Boolean(body.output_config.format.schema.properties.identity);
-    if (isIdentity) return Response.json({ content: [{ type: "text", text: JSON.stringify(identityResult) }] });
-    itemCalls += 1;
-    itemPrompts.push(body.messages[0]?.content.find((part) => part.type === "text")?.text || "");
-    const result = itemCalls === 1
+    const properties = body.output_config.format.schema.properties;
+    if (properties.identity) {
+      return Response.json({ content: [{ type: "text", text: JSON.stringify(identityResult) }] });
+    }
+    inventoryCalls += 1;
+    inventoryPrompts.push(body.messages[0]?.content.find((part) => part.type === "text")?.text || "");
+    const inventory = inventoryCalls === 1
       ? { sourcePageCount: 1, items: [item("achievement", "只有一个条目的不完整结果")] }
       : completeItems;
-    return Response.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
+    return Response.json({ content: [{ type: "text", text: JSON.stringify(inventory) }] });
   }) as typeof fetch;
 
   const preparsedText = [
@@ -337,10 +370,10 @@ test("profile Agent falls back from a valid but incomplete resume inventory", as
       { label: "dense-resume.pdf", format: "pdf", pageCount: 1 },
       preparsedText,
     );
-    assert.equal(itemCalls, 2);
+    assert.equal(inventoryCalls, 2);
     assert.equal(profile.items.length, 6);
-    assert.match(itemPrompts[0] || "", /items shard must return at least 5 items/);
-    assert.match(itemPrompts[1] || "", /items shard must return at least 5 items/);
+    assert.match(inventoryPrompts[0] || "", /must return at least 5 items/);
+    assert.match(inventoryPrompts[1] || "", /must return at least 5 items/);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.MAAS_API_KEY;
@@ -426,7 +459,7 @@ test("profile Agent accepts OpenAI-compatible tool call arguments", async () => 
     const body = JSON.parse(String(init?.body)) as {
       tools: Array<{ input_schema: { properties: Record<string, unknown> } }>;
     };
-    const result = body.tools[0]?.input_schema.properties.identity ? identityResult : itemsResult;
+    const result = resultForProperties(body.tools[0]?.input_schema.properties || {});
     return Response.json({
       choices: [{
         finish_reason: "tool_calls",
@@ -478,7 +511,7 @@ test("profile Agent uses forced tool output for the primary compatible provider"
     };
     calls += 1;
     assert.equal(body.tool_choice?.name, "submit_profile_result");
-    const result = body.tools?.[0]?.input_schema.properties.identity ? identityResult : itemsResult;
+    const result = resultForProperties(body.tools?.[0]?.input_schema.properties || {});
     return Response.json({
       content: [{ type: "tool_use", name: "submit_profile_result", input: result }],
     });
@@ -519,7 +552,7 @@ test("profile Agent uses a browser session provider without mixing server creden
     };
     assert.equal(body.model, "browser-session-model");
     calls += 1;
-    const result = body.output_config.format.schema.properties.identity ? identityResult : itemsResult;
+    const result = resultForProperties(body.output_config.format.schema.properties);
     return Response.json({ content: [{ type: "text", text: JSON.stringify(result) }] });
   }) as typeof fetch;
 
@@ -560,7 +593,7 @@ test("profile Agent supports the tool-compatible provider as the primary dropdow
     assert.equal(body.tool_choice?.name, "submit_profile_result");
     assert.equal(body.output_config, undefined);
     calls += 1;
-    const result = body.tools?.[0]?.input_schema.properties.identity ? identityResult : itemsResult;
+    const result = resultForProperties(body.tools?.[0]?.input_schema.properties || {});
     return Response.json({ content: [{ type: "tool_use", name: "submit_profile_result", input: result }] });
   }) as typeof fetch;
 
@@ -585,32 +618,57 @@ test("profile Agent supports the tool-compatible provider as the primary dropdow
   }
 });
 
-test("personal website callback starts before the resume items shard completes", async () => {
+test("personal website callback starts before dense resume inventory shards complete", async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.MAAS_API_KEY;
   process.env.MAAS_API_KEY = "test-key";
   let releaseItems: (() => void) | undefined;
+  const itemsGate = new Promise<void>((resolve) => { releaseItems = resolve; });
   let websiteFromIdentity = "";
   let notifyWebsite: (() => void) | undefined;
   const websiteSeen = new Promise<void>((resolve) => { notifyWebsite = resolve; });
 
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as {
+      system: string;
       output_config: { format: { schema: { properties: Record<string, unknown> } } };
     };
     const isIdentity = Boolean(body.output_config.format.schema.properties.identity);
     if (isIdentity) {
       return Response.json({ content: [{ type: "text", text: JSON.stringify(identityResult) }] });
     }
-    await new Promise<void>((resolve) => { releaseItems = resolve; });
-    return Response.json({ content: [{ type: "text", text: JSON.stringify(itemsResult) }] });
+    await itemsGate;
+    const research = Array.from({ length: 7 }, (_, index) => ({
+      ...itemsResult.items[0],
+      title: `论文 ${index + 1}`,
+    }));
+    const career = Array.from({ length: 7 }, (_, index) => ({
+      ...itemsResult.items[0],
+      kind: index < 2 ? "education" : index < 5 ? "experience" : "achievement",
+      contentFamily: null,
+      title: `经历 ${index + 1}`,
+    }));
+    const result = body.system?.includes("research, publication, and project inventory") ? research : career;
+    return Response.json({ content: [{ type: "text", text: JSON.stringify({ sourcePageCount: 1, items: result }) }] });
   }) as typeof fetch;
 
   try {
     const extraction = extractProfileFromAttachmentWithAgent(
       { mediaType: "application/pdf", data: "cGRm" },
       { label: "resume.pdf", format: "pdf", pageCount: 1 },
-      "",
+      [
+        "教育经历",
+        "学校 A 2020.01 - 2022.01",
+        "学校 B 2022.02 - 2024.02",
+        "科研成果",
+        ...Array.from({ length: 7 }, (_, index) => `${index + 1}. 论文 ${index + 1}`),
+        "工作实习",
+        "公司 A 2024.01 - 2024.03",
+        "公司 B 2024.04 - 2024.06",
+        "公司 C 2024.07 - 至今",
+        "课外活动",
+        "学生工作 2021.01 - 2022.01",
+      ].join("\n"),
       {
         onPersonalWebsite: (website) => {
           websiteFromIdentity = website;
@@ -622,7 +680,7 @@ test("personal website callback starts before the resume items shard completes",
     assert.equal(websiteFromIdentity, "https://portfolio.example.com/");
     releaseItems?.();
     const profile = await extraction;
-    assert.equal(profile.items.length, 2);
+    assert.equal(profile.items.length, 15);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.MAAS_API_KEY;

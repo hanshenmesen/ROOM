@@ -110,8 +110,13 @@ test("the authored entrance remains wide while responsive reframing stays bounde
     /MARDOU_LOBBY_INTRO_ROUTE\.points\.map/,
     "the first entrance must use the exact authored 1 -> 2 -> 3 route",
   );
-  assert.match(worldSource, /responsiveMuseumCamera\(wideFocus\.camera, camera\.aspect\)/);
-  assert.match(worldSource, /Math\.abs\(camera\.aspect - responsiveAspect\.current\) > 0\.015/);
+  assert.match(
+    worldSource,
+    /const cameraAspect = camera instanceof THREE\.PerspectiveCamera \? camera\.aspect : viewportAspect/,
+    "responsive reframing must keep a safe aspect fallback for non-perspective cameras",
+  );
+  assert.match(worldSource, /responsiveMuseumCamera\(wideFocus\.camera, cameraAspect\)/);
+  assert.match(worldSource, /Math\.abs\(cameraAspect - responsiveAspect\.current\) > 0\.015/);
   assert.match(worldSource, /!userAdjustedView\.current/);
   assert.match(worldSource, /responsiveReframeDuration\(camera\.position\.distanceTo\(destination\)\)/);
   assert.match(worldSource, /lobbyOverviewMode\.current === "wide"/);

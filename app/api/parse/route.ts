@@ -104,14 +104,13 @@ function startWebsiteAgent(website: string, providerConfig?: AgentProviderOverri
   return { website, result };
 }
 
-async function enrichFromPersonalWebsite(
+async function enrichFromWebsite(
   profile: ParsedProfile,
   originalLabel: string,
+  website: string,
   pendingTask?: WebsiteAgentTask,
   providerConfig?: AgentProviderOverride,
 ) {
-  const website = profile.personalWebsite;
-  if (!website) return { profile, enrichment: { attempted: false, succeeded: false } };
   const task = pendingTask?.website === website ? pendingTask : startWebsiteAgent(website, providerConfig);
   const websiteResult = await task.result;
   if (websiteResult.profile && websiteResult.pageUrl) {
@@ -130,6 +129,17 @@ async function enrichFromPersonalWebsite(
       error: websiteResult.error || "个人网站补充失败。",
     },
   };
+}
+
+async function enrichFromPersonalWebsite(
+  profile: ParsedProfile,
+  originalLabel: string,
+  pendingTask?: WebsiteAgentTask,
+  providerConfig?: AgentProviderOverride,
+) {
+  const website = profile.personalWebsite;
+  if (!website) return { profile, enrichment: { attempted: false, succeeded: false } };
+  return enrichFromWebsite(profile, originalLabel, website, pendingTask, providerConfig);
 }
 
 async function parseJson(request: Request, providerConfig?: AgentProviderOverride) {
@@ -167,11 +177,22 @@ async function parseFile(request: Request, providerConfig?: AgentProviderOverrid
   const extension = fileExtension(file.name);
   const baseSource: ProfileAgentSource = { type: "text", label: file.name };
   const shouldFollowWebsite = form.get("followWebsite") !== "false";
-  let websiteTask: WebsiteAgentTask | undefined;
+  const explicitWebsiteValue = form.get("website");
+  let explicitWebsite = "";
+  if (typeof explicitWebsiteValue === "string" && explicitWebsiteValue.trim()) {
+    try {
+      explicitWebsite = validatePublicUrl(explicitWebsiteValue.trim()).href;
+    } catch {
+      throw new ProfileAgentError("请输入可公开访问的个人网站地址。", 400);
+    }
+  }
+  let websiteTask: WebsiteAgentTask | undefined = explicitWebsite
+    ? startWebsiteAgent(explicitWebsite, providerConfig)
+    : undefined;
   const agentOptions = {
     providerScope: "resume" as const,
     providerConfig,
-    ...(shouldFollowWebsite ? {
+    ...(shouldFollowWebsite && !explicitWebsite ? {
       onPersonalWebsite: (website: string) => {
         websiteTask ||= startWebsiteAgent(website, providerConfig);
       },
@@ -200,6 +221,9 @@ async function parseFile(request: Request, providerConfig?: AgentProviderOverrid
     profile = await extractProfileWithAgent(await file.text(), { ...baseSource, format: "text" }, agentOptions);
   } else {
     throw new ProfileAgentError("当前支持 PDF、JPG、PNG、GIF、WebP 和常见文本/网页数据文件。", 415);
+  }
+  if (explicitWebsite) {
+    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig);
   }
   return !shouldFollowWebsite
     ? { profile, enrichment: { attempted: false, succeeded: false } }

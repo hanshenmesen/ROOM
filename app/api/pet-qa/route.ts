@@ -6,6 +6,8 @@ import {
 } from "@/lib/agents/pet-qa";
 import type { AgentProviderOverride } from "@/lib/agents/provider-config";
 import { readBrowserPetQaConfigHeaders } from "@/lib/browser-agent-config";
+import { normalizePetPersonality } from "@/lib/profile-space-customization";
+import { normalizeRoomCompanionName } from "@/lib/room-companion";
 import { validatePublicUrl } from "@/lib/public-web";
 import type { ParsedProfile } from "@/lib/types";
 
@@ -15,6 +17,8 @@ type PetQaBody = {
   question?: unknown;
   profile?: unknown;
   history?: unknown;
+  name?: unknown;
+  personality?: unknown;
 };
 
 function requestProviderConfig(request: Request): AgentProviderOverride | undefined {
@@ -60,7 +64,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "缺少可用于回答的公开 Profile。" }, { status: 400 });
     }
 
-    const answer = await answerPetQaQuestion(body.profile, question, body.history, providerOverride);
+    const answer = await answerPetQaQuestion(
+      body.profile,
+      question,
+      body.history,
+      providerOverride,
+      normalizePetPersonality(body.personality),
+      normalizeRoomCompanionName(body.name),
+    );
     return NextResponse.json(answer, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     const timedOut = error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name);

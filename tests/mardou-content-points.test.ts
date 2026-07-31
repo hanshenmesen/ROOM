@@ -195,7 +195,10 @@ test("the supplied pet bed is floor-aligned beside the pillar at point 54", () =
   assert.deepEqual(MARDOU_PET_BED_PLACEMENT.rotation, [0, 0, 0]);
   assert.match(worldSource, /name="pet-bed"/);
   assert.match(worldSource, /url=\{PET_BED_URL\} targetSize=\{PET_BED_SIZE\}/);
-  assert.match(worldSource, /activeRoom === "room-lobby" \? <PetBed \/> : null/);
+  assert.match(
+    worldSource,
+    /activeRoom === "room-lobby" \? <PetBed companionName=\{companionName\} \/> : null/,
+  );
 });
 
 test("project screens use a higher reading angle on all three islands", () => {

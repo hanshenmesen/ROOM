@@ -9,6 +9,8 @@ const ROUTE_URL = new URL("../app/api/pet-qa/route.ts", import.meta.url).href;
 const PET_QA_URL = new URL("../lib/agents/pet-qa.ts", import.meta.url).href;
 const PROVIDER_CONFIG_URL = new URL("../lib/agents/provider-config.ts", import.meta.url).href;
 const BROWSER_CONFIG_URL = new URL("../lib/browser-agent-config.ts", import.meta.url).href;
+const PROFILE_SPACE_URL = new URL("../lib/profile-space-customization.ts", import.meta.url).href;
+const ROOM_COMPANION_URL = new URL("../lib/room-companion.ts", import.meta.url).href;
 const PUBLIC_WEB_URL = new URL("../lib/public-web.ts", import.meta.url).href;
 const TYPES_URL = new URL("../lib/types.ts", import.meta.url).href;
 
@@ -18,12 +20,14 @@ registerHooks({
     if (specifier === "@/lib/agents/pet-qa") return { url: PET_QA_URL, shortCircuit: true };
     if (specifier === "@/lib/agents/provider-config") return { url: PROVIDER_CONFIG_URL, shortCircuit: true };
     if (specifier === "@/lib/browser-agent-config") return { url: BROWSER_CONFIG_URL, shortCircuit: true };
+    if (specifier === "@/lib/profile-space-customization") return { url: PROFILE_SPACE_URL, shortCircuit: true };
+    if (specifier === "@/lib/room-companion") return { url: ROOM_COMPANION_URL, shortCircuit: true };
     if (specifier === "@/lib/public-web") return { url: PUBLIC_WEB_URL, shortCircuit: true };
     if (specifier === "@/lib/types") return { url: TYPES_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if ([ROUTE_URL, PET_QA_URL, PROVIDER_CONFIG_URL, BROWSER_CONFIG_URL, PUBLIC_WEB_URL, TYPES_URL].includes(url)) {
+    if ([ROUTE_URL, PET_QA_URL, PROVIDER_CONFIG_URL, BROWSER_CONFIG_URL, PROFILE_SPACE_URL, ROOM_COMPANION_URL, PUBLIC_WEB_URL, TYPES_URL].includes(url)) {
       return {
         format: "module",
         shortCircuit: true,
@@ -83,9 +87,11 @@ test.afterEach(() => {
 test("pet QA route uses browser-session provider settings without exposing keys", async () => {
   process.env.PET_QA_API_KEY = "server-pet-key";
   let authorization = "";
+  let system = "";
   globalThis.fetch = (async (input, init) => {
     assert.equal(String(input), "https://browser-pet.example.test/v1/messages");
     authorization = new Headers(init?.headers).get("authorization") || "";
+    system = (JSON.parse(String(init?.body)) as { system?: string }).system || "";
     return Response.json({
       content: [{
         type: "text",
@@ -101,7 +107,7 @@ test("pet QA route uses browser-session provider settings without exposing keys"
     "x-room-pet-qa-api-key": "browser-pet-key",
     "x-room-pet-qa-base-url": "https://browser-pet.example.test/v1",
     "x-room-pet-qa-model": "browser-model",
-  }));
+  }, { profile, question: "项目是什么？", name: "团子", personality: "playful" }));
   const payload = await response.json() as { answer: string; citations: unknown[] };
 
   assert.equal(response.status, 200);
@@ -109,6 +115,8 @@ test("pet QA route uses browser-session provider settings without exposing keys"
   assert.equal(payload.answer, "资料显示项目摘要。");
   assert.equal(payload.citations.length, 1);
   assert.equal(authorization, "Bearer browser-pet-key");
+  assert.match(system, /lively, lightly humorous/);
+  assert.match(system, /named 团子/);
 });
 
 test("pet QA route rejects private browser-session provider before calling it", async () => {

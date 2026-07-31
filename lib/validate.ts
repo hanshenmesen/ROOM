@@ -18,6 +18,12 @@ export function validateProfile(profile: ParsedProfile) {
   if (profile.personalWebsite && !profile.personalWebsiteEvidence?.length) {
     errors.push("personal website needs source evidence");
   }
+  if ((profile.foods || []).some((food) => !profile.foodEvidence?.[food]?.length)) {
+    errors.push("every food needs evidence mapping");
+  }
+  if ((profile.hobbies || []).some((hobby) => !profile.hobbyEvidence?.[hobby]?.length)) {
+    errors.push("every hobby needs evidence mapping");
+  }
   if (!profile.items.length) errors.push("at least one profile item is required");
   if (profile.items.some((item) => !item.evidence.length)) errors.push("every profile item needs evidence");
   for (const item of profile.items) {
