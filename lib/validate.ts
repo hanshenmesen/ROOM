@@ -15,6 +15,9 @@ export function validateProfile(profile: ParsedProfile) {
   if (profile.summary !== "Profile summary unavailable" && !profile.identityEvidence.summary?.length) {
     errors.push("profile summary needs source evidence");
   }
+  if (profile.personalWebsite && !profile.personalWebsiteEvidence?.length) {
+    errors.push("personal website needs source evidence");
+  }
   if (!profile.items.length) errors.push("at least one profile item is required");
   if (profile.items.some((item) => !item.evidence.length)) errors.push("every profile item needs evidence");
   for (const item of profile.items) {

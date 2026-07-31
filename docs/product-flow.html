@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROOM · 产品流程图</title>
+<style>
+:root{
+  color-scheme: light;
+  --plaster:#f6f0e6;      /* cream plaster */
+  --plaster-2:#efe6d6;
+  --terracotta:#c8663f;   /* terracotta */
+  --terracotta-soft:#e6a380;
+  --walnut:#6b4a34;       /* walnut */
+  --walnut-ink:#3d2a1e;
+  --moss:#5f7a5a;         /* moss room */
+  --teal:#3f6f70;         /* teal room */
+  --violet:#6b5b95;       /* violet accent */
+  --amber:#d9932b;        /* amber accent */
+  --line:#c9b79c;
+  --card:#fffdf8;
+  --shadow:0 2px 4px rgba(61,42,30,.08),0 8px 24px rgba(61,42,30,.10);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, #fbf6ec 0%, transparent 60%),
+    radial-gradient(1000px 700px at 100% 0%, #f3ece0 0%, transparent 55%),
+    var(--plaster);
+  color:var(--walnut-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  line-height:1.5;
+  padding:40px 28px 72px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+
+header.hd{margin-bottom:8px}
+.kicker{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--terracotta);font-weight:600;
+}
+h1{
+  font-size:40px;line-height:1.05;margin:6px 0 4px;
+  color:var(--walnut-ink);letter-spacing:-.01em;
+}
+h1 .zh{font-size:26px;color:var(--walnut);font-weight:600;margin-left:10px}
+.sub{color:var(--walnut);max-width:760px;font-size:15px;margin:6px 0 0}
+.principle{
+  margin-top:18px;padding:12px 16px;border-left:3px solid var(--terracotta);
+  background:linear-gradient(90deg,rgba(200,102,63,.08),transparent);
+  border-radius:0 10px 10px 0;font-size:14px;color:var(--walnut);
+}
+.principle b{color:var(--walnut-ink)}
+
+.legend{display:flex;gap:18px;flex-wrap:wrap;margin:22px 0 6px;font-size:12.5px;color:var(--walnut)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+/* lane structure */
+.lane{
+  position:relative;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--card);
+  box-shadow:var(--shadow);
+  margin-top:20px;padding:18px 20px 22px;
+}
+.lane-label{
+  display:flex;align-items:baseline;gap:12px;margin-bottom:16px;
+}
+.lane-label .num{
+  font-family:ui-monospace,monospace;font-size:12px;font-weight:700;
+  color:#fff;background:var(--walnut);border-radius:6px;padding:3px 8px;
+}
+.lane-label h2{font-size:18px;margin:0;color:var(--walnut-ink)}
+.lane-label .tag{font-size:12.5px;color:var(--walnut);margin-left:auto;font-family:ui-monospace,monospace}
+
+/* horizontal step row */
+.row{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:6px}
+.step{
+  flex:1 1 0;min-width:150px;
+  background:var(--plaster);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:12px 13px;margin:0 6px;
+  position:relative;transition:transform .15s ease,box-shadow .15s ease;
+}
+.step:first-child{margin-left:0}.step:last-child{margin-right:0}
+.step:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--terracotta-soft)}
+.step .s-no{font-family:ui-monospace,monospace;font-size:11px;color:var(--terracotta);font-weight:700}
+.step h3{font-size:14px;margin:3px 0 4px;color:var(--walnut-ink)}
+.step p{font-size:12px;margin:0;color:var(--walnut)}
+.step .owner{
+  display:inline-block;margin-top:8px;font-size:10.5px;font-family:ui-monospace,monospace;
+  padding:2px 6px;border-radius:5px;background:rgba(107,74,52,.10);color:var(--walnut)
+}
+.step .owner.visitor{background:rgba(63,111,112,.14);color:var(--teal)}
+.step .owner.system{background:rgba(107,91,149,.14);color:var(--violet)}
+
+/* arrows between steps */
+.arrow{align-self:center;color:var(--terracotta-soft);flex:0 0 18px;text-align:center;font-size:18px;line-height:1;user-select:none}
+
+/* pipeline agents */
+.agents{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.agent{
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);
+  display:flex;flex-direction:column;transition:transform .15s ease,box-shadow .15s ease;
+}
+.agent:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.agent .cap{padding:11px 13px 9px;color:#fff}
+.agent .cap .role{font-size:11px;font-family:ui-monospace,monospace;opacity:.85;letter-spacing:.04em}
+.agent .cap .name{font-size:15px;font-weight:700;margin-top:2px}
+.a1 .cap{background:linear-gradient(135deg,var(--terracotta),#b1552f)}
+.a2 .cap{background:linear-gradient(135deg,var(--violet),#54487a)}
+.a3 .cap{background:linear-gradient(135deg,var(--teal),#345a5b)}
+.a4 .cap{background:linear-gradient(135deg,var(--moss),#4c6448)}
+.agent .body{padding:11px 13px 13px;font-size:12px;color:var(--walnut);flex:1}
+.agent .body .lbl{font-size:10px;font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--walnut);opacity:.7;margin:2px 0 3px}
+.agent .body ul{margin:0 0 8px;padding-left:15px}
+.agent .body li{margin:1px 0}
+.artifact{
+  display:inline-block;font-family:ui-monospace,monospace;font-size:10.5px;
+  background:rgba(217,147,43,.16);color:#9a6a12;border:1px solid rgba(217,147,43,.35);
+  border-radius:5px;padding:2px 6px;margin:2px 3px 0 0;
+}
+
+.gate{
+  margin-top:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(90deg,rgba(63,111,112,.10),transparent);
+  border:1px dashed var(--teal);border-radius:12px;padding:12px 16px;
+}
+.gate .chip{
+  font-family:ui-monospace,monospace;font-size:12px;font-weight:600;color:var(--teal);
+  background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 11px;
+}
+.gate .lead{font-size:13px;color:var(--walnut);font-weight:600}
+.gate .arr{color:var(--teal);font-size:16px}
+
+/* services */
+.services{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.svc{
+  border:1px solid var(--line);border-radius:12px;background:var(--plaster);
+  padding:13px 14px;transition:transform .15s ease,box-shadow .15s ease;
+}
+.svc:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.svc .ico{font-size:18px}
+.svc h4{margin:6px 0 4px;font-size:14px;color:var(--walnut-ink)}
+.svc p{margin:0;font-size:12px;color:var(--walnut)}
+.svc .det{margin-top:5px;font-size:11px;color:var(--walnut);opacity:.85}
+
+/* rooms */
+.rooms{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.room{
+  flex:1 1 0;min-width:120px;border-radius:12px;padding:11px 13px;color:#fff;
+  box-shadow:var(--shadow);
+}
+.room .rn{font-size:14px;font-weight:700}
+.room .rp{font-size:11.5px;opacity:.92;margin-top:2px}
+.r-lobby{background:linear-gradient(135deg,var(--walnut),#513623)}
+.r-proj{background:linear-gradient(135deg,var(--terracotta),#a94e2c)}
+.r-exp{background:linear-gradient(135deg,var(--amber),#b47716)}
+.r-skill{background:linear-gradient(135deg,var(--teal),#2f5354)}
+.r-ach{background:linear-gradient(135deg,var(--violet),#4e4272)}
+.r-priv{background:linear-gradient(135deg,var(--moss),#41573d);position:relative}
+.r-priv .lock{position:absolute;top:9px;right:11px;font-size:13px}
+
+.divider{display:flex;align-items:center;justify-content:center;margin:2px 0}
+.divider span{
+  font-family:ui-monospace,monospace;font-size:11px;color:var(--terracotta);
+  background:var(--plaster);padding:4px 12px;border-radius:20px;border:1px solid var(--line);
+}
+
+footer{margin-top:30px;font-size:12px;color:var(--walnut);text-align:center;opacity:.8}
+footer code{font-family:ui-monospace,monospace;background:rgba(107,74,52,.08);padding:1px 5px;border-radius:4px}
+@media(max-width:900px){
+  .agents,.services{grid-template-columns:repeat(2,1fr)}
+  h1{font-size:30px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hd">
+  <div class="kicker">ROOM · Product Workflow</div>
+  <h1>产品流程图<span class="zh">把作品集变成一座可穿行的房子</span></h1>
+  <p class="sub">ROOM 将简历 / 作品集网页转化为可导航的多房间 Three.js 世界。核心原则：<b>Agent 只产出经校验的结构化数据，确定性运行时再把数据编译成稳定、可测试的 3D 世界。</b></p>
+  <div class="principle"><b>契约边界：</b>所有 agent 之间通过带版本的 JSON Schema 契约通信；任一 agent 不能直接改写另一 agent 的产物，也不能编辑渲染器。</div>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--terracotta)"></i>房主（Owner）操作</span>
+    <span><i class="dot" style="background:var(--violet)"></i>系统 / Agent 自动</span>
+    <span><i class="dot" style="background:var(--teal)"></i>访客（Visitor）</span>
+    <span><i class="dot" style="background:var(--amber)"></i>JSON 契约产物</span>
+  </div>
+</header>
+
+<!-- LAYER 1: USER JOURNEY -->
+<section class="lane">
+  <div class="lane-label">
+    <span class="num">01</span>
+    <h2>用户旅程 · 从简历到可游览的世界</h2>
+    <span class="tag">docs/PRODUCT.md</span>
+  </div>
+  <div class="row">
+    <div class="step">
+      <div class="s-no">01</div><h3>提交来源</h3>
+      <p>粘贴公开作品集 URL、上传 PDF / 图片，或直接使用内置示例简历。</p>
+      <span class="owner">房主</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">02</div><h3>抽取事实</h3>
+      <p>逐项抽取身份、项目、经历、技能、成就，保留行级来源证据与置信度。</p>
+      <span class="owner system">系统</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">03</div><h3>确认 / 修正</h3>
+      <p>房主核对并修正低置信度或敏感信息，形成可信 profile。</p>
+      <span class="owner">房主</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">04</div><h3>房间与展品规划</h3>
+      <p>系统提议连通的房间图与「每条内容映射一件展品」的布展计划。</p>
+      <span class="owner system">系统</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">05</div><h3>选择主题</h3>
+      <p>从许可合规的素材目录中选择视觉方向（材质 / 光照 / 配色）。</p>
+      <span class="owner">房主</span>
+    </div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="row">
+    <div class="step">
+      <div class="s-no">06</div><h3>编译与预览</h3>
+      <p>编译 world.json 并进入生成的别墅预览，相机随意图逐级推近。</p>
+      <span class="owner system">系统</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">07</div><h3>QA 检查</h3>
+      <p>发布前做遗漏、重叠、死点击、连通性、移动端预算等确定性检查。</p>
+      <span class="owner system">系统</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">08</div><h3>访客游览</h3>
+      <p>访客穿过前门与房间门探索展品，可在世界 / 房间 / 展品上留空间评论。</p>
+      <span class="owner visitor">访客</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="s-no">09</div><h3>审核与回复</h3>
+      <p>房主审核、置顶、隐藏或回复评论；私密卧室日记本地留存。</p>
+      <span class="owner">房主</span>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step" style="background:linear-gradient(135deg,rgba(200,102,63,.12),rgba(217,147,43,.10));border-color:var(--terracotta-soft)">
+      <div class="s-no">✓</div><h3>已发布的世界</h3>
+      <p>一座可持续被访问、可留言、可维护的个人空间。</p>
+      <span class="owner system">发布</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"><span>↓ 用户旅程的每一步由下方 agent 管线驱动 ↓</span></div>
+
+<!-- LAYER 2: AGENT PIPELINE -->
+<section class="lane">
+  <div class="lane-label">
+    <span class="num">02</span>
+    <h2>Agent 处理管线 · 语义工作交给 Agent，各步产出 JSON 契约</h2>
+    <span class="tag">lib/agents/pipeline.ts</span>
+  </div>
+  <div class="agents">
+    <div class="agent a1">
+      <div class="cap"><div class="role">STEP 02 · Parser</div><div class="name">Profile Agent</div></div>
+      <div class="body">
+        <div class="lbl">输入</div>
+        <ul><li>URL / PDF / 图片 / 文本</li></ul>
+        <div class="lbl">产出</div>
+        <ul><li>映射到简历 schema 的事实</li><li>逐项来源定位 + 置信度</li><li>缺失 / 冲突项、候选媒资</li></ul>
+        <span class="artifact">profile.json</span><span class="artifact">source-evidence[]</span>
+      </div>
+    </div>
+    <div class="agent a2">
+      <div class="cap"><div class="role">STEP 04 · Planner</div><div class="name">Creative Director<br>+ Room Planner</div></div>
+      <div class="body">
+        <div class="lbl">输入</div>
+        <ul><li>已确认 profile + 选定主题</li><li>房间 / 性能上限</li></ul>
+        <div class="lbl">产出</div>
+        <ul><li>连通房间图与语义用途</li><li>展品分配、门位约束</li><li>许可分层参考模式</li></ul>
+        <span class="artifact">creative-brief.json</span><span class="artifact">room-plan.json</span>
+      </div>
+    </div>
+    <div class="agent a3">
+      <div class="cap"><div class="role">STEP 06 · Compose</div><div class="name">World Orchestrator<br>+ Exhibit Agent</div></div>
+      <div class="body">
+        <div class="lbl">输入</div>
+        <ul><li>profile + 房间计划 + 素材计划</li></ul>
+        <div class="lbl">产出</div>
+        <ul><li>每条内容一一映射为展品</li><li>展品文案、交互类型、外链</li><li>可访问 HTML 兜底、评论锚点</li></ul>
+        <span class="artifact">world.json</span><span class="artifact">content-map.json</span>
+      </div>
+    </div>
+    <div class="agent a4">
+      <div class="cap"><div class="role">STEP 07 · Verify</div><div class="name">World Checker<br>+ QA Agent</div></div>
+      <div class="body">
+        <div class="lbl">输入</div>
+        <ul><li>编译后的世界 + 源 profile</li><li>运行时指标</li></ul>
+        <div class="lbl">产出</div>
+        <ul><li>内容对等 / 事实核对</li><li>死点击、连通性、断链</li><li>移动端 & 键盘导航、发布建议</li></ul>
+        <span class="artifact">check-report.json</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="gate">
+    <span class="lead">发布前确定性关卡：</span>
+    <span class="chip">world.json</span><span class="arr">→</span>
+    <span class="chip">Schema 校验</span><span class="arr">→</span>
+    <span class="chip">Three.js 运行时编译</span><span class="arr">→</span>
+    <span class="chip">QA 通过</span><span class="arr">→</span>
+    <span class="chip" style="color:var(--terracotta);border-color:var(--terracotta-soft)">✓ 发布</span>
+  </div>
+</section>
+
+<div class="divider"><span>↓ 渲染、存储、评论由确定性服务承担（非 Agent）↓</span></div>
+
+<!-- LAYER 3: DETERMINISTIC SERVICES -->
+<section class="lane">
+  <div class="lane-label">
+    <span class="num">03</span>
+    <h2>确定性服务 · 稳定、可测试、不由 Agent 生成</h2>
+    <span class="tag">docs/ARCHITECTURE.md</span>
+  </div>
+  <div class="services">
+    <div class="svc"><div class="ico">🏗️</div><h4>World Compiler</h4><p>校验 world.json、解析已许可素材、构建运行时场景对象。</p><div class="det">拒绝未验证素材进入生产</div></div>
+    <div class="svc"><div class="ico">🚪</div><h4>Room Runtime</h4><p>房间流式加载、门过渡、相机导航、碰撞、射线拾取、HTML 覆盖层与自适应画质。</p><div class="det">每个房间可独立加载</div></div>
+    <div class="svc"><div class="ico">💬</div><h4>Comment Service</h4><p>评论绑定稳定语义 ID（entity_id），换主题 / 改布局也不丢失；提供审核与实时推送。</p><div class="det">世界 / 房间 / 展品 / 回复四级</div></div>
+    <div class="svc"><div class="ico">📦</div><h4>Asset Registry</h4><p>记录素材来源、许可、归属、哈希、面数、纹理内存、包围盒、LOD 与可用状态。</p><div class="det">许可未知者不得进生产</div></div>
+  </div>
+</section>
+
+<!-- ROOMS -->
+<section class="lane">
+  <div class="lane-label">
+    <span class="num">04</span>
+    <h2>生成的世界 · 一座小别墅，两种角色</h2>
+    <span class="tag">DESIGN.md · 房间语法</span>
+  </div>
+  <div class="rooms">
+    <div class="room r-lobby"><div class="rn">门厅 Lobby</div><div class="rp">身份 · 导航 · 简短介绍</div></div>
+    <div class="room r-proj"><div class="rn">项目展厅</div><div class="rp">侧墙海报 + 中央旋转图卡</div></div>
+    <div class="room r-exp"><div class="rn">经历长廊</div><div class="rp">工作与教育时间线</div></div>
+    <div class="room r-skill"><div class="rn">技能实验室</div><div class="rp">技能 / 工具能力矩阵</div></div>
+    <div class="room r-ach"><div class="rn">成就室</div><div class="rp">奖项 · 里程碑 · 出版</div></div>
+    <div class="room r-priv"><span class="lock">🔒</span><div class="rn">私密卧室</div><div class="rp">密码门后的本地日记</div></div>
+  </div>
+  <p class="sub" style="margin-top:14px">公开展厅承载全部简历内容并可逐项点击聚焦；密码门后的私密卧室仅在浏览器本地存储个人日记，本 MVP 不经服务器。相机遵循「进别墅 → 进房间 → 选展品」逐级推近的意图导航。</p>
+</section>
+
+<footer>
+  ROOM 产品流程图 · 依据 <code>README.md</code> · <code>DESIGN.md</code> · <code>docs/PRODUCT.md</code> · <code>docs/ARCHITECTURE.md</code> · <code>lib/agents/pipeline.ts</code>
+</footer>
+</div>
+</body>
+</html>

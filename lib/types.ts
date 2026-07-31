@@ -94,6 +94,8 @@ export interface ParsedProfile {
   headline: string;
   location?: string;
   summary: string;
+  personalWebsite?: string;
+  personalWebsiteEvidence?: SourceEvidence[];
   contacts: string[];
   media: ProfileMedia[];
   identityEvidence: Partial<Record<"name" | "headline" | "location" | "summary", SourceEvidence[]>>;
@@ -106,6 +108,8 @@ export interface ParsedProfile {
     type: "text" | "url";
     label: string;
     lineCount: number;
+    format?: "text" | "pdf" | "image";
+    locatorUnit?: "line" | "page" | "image";
   };
 }
 

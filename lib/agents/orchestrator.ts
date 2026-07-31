@@ -32,7 +32,10 @@ function positionFor(center: Vec3, size: Vec3, index: number, count: number): Ve
   const entryClearanceShift = center[0] < -1 ? -1 : 0;
   const x = center[0] + entryClearanceShift + (column - (columns - 1) / 2) * 2.25;
   const z = center[2] + reservedCenterOffset * 3.7;
-  return [x, 0.72, z];
+  // Semantic exhibits are presented by authored Mardou objects above the
+  // project-island plane; keeping the planning metadata at that height also
+  // prevents the checker from treating an index object as a project collision.
+  return [x, 1.65, z];
 }
 
 function projectPosition(center: Vec3, index: number): Vec3 {
@@ -126,7 +129,7 @@ function layoutDisplaySurfaces(drafts: SurfaceDraft[]): DisplaySurfacePlan[] {
 }
 
 export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): WorldPlan {
-  const drafts = [
+  const draftedExhibits = [
     ...profile.items.map((item) => ({
       sourceItemId: item.id,
       roomId: "room-lobby",
@@ -156,6 +159,14 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
       evidence: profile.skillEvidence[skill] || [],
     })),
   ];
+  const drafts = (() => {
+    const seen = new Set<string>();
+    return draftedExhibits.filter((draft) => {
+      if (seen.has(draft.sourceItemId)) return false;
+      seen.add(draft.sourceItemId);
+      return true;
+    });
+  })();
 
   const nonProjectDrafts = drafts.filter((item) => item.eyebrow !== "PROJECT");
   const projectDrafts = drafts.filter((item) => item.eyebrow === "PROJECT");

@@ -21,10 +21,10 @@ test("visitor mode cannot reach diary write controls or save handlers", () => {
   assert.match(roomStudioSource, /当前身份：参观 · 只读浏览 · 本地内容不会上传/);
 });
 
-test("leaving private bedroom clears access state before the next entry", () => {
+test("leaving the private upper gallery clears access state before the next entry", () => {
   assert.match(roomStudioSource, /function resetPrivateAccess\(\) \{/);
   assert.match(roomStudioSource, /setPrivateUnlocked\(false\);/);
   assert.match(roomStudioSource, /setPrivateUnlockedMode\(""\);/);
   assert.match(roomStudioSource, /if \(activeRoom === PRIVATE_ROOM_ID\) resetPrivateAccess\(\);/);
-  assert.match(roomStudioSource, /私人卧室 · 选择身份/);
+  assert.match(roomStudioSource, /二层私密展区 · 选择身份/);
 });

@@ -38,6 +38,7 @@ import {
   MARDOU_PRIVATE_FOCUS,
   MARDOU_PRIVATE_ROUTE,
   MARDOU_PROJECT_PLACEMENTS,
+  MARDOU_SOURCE_ARCHIVE_PLACEMENT,
   MARDOU_SURFACE_PLACEMENTS,
 } from "./MardouMuseumLayout";
 import { MardouMuseumScene } from "./MardouMuseumScene";
@@ -92,6 +93,7 @@ const FIRST_PERSON_BOUNDS = {
 
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
   "showroom-guestbook": MARDOU_GUESTBOOK_PLACEMENT.focus,
+  "showroom-source-browser": MARDOU_SOURCE_ARCHIVE_PLACEMENT.focus,
   "bedroom-diary": MARDOU_DIARY_FOCUS,
 };
 
@@ -1197,6 +1199,100 @@ function GuestbookBoard({ messages, interactive, selected, onSelect }: { message
   );
 }
 
+function SourceArchiveTerminal({ interactive, selected, onSelect }: { interactive: boolean; selected: boolean; onSelect: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const archive = useRef<THREE.Group>(null);
+  const archiveTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 768;
+    canvas.height = 420;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#e9e0d1";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#283b38";
+    context.fillRect(0, 0, canvas.width, 82);
+    context.fillStyle = "#f7f1e7";
+    context.font = "700 28px Arial";
+    context.fillText("ROOM / SOURCE ARCHIVE", 38, 52);
+    context.fillStyle = "#21302e";
+    context.font = "700 46px Arial";
+    context.fillText("PROJECT FILES", 38, 154);
+    context.fillStyle = "#60726d";
+    context.font = "24px Arial";
+    context.fillText("VERIFIED LINKS · ORIGINAL EVIDENCE", 38, 198);
+    [252, 310, 368].forEach((y, index) => {
+      context.fillStyle = index === 0 ? "#fffaf0" : "#d3c7b6";
+      context.fillRect(38, y, 692, 38);
+      context.fillStyle = index === 0 ? "#547c74" : "#847564";
+      context.fillRect(58, y + 13, 430 - index * 58, 10);
+      context.fillStyle = "#c87955";
+      context.fillRect(676, y + 10, 28, 16);
+    });
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
+  }, []);
+
+  useEffect(() => () => archiveTexture.dispose(), [archiveTexture]);
+  useFrame(() => {
+    if (!archive.current) return;
+    const targetScale = selected ? 1.06 : hovered ? 1.035 : 1;
+    const scale = THREE.MathUtils.lerp(archive.current.scale.x, targetScale, 0.14);
+    archive.current.scale.setScalar(scale);
+  });
+
+  return (
+    <group
+      ref={archive}
+      position={MARDOU_SOURCE_ARCHIVE_PLACEMENT.position}
+      rotation={MARDOU_SOURCE_ARCHIVE_PLACEMENT.rotation}
+      onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
+      onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
+      onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
+    >
+      <mesh castShadow receiveShadow position={[0, 0.08, 0]}>
+        <cylinderGeometry args={[0.52, 0.58, 0.16, 20]} />
+        <meshStandardMaterial color={DARK_WOOD} roughness={0.68} metalness={0.08} />
+      </mesh>
+      <mesh castShadow position={[0, 0.42, 0]}>
+        <cylinderGeometry args={[0.17, 0.23, 0.62, 16]} />
+        <meshStandardMaterial color="#b98a4c" roughness={0.44} metalness={0.5} />
+      </mesh>
+      <group position={[0, 0.88, 0]} rotation={[-0.42, 0, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[1.22, 0.08, 0.76]} />
+          <meshStandardMaterial color={DARK_WOOD} emissive={selected ? TEAL : hovered ? "#385e57" : INK} emissiveIntensity={selected ? 0.2 : hovered ? 0.08 : 0} roughness={0.58} metalness={0.12} />
+        </mesh>
+        <mesh position={[0, 0.048, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[1.08, 0.62]} />
+          <meshBasicMaterial map={archiveTexture} toneMapped={false} />
+        </mesh>
+        <mesh position={[0, 0.054, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={4}>
+          <planeGeometry args={[1.08, 0.62]} />
+          <meshPhysicalMaterial color="#fffaf0" transparent opacity={0.055} roughness={0.1} clearcoat={1} clearcoatRoughness={0.08} depthWrite={false} />
+        </mesh>
+      </group>
+      {[[-0.44, "#d7ab62"], [0, "#86bcae"], [0.44, "#b99ccc"]].map(([x, color], index) => (
+        <mesh key={String(x)} castShadow position={[x as number, 0.56 + index * 0.015, -0.48]} rotation={[-0.08, 0, (index - 1) * 0.06]}>
+          <boxGeometry args={[0.3, 0.025, 0.22]} />
+          <meshStandardMaterial color={color as string} roughness={0.82} />
+        </mesh>
+      ))}
+      <TextPanel title="SOURCE ARCHIVE" subtitle="PROJECT FILES · CLICK TO OPEN" position={[0, 0.55, 0.56]} width={1.28} height={0.28} />
+      {interactive ? (
+        <>
+          <mesh position={[0, 0.66, 0]}>
+            <cylinderGeometry args={[0.82, 0.82, 1.5, 18]} />
+            <meshBasicMaterial color={TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
+          </mesh>
+          <pointLight position={[0.65, 1.15, 0.3]} intensity={selected ? 4.2 : hovered ? 2.8 : 1.1} distance={3} color={selected ? CORAL : TEAL} />
+        </>
+      ) : null}
+    </group>
+  );
+}
+
 function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolean; selected: boolean; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false);
   const rug = useRugTextures(undefined, 4.6 / 3.2);
@@ -1742,6 +1838,11 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
             onSelect={onSelect}
           />
           <ShowroomDetails lit={activeRoom === "room-lobby"} />
+          <SourceArchiveTerminal
+            interactive={activeRoom === "room-lobby"}
+            selected={selectedExhibit === "showroom-source-browser"}
+            onSelect={() => onSelect("showroom-source-browser")}
+          />
           <CreativeSubjectCorner subjects={creativeSubjects} />
           <GuestbookBoard
             messages={guestbookMessages}

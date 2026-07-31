@@ -1,0 +1,96 @@
+import assert from "node:assert/strict";
+import { afterEach, test } from "node:test";
+import {
+  DEFAULT_MAAS_BASE_URL,
+  DEFAULT_MAAS_MODEL,
+  DEFAULT_WEBSITE_AGENT_BASE_URL,
+  DEFAULT_WEBSITE_AGENT_MODEL,
+  getAgentProviderConfig,
+  getPublicAgentConfigStatus,
+} from "../lib/agents/provider-config.ts";
+
+const ENV_NAMES = [
+  "MAAS_API_KEY",
+  "MAAS_API_KEY_FALLBACK",
+  "MAAS_BASE_URL",
+  "MAAS_MODEL",
+  "WEBSITE_AGENT_API_KEY",
+  "WEBSITE_AGENT_API_KEY_FALLBACK",
+  "WEBSITE_AGENT_BASE_URL",
+  "WEBSITE_AGENT_MODEL",
+] as const;
+
+const originalEnvironment = Object.fromEntries(ENV_NAMES.map((name) => [name, process.env[name]]));
+
+function clearAgentEnvironment() {
+  for (const name of ENV_NAMES) delete process.env[name];
+}
+
+afterEach(() => {
+  for (const name of ENV_NAMES) {
+    const value = originalEnvironment[name];
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+});
+
+test("provider config uses documented defaults without claiming readiness", () => {
+  clearAgentEnvironment();
+  const config = getAgentProviderConfig();
+  const status = getPublicAgentConfigStatus();
+
+  assert.equal(config.maas.baseUrl, DEFAULT_MAAS_BASE_URL);
+  assert.equal(config.maas.model, DEFAULT_MAAS_MODEL);
+  assert.equal(config.website.baseUrl, DEFAULT_WEBSITE_AGENT_BASE_URL);
+  assert.equal(config.website.model, DEFAULT_WEBSITE_AGENT_MODEL);
+  assert.equal(status.ready, false);
+  assert.equal(status.demoAvailable, true);
+  assert.equal(status.secretsExposed, false);
+});
+
+test("public status reports provider readiness without exposing API keys", () => {
+  clearAgentEnvironment();
+  process.env.MAAS_API_KEY = "server-only-primary-secret";
+  process.env.MAAS_API_KEY_FALLBACK = "server-only-fallback-secret";
+  const status = getPublicAgentConfigStatus();
+  const serialized = JSON.stringify(status);
+
+  assert.equal(status.ready, true);
+  assert.equal(status.resume.provider, "MAAS");
+  assert.equal(status.website.provider, "MAAS fallback");
+  assert.equal(status.website.dedicatedProviderConfigured, false);
+  assert.doesNotMatch(serialized, /server-only-(primary|fallback)-secret/);
+  assert.doesNotMatch(serialized, /apiKeys/);
+});
+
+test("dedicated website provider is surfaced without revealing its key", () => {
+  clearAgentEnvironment();
+  process.env.WEBSITE_AGENT_API_KEY = "server-only-website-secret";
+  process.env.WEBSITE_AGENT_MODEL = "custom-website-model";
+  const status = getPublicAgentConfigStatus();
+
+  assert.equal(status.ready, true);
+  assert.equal(status.resume.provider, "Website fallback");
+  assert.equal(status.resume.model, "custom-website-model");
+  assert.equal(status.website.provider, "Website Agent");
+  assert.equal(status.website.model, "custom-website-model");
+  assert.equal(JSON.stringify(status).includes("server-only-website-secret"), false);
+});
+
+test("a browser override never mixes with server-side provider keys", () => {
+  clearAgentEnvironment();
+  process.env.MAAS_API_KEY = "server-maas-secret";
+  process.env.WEBSITE_AGENT_API_KEY = "server-website-secret";
+  const config = getAgentProviderConfig({
+    maasApiKey: "browser-maas-secret",
+    maasBaseUrl: "https://browser-provider.example/v1",
+    maasModel: "browser-model",
+    maasMode: "tool",
+  });
+
+  assert.deepEqual(config.maas.apiKeys, ["browser-maas-secret"]);
+  assert.deepEqual(config.website.apiKeys, []);
+  assert.equal(config.maas.baseUrl, "https://browser-provider.example/v1");
+  assert.equal(config.maas.model, "browser-model");
+  assert.equal(config.maas.mode, "tool");
+});

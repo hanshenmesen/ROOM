@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1024" viewBox="0 0 1536 1024" font-family="Noto Sans CJK SC">
+<defs>
+  <filter id="rough" x="-6%" y="-6%" width="112%" height="112%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.016" numOctaves="2" seed="4" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="rough2" x="-7%" y="-7%" width="114%" height="114%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="19" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="softsh" x="-25%" y="-25%" width="150%" height="150%">
+    <feDropShadow dx="2.5" dy="3.5" stdDeviation="2.6" flood-color="#3d2a1e" flood-opacity="0.15"/>
+  </filter>
+</defs>
+
+<!-- paper -->
+<rect width="1536" height="1024" fill="#faf5ea"/>
+<g stroke="#e8dfca" stroke-width="1" opacity="0.7">
+  <line x1="42" y1="0" x2="42" y2="1024"/><line x1="84" y1="0" x2="84" y2="1024"/><line x1="126" y1="0" x2="126" y2="1024"/><line x1="168" y1="0" x2="168" y2="1024"/><line x1="210" y1="0" x2="210" y2="1024"/><line x1="252" y1="0" x2="252" y2="1024"/><line x1="294" y1="0" x2="294" y2="1024"/><line x1="336" y1="0" x2="336" y2="1024"/><line x1="378" y1="0" x2="378" y2="1024"/><line x1="420" y1="0" x2="420" y2="1024"/><line x1="462" y1="0" x2="462" y2="1024"/><line x1="504" y1="0" x2="504" y2="1024"/><line x1="546" y1="0" x2="546" y2="1024"/><line x1="588" y1="0" x2="588" y2="1024"/><line x1="630" y1="0" x2="630" y2="1024"/><line x1="672" y1="0" x2="672" y2="1024"/><line x1="714" y1="0" x2="714" y2="1024"/><line x1="756" y1="0" x2="756" y2="1024"/><line x1="798" y1="0" x2="798" y2="1024"/><line x1="840" y1="0" x2="840" y2="1024"/><line x1="882" y1="0" x2="882" y2="1024"/><line x1="924" y1="0" x2="924" y2="1024"/><line x1="966" y1="0" x2="966" y2="1024"/><line x1="1008" y1="0" x2="1008" y2="1024"/><line x1="1050" y1="0" x2="1050" y2="1024"/><line x1="1092" y1="0" x2="1092" y2="1024"/><line x1="1134" y1="0" x2="1134" y2="1024"/><line x1="1176" y1="0" x2="1176" y2="1024"/><line x1="1218" y1="0" x2="1218" y2="1024"/><line x1="1260" y1="0" x2="1260" y2="1024"/><line x1="1302" y1="0" x2="1302" y2="1024"/><line x1="1344" y1="0" x2="1344" y2="1024"/><line x1="1386" y1="0" x2="1386" y2="1024"/><line x1="1428" y1="0" x2="1428" y2="1024"/><line x1="1470" y1="0" x2="1470" y2="1024"/><line x1="1512" y1="0" x2="1512" y2="1024"/>
+  <line x1="0" y1="42" x2="1536" y2="42"/><line x1="0" y1="84" x2="1536" y2="84"/><line x1="0" y1="126" x2="1536" y2="126"/><line x1="0" y1="168" x2="1536" y2="168"/><line x1="0" y1="210" x2="1536" y2="210"/><line x1="0" y1="252" x2="1536" y2="252"/><line x1="0" y1="294" x2="1536" y2="294"/><line x1="0" y1="336" x2="1536" y2="336"/><line x1="0" y1="378" x2="1536" y2="378"/><line x1="0" y1="420" x2="1536" y2="420"/><line x1="0" y1="462" x2="1536" y2="462"/><line x1="0" y1="504" x2="1536" y2="504"/><line x1="0" y1="546" x2="1536" y2="546"/><line x1="0" y1="588" x2="1536" y2="588"/><line x1="0" y1="630" x2="1536" y2="630"/><line x1="0" y1="672" x2="1536" y2="672"/><line x1="0" y1="714" x2="1536" y2="714"/><line x1="0" y1="756" x2="1536" y2="756"/><line x1="0" y1="798" x2="1536" y2="798"/><line x1="0" y1="840" x2="1536" y2="840"/><line x1="0" y1="882" x2="1536" y2="882"/><line x1="0" y1="924" x2="1536" y2="924"/><line x1="0" y1="966" x2="1536" y2="966"/><line x1="0" y1="1008" x2="1536" y2="1008"/>
+</g>
+
+<!-- ===== TITLE ===== -->
+<text x="46" y="76" font-family="Noto Serif CJK SC" font-size="56" font-weight="700" fill="#2b2118">ROOM</text>
+<text x="280" y="72" font-family="Noto Serif CJK SC" font-size="30" font-weight="700" fill="#3f6f70">简历 → 一座能穿行的房子</text>
+<path d="M46 92 q180 9 520 3" stroke="#d9932b" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#rough)"/>
+<text x="1206" y="50" font-family="Noto Serif CJK SC" font-size="20" font-style="italic" fill="#c8663f">※ 产品流程图 / lab notebook</text>
+<path d="M1402 64 l7 15 16 2 -12 12 3 16 -14 -8 -14 8 3 -16 -12 -12 16 -2 z" fill="none" stroke="#d9932b" stroke-width="2.2" filter="url(#rough2)"/>
+
+<!-- =================================================== -->
+<!-- LEFT: intake owner + résumé                          -->
+<!-- =================================================== -->
+<!-- section caption -->
+<text x="60" y="168" font-size="20" font-weight="700" fill="#a94e2c">① 房主投入一份简历</text>
+
+<!-- stick figure owner -->
+<g stroke="#2b2118" stroke-width="3.4" fill="none" stroke-linecap="round" filter="url(#rough2)">
+  <circle cx="118" cy="248" r="25" fill="#fffdf8"/>
+  <path d="M118 273 L118 348"/>
+  <path d="M118 292 L86 322 M118 292 L150 322"/>
+  <path d="M118 348 L94 396 M118 348 L142 396"/>
+</g>
+<circle cx="109" cy="244" r="2.6" fill="#2b2118"/><circle cx="127" cy="244" r="2.6" fill="#2b2118"/>
+<path d="M108 256 q10 8 20 0" stroke="#2b2118" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+<text x="86" y="428" font-size="19" font-weight="700" fill="#2b2118">房主</text>
+
+<!-- résumé sheet in hand -->
+<g filter="url(#rough2)"><rect x="176" y="212" width="150" height="188" rx="10" fill="#fffdf8" stroke="#2b2118" stroke-width="2.6" filter="url(#softsh)"/></g>
+<circle cx="200" cy="238" r="6" fill="#c8663f"/>
+<text x="214" y="244" font-size="15" font-weight="700" fill="#c8663f">简历/URL/PDF</text>
+<g stroke="#c6b199" stroke-width="3.4" stroke-linecap="round">
+  <line x1="196" y1="268" x2="306" y2="268"/><line x1="196" y1="290" x2="306" y2="290"/><line x1="196" y1="312" x2="306" y2="312"/><line x1="196" y1="334" x2="270" y2="334"/><line x1="196" y1="356" x2="290" y2="356"/>
+</g>
+<text x="80" y="470" font-size="15" fill="#5a4632">粘贴网址 · 上传 PDF/图片</text>
+
+<!-- arrow résumé -> pipe -->
+<g filter="url(#rough2)">
+  <line x1="336" y1="300" x2="392" y2="300" stroke="#2b2118" stroke-width="3.2" stroke-dasharray="9 8" stroke-linecap="round"/>
+  <path d="M392 300 l-15 -8 0 16 z" fill="#2b2118"/>
+</g>
+
+<!-- =================================================== -->
+<!-- MIDDLE: vertical agent pipe -> world.json           -->
+<!-- =================================================== -->
+<text x="400" y="168" font-size="20" font-weight="700" fill="#6b5b95">② 四 Agent 流水线</text>
+
+<!-- pipe container -->
+<g filter="url(#rough)"><rect x="408" y="196" width="200" height="352" rx="20" fill="#fffdf8" stroke="#2b2118" stroke-width="3" filter="url(#softsh)"/></g>
+
+<!-- 4 stacked agent bands -->
+<g font-family="Noto Sans CJK SC">
+  <g filter="url(#rough2)"><rect x="428" y="216" width="160" height="66" rx="11" fill="#fbe0d5" stroke="#c8663f" stroke-width="2.4"/></g>
+  <text x="446" y="245" font-size="18" font-weight="700" fill="#a94e2c">Parser</text>
+  <text x="446" y="269" font-size="14" fill="#7a4a34">抽事实 + 逐项证据</text>
+
+  <g filter="url(#rough2)"><rect x="428" y="292" width="160" height="66" rx="11" fill="#e7e1f0" stroke="#6b5b95" stroke-width="2.4"/></g>
+  <text x="446" y="321" font-size="18" font-weight="700" fill="#54487a">Director</text>
+  <text x="446" y="345" font-size="14" fill="#5a4b78">定主题 + 检索模式</text>
+
+  <g filter="url(#rough2)"><rect x="428" y="368" width="160" height="66" rx="11" fill="#dfeceb" stroke="#3f6f70" stroke-width="2.4"/></g>
+  <text x="446" y="397" font-size="17" font-weight="700" fill="#2f5354">Orchestrator</text>
+  <text x="446" y="421" font-size="14" fill="#345a5b">内容 → 房间 &amp; 展品</text>
+
+  <g filter="url(#rough2)"><rect x="428" y="444" width="160" height="66" rx="11" fill="#e6ecdf" stroke="#5f7a5a" stroke-width="2.4"/></g>
+  <text x="446" y="473" font-size="18" font-weight="700" fill="#41573d">Checker</text>
+  <text x="446" y="497" font-size="14" fill="#4c6448">发布前确定性 QA</text>
+</g>
+<!-- little down chevrons between bands -->
+<g stroke="#b9a888" stroke-width="2.6" fill="none" stroke-linecap="round">
+  <path d="M502 285 l6 6 6 -6"/><path d="M502 361 l6 6 6 -6"/><path d="M502 437 l6 6 6 -6"/>
+</g>
+
+<!-- world.json output chip -->
+<g filter="url(#rough2)"><rect x="430" y="560" width="156" height="46" rx="12" fill="#fbf3e2" stroke="#d9932b" stroke-width="2.6" filter="url(#softsh)"/></g>
+<text x="452" y="589" font-size="18" font-weight="700" fill="#b1701a" font-family="Noto Serif CJK SC">world.json</text>
+
+<!--契约边界note -->
+<text x="404" y="640" font-size="14" fill="#5a4632">Agent 只产结构化数据；</text>
+<text x="404" y="662" font-size="14" fill="#5a4632">JSON Schema 契约隔离，逐项可溯源。</text>
+
+<!-- big curved arrow pipe -> house -->
+<g filter="url(#rough)">
+  <path d="M600 583 q120 6 168 -120" stroke="#d9932b" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M768 463 l-2 -20 -16 12 z" fill="#d9932b"/>
+</g>
+<text x="628" y="560" font-size="16" font-weight="700" fill="#b1701a">编译 &amp; 校验后 →</text>
+
+<!-- =================================================== -->
+<!-- RIGHT: HERO cutaway villa                            -->
+<!-- =================================================== -->
+<text x="800" y="168" font-size="20" font-weight="700" fill="#41573d">③ 长成一座剖面别墅 · 每个房间承载一类内容</text>
+
+<!-- roof -->
+<g filter="url(#rough)">
+  <path d="M772 336 L1140 214 L1508 336 Z" fill="#c8663f" stroke="#2b2118" stroke-width="3" stroke-linejoin="round" filter="url(#softsh)"/>
+</g>
+<!-- roof beams -->
+<g stroke="#8f3f22" stroke-width="2" opacity="0.5"><line x1="1140" y1="222" x2="900" y2="330"/><line x1="1140" y1="222" x2="1380" y2="330"/></g>
+<!-- chimney -->
+<g filter="url(#rough2)"><rect x="1340" y="250" width="34" height="60" fill="#a94e2c" stroke="#2b2118" stroke-width="2.4"/></g>
+
+<!-- house body (cutaway) -->
+<g filter="url(#rough)">
+  <rect x="790" y="336" width="700" height="424" rx="8" fill="#f6ead8" stroke="#2b2118" stroke-width="3.4" filter="url(#softsh)"/>
+</g>
+<!-- floor divider -->
+<line x1="792" y1="552" x2="1488" y2="552" stroke="#2b2118" stroke-width="3" filter="url(#rough2)"/>
+<!-- vertical room dividers upper -->
+<line x1="1023" y1="338" x2="1023" y2="550" stroke="#b98e63" stroke-width="2.4" filter="url(#rough2)"/>
+<line x1="1256" y1="338" x2="1256" y2="550" stroke="#b98e63" stroke-width="2.4" filter="url(#rough2)"/>
+<!-- vertical room dividers lower -->
+<line x1="1023" y1="554" x2="1023" y2="758" stroke="#b98e63" stroke-width="2.4" filter="url(#rough2)"/>
+<line x1="1256" y1="554" x2="1256" y2="758" stroke="#b98e63" stroke-width="2.4" filter="url(#rough2)"/>
+
+<!-- ===== UPPER FLOOR ROOMS ===== -->
+<!-- 成就室 -->
+<rect x="798" y="346" width="217" height="198" fill="#efeaf6" opacity="0.55"/>
+<text x="822" y="384" font-size="19" font-weight="700" fill="#54487a">成就室</text>
+<!-- plaque icon -->
+<g filter="url(#rough2)"><rect x="828" y="404" width="70" height="46" rx="6" fill="#fffdf8" stroke="#6b5b95" stroke-width="2.2"/></g>
+<path d="M863 450 l0 20 -10 12 20 0 -10 -12" fill="none" stroke="#6b5b95" stroke-width="2.2"/>
+<text x="912" y="430" font-size="14" fill="#54487a">奖项</text><text x="912" y="450" font-size="14" fill="#54487a">里程碑</text>
+<text x="822" y="522" font-size="14" fill="#7a6ca0">出版 · 高亮牌匾</text>
+
+<!-- 技能实验室 -->
+<rect x="1031" y="346" width="217" height="198" fill="#e6efef" opacity="0.55"/>
+<text x="1055" y="384" font-size="19" font-weight="700" fill="#2f5354">技能实验室</text>
+<!-- capability matrix -->
+<g filter="url(#rough2)" stroke="#3f6f70" stroke-width="2" fill="#fffdf8">
+  <rect x="1060" y="404" width="28" height="28"/><rect x="1092" y="404" width="28" height="28"/><rect x="1124" y="404" width="28" height="28"/>
+  <rect x="1060" y="436" width="28" height="28"/><rect x="1092" y="436" width="28" height="28"/><rect x="1124" y="436" width="28" height="28"/>
+</g>
+<g fill="#3f6f70"><rect x="1064" y="408" width="20" height="20"/><rect x="1128" y="408" width="20" height="20"/><rect x="1096" y="440" width="20" height="20"/></g>
+<text x="1170" y="430" font-size="14" fill="#2f5354">工具 /</text><text x="1170" y="450" font-size="14" fill="#2f5354">能力矩阵</text>
+<text x="1055" y="522" font-size="14" fill="#3f6f70">技能 · 工具 · 能力</text>
+
+<!-- 私密卧室 (locked) -->
+<rect x="1264" y="346" width="217" height="198" fill="#e9efe6" opacity="0.6"/>
+<text x="1288" y="384" font-size="19" font-weight="700" fill="#41573d">私密卧室</text>
+<text x="1440" y="384" font-size="18" fill="#41573d">🔒</text>
+<!-- diary desk -->
+<g filter="url(#rough2)" stroke="#4c6448" stroke-width="2.4" fill="#fffdf8">
+  <rect x="1300" y="424" width="96" height="16"/>
+  <line x1="1308" y1="440" x2="1308" y2="470"/><line x1="1388" y1="440" x2="1388" y2="470"/>
+</g>
+<path d="M1326 412 q22 -12 44 0 l0 12 q-22 -10 -44 0 z" fill="#eef4f4" stroke="#4c6448" stroke-width="2"/>
+<text x="1288" y="522" font-size="14" fill="#4c6448">密码门后 · 本地日记</text>
+
+<!-- ===== LOWER FLOOR ROOMS ===== -->
+<!-- 经历长廊 -->
+<rect x="798" y="556" width="217" height="200" fill="#fbf1d9" opacity="0.6"/>
+<text x="822" y="594" font-size="19" font-weight="700" fill="#a9770f">经历长廊</text>
+<!-- timeline -->
+<g stroke="#d9932b" stroke-width="3" stroke-linecap="round"><line x1="826" y1="632" x2="990" y2="632"/></g>
+<g fill="#d9932b"><circle cx="838" cy="632" r="6"/><circle cx="898" cy="632" r="6"/><circle cx="958" cy="632" r="6"/></g>
+<g stroke="#e0c078" stroke-width="2.6" stroke-linecap="round"><line x1="838" y1="648" x2="838" y2="672"/><line x1="898" y1="648" x2="898" y2="672"/><line x1="958" y1="648" x2="958" y2="672"/></g>
+<text x="822" y="720" font-size="14" fill="#a9770f">工作 &amp; 教育时间线</text>
+
+<!-- 门厅 Lobby (center, with door) -->
+<rect x="1031" y="556" width="217" height="200" fill="#f3ece0" opacity="0.7"/>
+<text x="1058" y="594" font-size="19" font-weight="700" fill="#513623">门厅 Lobby</text>
+<!-- front door -->
+<g filter="url(#rough2)"><rect x="1104" y="628" width="72" height="128" rx="4" fill="#6b4a34" stroke="#2b2118" stroke-width="3"/></g>
+<circle cx="1164" cy="694" r="4.5" fill="#f0d98a"/>
+<!-- door open swing hint -->
+<path d="M1104 756 q-34 -10 -40 -46" stroke="#8a6a4a" stroke-width="2" fill="none" stroke-dasharray="5 5"/>
+<text x="1058" y="620" font-size="14" fill="#6b4a34">身份 · 导航 · 入口</text>
+
+<!-- 项目展厅 -->
+<rect x="1264" y="556" width="217" height="200" fill="#fbe9df" opacity="0.6"/>
+<text x="1288" y="594" font-size="19" font-weight="700" fill="#a94e2c">项目展厅</text>
+<!-- posters -->
+<g filter="url(#rough2)" stroke="#c8663f" stroke-width="2.4" fill="#fffdf8">
+  <rect x="1294" y="612" width="52" height="66"/><rect x="1360" y="612" width="52" height="66"/>
+</g>
+<g stroke="#e6b49c" stroke-width="2.4"><line x1="1302" y1="628" x2="1338" y2="628"/><line x1="1302" y1="642" x2="1338" y2="642"/><line x1="1368" y1="628" x2="1404" y2="628"/><line x1="1368" y1="642" x2="1404" y2="642"/></g>
+<!-- rotating plinth card -->
+<ellipse cx="1428" cy="686" rx="30" ry="9" fill="#e6b49c" opacity="0.5"/>
+<g filter="url(#rough2)"><rect x="1414" y="644" width="28" height="40" fill="#fffdf8" stroke="#c8663f" stroke-width="2.2"/></g>
+<text x="1288" y="720" font-size="14" fill="#a94e2c">侧墙海报 + 旋转图卡</text>
+
+<!-- ===== VISITOR entering ===== -->
+<g stroke="#2b2118" stroke-width="3" fill="none" stroke-linecap="round" filter="url(#rough2)">
+  <circle cx="1120" cy="810" r="19" fill="#fffdf8"/>
+  <path d="M1120 829 L1120 872"/>
+  <path d="M1120 842 L1100 862 M1120 842 L1140 862"/>
+  <path d="M1120 872 L1104 900 M1120 872 L1136 900"/>
+</g>
+<circle cx="1114" cy="807" r="2.2" fill="#2b2118"/><circle cx="1126" cy="807" r="2.2" fill="#2b2118"/>
+<path d="M1113 816 q7 6 14 0" stroke="#2b2118" stroke-width="2" fill="none" stroke-linecap="round"/>
+<text x="1058" y="930" font-size="16" font-weight="700" fill="#2b2118">访客推门而入</text>
+
+<!-- camera path spiraling up into house -->
+<g filter="url(#rough)">
+  <path d="M1150 812 q64 -18 88 -92 q20 -60 -46 -134" stroke="#3f6f70" stroke-width="3" fill="none" stroke-dasharray="10 8" stroke-linecap="round"/>
+  <path d="M1196 470 l-15 -2 6 17 z" fill="#3f6f70"/>
+</g>
+<text x="1300" y="836" font-size="15" font-weight="700" fill="#3f6f70">相机随意图 · 逐级推近</text>
+
+<!-- =================================================== -->
+<!-- BOTTOM principle ribbon                              -->
+<!-- =================================================== -->
+<g filter="url(#rough)"><rect x="40" y="726" width="700" height="150" rx="18" fill="#fffdf8" stroke="#2b2118" stroke-width="3" filter="url(#softsh)"/></g>
+<g filter="url(#rough2)"><rect x="64" y="742" width="150" height="36" rx="9" fill="#f0d98a" stroke="#2b2118" stroke-width="2.2"/></g>
+<text x="84" y="768" font-size="19" font-weight="700" fill="#2b2118">为什么成立</text>
+<g font-size="15.5" fill="#3d2a1e">
+  <circle cx="78" cy="808" r="5" fill="#3f6f70"/><text x="94" y="814">Agent 做语义活，确定性运行时做渲染 —— 稳定可测</text>
+  <circle cx="78" cy="838" r="5" fill="#c8663f"/><text x="94" y="844">简历即建筑：每条内容一一映射为可点击、可溯源的展品</text>
+  <circle cx="78" cy="868" r="5" fill="#5f7a5a"/><text x="94" y="874">空间即导航：门、门槛、展品本身就是主导航目标</text>
+</g>
+
+</svg>

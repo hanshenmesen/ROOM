@@ -12,6 +12,7 @@ import {
   MARDOU_PRIVATE_FOCUS,
   MARDOU_PRIVATE_ROUTE,
   MARDOU_PROJECT_PLACEMENTS,
+  MARDOU_SOURCE_ARCHIVE_PLACEMENT,
   MARDOU_SURFACE_PLACEMENTS,
 } from "../components/MardouMuseumLayout.ts";
 
@@ -362,6 +363,8 @@ const verifiedPoints = [
   { name: "private route landing", point: MARDOU_PRIVATE_ROUTE.landing },
   { name: "guestbook", point: MARDOU_GUESTBOOK_PLACEMENT.position },
   { name: "guestbook camera", point: MARDOU_GUESTBOOK_PLACEMENT.focus.camera },
+  { name: "source archive", point: MARDOU_SOURCE_ARCHIVE_PLACEMENT.focus.target },
+  { name: "source archive camera", point: MARDOU_SOURCE_ARCHIVE_PLACEMENT.focus.camera },
   { name: "diary camera", point: MARDOU_DIARY_FOCUS.camera },
   { name: "creative corner", point: [MARDOU_CREATIVE_CORNER_POSITION[0], 4.8, MARDOU_CREATIVE_CORNER_POSITION[2]] },
   ...MARDOU_PROJECT_PLACEMENTS.flatMap((placement, index) => [

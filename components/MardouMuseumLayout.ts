@@ -141,6 +141,12 @@ export const MARDOU_GUESTBOOK_PLACEMENT: MuseumPlacement = {
   focus: { target: [-5, 4.65, -18], camera: [-2, 4.8, -18], fov: 46 },
 };
 
+export const MARDOU_SOURCE_ARCHIVE_PLACEMENT: MuseumPlacement = {
+  position: [3.5, 0.25, -20],
+  rotation: [0, -Math.PI / 2, 0],
+  focus: { target: [3.5, 1.65, -20], camera: [0.5, 1.5, -20], fov: 46 },
+};
+
 export const MARDOU_DIARY_POSITION: Vec3 = [0, 3.53, -20];
 export const MARDOU_DIARY_FOCUS: MuseumFocus = {
   target: [0, 4.5, -20],
