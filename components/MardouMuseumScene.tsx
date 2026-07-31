@@ -9,6 +9,10 @@ import { SceneGltfLoader } from "./SceneAssetLoaders";
 
 const MUSEUM_URL = "/vendor/mardou/MardouMuseumResult.glb";
 
+export function preloadMardouMuseum() {
+  useLoader.preload(SceneGltfLoader, MUSEUM_URL);
+}
+
 function prepareMuseum(root: THREE.Object3D) {
   root.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;

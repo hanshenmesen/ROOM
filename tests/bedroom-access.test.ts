@@ -15,16 +15,23 @@ test("bedroom access exposes separate owner and visitor credentials", () => {
 
 test("visitor mode cannot reach diary write controls or save handlers", () => {
   assert.match(roomStudioSource, /const diaryWritable = canEditPrivateDiary\(privateUnlockedMode\);/);
-  assert.match(roomStudioSource, /if \(!diaryWritable\) \{[\s\S]*setDiaryError\("参观模式只能浏览日记，不能上传图片。"\);/);
+  assert.match(roomStudioSource, /if \(!allowDuringCreation && !diaryWritable\) \{[\s\S]*setDiaryError\("参观模式只能浏览日记，不能上传图片。"\);/);
   assert.match(roomStudioSource, /if \(!diaryWritable\) \{[\s\S]*setDiaryError\("参观模式只能浏览日记，不能保存新内容。"\);/);
   assert.match(roomStudioSource, /\{diaryWritable \? \([\s\S]*<form className="memory-form" onSubmit=\{saveDiaryEntry\}>/);
   assert.match(roomStudioSource, /当前身份：参观 · 只读浏览 · 本地内容不会上传/);
 });
 
-test("leaving the private upper gallery clears access state before the next entry", () => {
+test("the upper gallery is open while the diary itself requires access", () => {
+  assert.doesNotMatch(roomStudioSource, /if \(roomId === PRIVATE_ROOM_ID && !privateUnlocked\)/);
+  assert.match(roomStudioSource, /if \(id === "bedroom-diary" && !privateUnlocked\)/);
+  assert.match(roomStudioSource, /setSelectedId\("bedroom-diary"\);/);
+  assert.match(roomStudioSource, /<h2 id="private-gate-title">打开私人日记<\/h2>/);
+  assert.match(roomStudioSource, /二层展区 · 直接进入/);
+});
+
+test("leaving the upper gallery locks the diary before the next visit", () => {
   assert.match(roomStudioSource, /function resetPrivateAccess\(\) \{/);
   assert.match(roomStudioSource, /setPrivateUnlocked\(false\);/);
   assert.match(roomStudioSource, /setPrivateUnlockedMode\(""\);/);
   assert.match(roomStudioSource, /if \(activeRoom === PRIVATE_ROOM_ID\) resetPrivateAccess\(\);/);
-  assert.match(roomStudioSource, /二层私密展区 · 选择身份/);
 });

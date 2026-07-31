@@ -23,6 +23,9 @@ function createLocalBindingConfig(env: Record<string, string | undefined>) {
     ...(env.MAAS_API_KEY_FALLBACK ? { MAAS_API_KEY_FALLBACK: env.MAAS_API_KEY_FALLBACK } : {}),
     ...(env.MAAS_BASE_URL ? { MAAS_BASE_URL: env.MAAS_BASE_URL } : {}),
     ...(env.MAAS_MODEL ? { MAAS_MODEL: env.MAAS_MODEL } : {}),
+    ...(env.IMAGE_MAAS_API_KEY ? { IMAGE_MAAS_API_KEY: env.IMAGE_MAAS_API_KEY } : {}),
+    ...(env.IMAGE_MAAS_BASE_URL ? { IMAGE_MAAS_BASE_URL: env.IMAGE_MAAS_BASE_URL } : {}),
+    ...(env.IMAGE_MAAS_MODEL ? { IMAGE_MAAS_MODEL: env.IMAGE_MAAS_MODEL } : {}),
   },
   d1_databases: d1
     ? [

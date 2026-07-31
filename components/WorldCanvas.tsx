@@ -240,10 +240,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
         new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryLook),
         lookAtTarget.clone(),
       ];
-      const introPath = new THREE.CurvePath<THREE.Vector3>();
-      introPath.add(new THREE.CatmullRomCurve3(positionPoints.slice(0, 3), false, "centripetal"));
-      introPath.add(new THREE.CatmullRomCurve3(positionPoints.slice(2), false, "centripetal"));
-      positionCurve = introPath;
+      positionCurve = new THREE.CatmullRomCurve3(positionPoints, false, "centripetal");
       duration = MARDOU_LOBBY_INTRO_ROUTE.duration;
       lobbyIntroPending.current = false;
     } else if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
@@ -335,11 +332,11 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
     }
 
     if (route.current) {
-      route.current.elapsed = Math.min(route.current.duration, route.current.elapsed + delta);
+      route.current.elapsed = Math.min(route.current.duration, route.current.elapsed + Math.min(delta, 1 / 24));
       const progress = route.current.elapsed / route.current.duration;
       const eased = progress * progress * (3 - 2 * progress);
-      route.current.position.getPoint(eased, camera.position);
-      route.current.target.getPoint(eased, lookAt);
+      route.current.position.getPointAt(eased, camera.position);
+      route.current.target.getPointAt(eased, lookAt);
       camera.lookAt(lookAt);
       if (camera instanceof THREE.PerspectiveCamera) {
         camera.fov = THREE.MathUtils.lerp(route.current.fromFov, route.current.toFov, eased);
@@ -1125,16 +1122,15 @@ function LivingInformationWall({ world, interactive, selectedId, onSelect }: { w
           />
         );
       })}
-      {interactive ? <pointLight position={[0, 3, -19.4]} intensity={14} distance={13} decay={2} color="#ffe3bd" /> : null}
+      <pointLight position={[0, 3, -19.4]} intensity={interactive ? 14 : 0} distance={13} decay={2} color="#ffe3bd" />
     </group>
   );
 }
 
 function ShowroomDetails({ lit }: { lit: boolean }) {
-  if (!lit) return null;
   return <group>
-    <pointLight position={[-2, 3.2, -12]} intensity={7} distance={12} decay={2} color="#ffe2b2" />
-    <pointLight position={[1, 5.4, -19]} intensity={3} distance={9} decay={2} color="#9fc6b8" />
+    <pointLight position={[-2, 3.2, -12]} intensity={lit ? 7 : 0} distance={12} decay={2} color="#ffe2b2" />
+    <pointLight position={[1, 5.4, -19]} intensity={lit ? 3 : 0} distance={9} decay={2} color="#9fc6b8" />
   </group>;
 }
 
@@ -1192,9 +1188,9 @@ function GuestbookBoard({ messages, interactive, selected, onSelect }: { message
             <cylinderGeometry args={[0.78, 0.78, 1.45, 18]} />
             <meshBasicMaterial color="#7088d4" transparent opacity={0.001} depthWrite={false} toneMapped={false} />
           </mesh>
-          <pointLight position={[0.65, 0.55, 0.2]} intensity={selected ? 4.5 : hovered ? 3 : 1.2} distance={3} color="#b6c4ff" />
         </>
       ) : null}
+      <pointLight position={[0.65, 0.55, 0.2]} intensity={interactive ? selected ? 4.5 : hovered ? 3 : 1.2 : 0} distance={3} color="#b6c4ff" />
     </group>
   );
 }
@@ -1286,9 +1282,9 @@ function SourceArchiveTerminal({ interactive, selected, onSelect }: { interactiv
             <cylinderGeometry args={[0.82, 0.82, 1.5, 18]} />
             <meshBasicMaterial color={TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
           </mesh>
-          <pointLight position={[0.65, 1.15, 0.3]} intensity={selected ? 4.2 : hovered ? 2.8 : 1.1} distance={3} color={selected ? CORAL : TEAL} />
         </>
       ) : null}
+      <pointLight position={[0.65, 1.15, 0.3]} intensity={interactive ? selected ? 4.2 : hovered ? 2.8 : 1.1 : 0} distance={3} color={selected ? CORAL : TEAL} />
     </group>
   );
 }
@@ -1347,7 +1343,7 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
         <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
       <TextPanel title="PRIVATE DIARY" subtitle="CLICK THE OPEN BOOK" position={[0, 0.5, 0.9]} width={1.34} height={0.3} />
-      {interactive ? <pointLight position={[0.8, 1.45, 0.3]} intensity={selected ? 5 : 2.8} distance={3.5} color="#ffcc91" /> : null}
+      <pointLight position={[0.8, 1.45, 0.3]} intensity={interactive ? selected ? 5 : 2.8 : 0} distance={3.5} color="#ffcc91" />
     </group>
   );
 }
@@ -1597,9 +1593,9 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
             <cylinderGeometry args={[1.02, 1.02, 1.1, 20]} />
             <meshBasicMaterial color={projectAccent(exhibit.title)} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
           </mesh>
-          <pointLight position={[0, 1.15, 0.35]} intensity={selected ? 3.2 : hovered ? 2 : 0.65} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} />
         </>
       ) : null}
+      <pointLight position={[0, 1.15, 0.35]} intensity={interactive ? selected ? 3.2 : hovered ? 2 : 0.65 : 0} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} />
     </group>
   );
 }
@@ -1724,16 +1720,29 @@ class TextureAssetBoundary extends Component<
 }
 
 function SceneReadyNotifier({ onReady }: { onReady: () => void }) {
+  const { camera, gl, scene } = useThree();
   useEffect(() => {
+    let cancelled = false;
+    let firstFrame = 0;
     let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(onReady);
-    });
+    async function warmScene() {
+      try {
+        await gl.compileAsync(scene, camera);
+      } catch {
+        // A normal render remains the fallback when parallel shader compilation is unavailable.
+      }
+      if (cancelled) return;
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(onReady);
+      });
+    }
+    void warmScene();
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
-  }, [onReady]);
+  }, [camera, gl, onReady, scene]);
   return null;
 }
 
@@ -1811,8 +1820,8 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
         <ambientLight intensity={0.5} color="#ead9c4" />
         <hemisphereLight intensity={0.65} color="#bfd6e8" groundColor="#432f2a" />
         <directionalLight castShadow position={[14, 22, 12]} intensity={2.35} color="#ffd8ad" shadow-mapSize={[2048, 2048]} shadow-camera-left={-26} shadow-camera-right={26} shadow-camera-top={24} shadow-camera-bottom={-24} />
-        {activeRoom !== "room-private" ? <pointLight position={[-7, 5, 5]} intensity={12} distance={12} decay={2} color={CORAL} /> : null}
-        {activeRoom !== "room-private" ? <pointLight position={[6, 4, -3]} intensity={3.8} distance={9} decay={2} color="#9fc6b8" /> : null}
+        <pointLight position={[-7, 5, 5]} intensity={activeRoom !== "room-private" ? 12 : 0} distance={12} decay={2} color={CORAL} />
+        <pointLight position={[6, 4, -3]} intensity={activeRoom !== "room-private" ? 3.8 : 0} distance={9} decay={2} color="#9fc6b8" />
         <RendererLook />
         <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} sceneReady={sceneReady} world={world} />
         <Suspense fallback={null}>
