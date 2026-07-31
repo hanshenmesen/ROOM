@@ -28,6 +28,19 @@ type BrowserAgentProviderConfig = {
   mode: BrowserAgentProviderMode;
 };
 
+type BrowserPortraitArtProviderConfig = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+type BrowserPetQaProviderConfig = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  mode: BrowserAgentProviderMode;
+};
+
 export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
   maas: {
     apiKey: "",
@@ -41,11 +54,24 @@ export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
     model: BROWSER_AGENT_PROVIDER_PRESETS[1].model,
     mode: BROWSER_AGENT_PROVIDER_PRESETS[1].mode,
   },
+  image: {
+    apiKey: "",
+    baseUrl: "https://maas.devops.rednote.life/hackson",
+    model: "gpt-image-2",
+  },
+  petQa: {
+    apiKey: "",
+    baseUrl: BROWSER_AGENT_PROVIDER_PRESETS[0].baseUrl,
+    model: BROWSER_AGENT_PROVIDER_PRESETS[0].model,
+    mode: BROWSER_AGENT_PROVIDER_PRESETS[0].mode,
+  },
 };
 
 export type BrowserAgentConfig = {
   maas: BrowserAgentProviderConfig;
   website: BrowserAgentProviderConfig;
+  image: BrowserPortraitArtProviderConfig;
+  petQa: BrowserPetQaProviderConfig;
 };
 
 export function browserAgentProviderPreset(id: BrowserAgentProviderPresetId) {
@@ -75,8 +101,20 @@ export function normalizeBrowserAgentConfig(value: unknown): BrowserAgentConfig 
   const normalized = {
     maas: normalizeProvider(candidate.maas, DEFAULT_BROWSER_AGENT_CONFIG.maas),
     website: normalizeProvider(candidate.website, DEFAULT_BROWSER_AGENT_CONFIG.website),
+    image: {
+      apiKey: typeof candidate.image?.apiKey === "string" ? candidate.image.apiKey : "",
+      baseUrl: typeof candidate.image?.baseUrl === "string" && candidate.image.baseUrl
+        ? candidate.image.baseUrl
+        : DEFAULT_BROWSER_AGENT_CONFIG.image.baseUrl,
+      model: typeof candidate.image?.model === "string" && candidate.image.model
+        ? candidate.image.model
+        : DEFAULT_BROWSER_AGENT_CONFIG.image.model,
+    },
+    petQa: normalizeProvider(candidate.petQa, DEFAULT_BROWSER_AGENT_CONFIG.petQa),
   };
-  return normalized.maas.apiKey || normalized.website.apiKey ? normalized : null;
+  return normalized.maas.apiKey || normalized.website.apiKey || normalized.image.apiKey || normalized.petQa.apiKey
+    ? normalized
+    : null;
 }
 
 const HEADERS = {
@@ -88,6 +126,19 @@ const HEADERS = {
   websiteBaseUrl: "x-room-website-base-url",
   websiteModel: "x-room-website-model",
   websiteMode: "x-room-website-mode",
+} as const;
+
+const PORTRAIT_ART_HEADERS = {
+  apiKey: "x-room-image-api-key",
+  baseUrl: "x-room-image-base-url",
+  model: "x-room-image-model",
+} as const;
+
+const PET_QA_HEADERS = {
+  apiKey: "x-room-pet-qa-api-key",
+  baseUrl: "x-room-pet-qa-base-url",
+  model: "x-room-pet-qa-model",
+  mode: "x-room-pet-qa-mode",
 } as const;
 
 export function browserAgentConfigHeaders(config: BrowserAgentConfig | null): Record<string, string> {
@@ -117,5 +168,45 @@ export function readBrowserAgentConfigHeaders(headers: Headers) {
     websiteBaseUrl: headers.get(HEADERS.websiteBaseUrl)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.website.baseUrl,
     websiteModel: headers.get(HEADERS.websiteModel)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.website.model,
     websiteMode: headers.get(HEADERS.websiteMode) === "json-schema" ? "json-schema" as const : "tool" as const,
+  };
+}
+
+export function browserPortraitArtConfigHeaders(config: BrowserAgentConfig | null): Record<string, string> {
+  if (!config) return {};
+  return {
+    [PORTRAIT_ART_HEADERS.apiKey]: (config.image.apiKey || config.maas.apiKey).trim(),
+    [PORTRAIT_ART_HEADERS.baseUrl]: config.image.baseUrl.trim(),
+    [PORTRAIT_ART_HEADERS.model]: config.image.model.trim(),
+  };
+}
+
+export function browserPetQaConfigHeaders(config: BrowserAgentConfig | null): Record<string, string> {
+  if (!config) return {};
+  return {
+    [PET_QA_HEADERS.apiKey]: (config.petQa.apiKey || config.maas.apiKey).trim(),
+    [PET_QA_HEADERS.baseUrl]: (config.petQa.baseUrl || config.maas.baseUrl).trim(),
+    [PET_QA_HEADERS.model]: (config.petQa.model || config.maas.model).trim(),
+    [PET_QA_HEADERS.mode]: config.petQa.mode || config.maas.mode,
+  };
+}
+
+export function readBrowserPortraitArtConfigHeaders(headers: Headers) {
+  const apiKey = headers.get(PORTRAIT_ART_HEADERS.apiKey)?.trim() || "";
+  if (!apiKey) return undefined;
+  return {
+    apiKey,
+    baseUrl: headers.get(PORTRAIT_ART_HEADERS.baseUrl)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.image.baseUrl,
+    model: headers.get(PORTRAIT_ART_HEADERS.model)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.image.model,
+  };
+}
+
+export function readBrowserPetQaConfigHeaders(headers: Headers) {
+  const apiKey = headers.get(PET_QA_HEADERS.apiKey)?.trim() || "";
+  if (!apiKey) return undefined;
+  return {
+    petQaApiKey: apiKey,
+    petQaBaseUrl: headers.get(PET_QA_HEADERS.baseUrl)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.petQa.baseUrl,
+    petQaModel: headers.get(PET_QA_HEADERS.model)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.petQa.model,
+    petQaMode: headers.get(PET_QA_HEADERS.mode) === "tool" ? "tool" as const : "json-schema" as const,
   };
 }

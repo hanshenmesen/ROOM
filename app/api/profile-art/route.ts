@@ -7,6 +7,8 @@ import {
   PORTRAIT_ART_PROMPT,
   portraitArtProviderError,
 } from "@/lib/portrait-art";
+import { readBrowserPortraitArtConfigHeaders } from "@/lib/browser-agent-config";
+import { validatePublicUrl } from "@/lib/public-web";
 
 export const runtime = "edge";
 
@@ -30,7 +32,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "头像照片不能超过 8 MB。" }, { status: 413 });
     }
 
-    const config = getPortraitArtConfig();
+    const browserConfig = readBrowserPortraitArtConfigHeaders(request.headers);
+    if (browserConfig && browserConfig.apiKey.length > 1_024) {
+      return NextResponse.json({ error: "图像 API Key 长度不合法。" }, { status: 400 });
+    }
+    if (browserConfig && browserConfig.model.length > 200) {
+      return NextResponse.json({ error: "图像模型名称过长。" }, { status: 400 });
+    }
+    if (browserConfig) {
+      try {
+        const url = validatePublicUrl(browserConfig.baseUrl);
+        if (url.protocol !== "https:" || url.search || url.hash) throw new Error("unsafe image provider URL");
+        browserConfig.baseUrl = url.href.replace(/\/$/, "");
+      } catch {
+        return NextResponse.json({ error: "图像服务 Base URL 必须是公开的 HTTPS 地址。" }, { status: 400 });
+      }
+    }
+
+    const config = getPortraitArtConfig(process.env, browserConfig);
     if (!config.apiKey) {
       return NextResponse.json({ error: "抽象肖像服务尚未配置。" }, { status: 503 });
     }

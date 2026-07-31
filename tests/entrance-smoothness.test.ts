@@ -12,6 +12,8 @@ test("the first entrance uses one continuous arc-length camera curve", () => {
 });
 
 test("the loading cover waits for shader precompilation", () => {
-  assert.match(worldSource, /await gl\.compileAsync\(scene, camera\)/);
+  assert.match(worldSource, /Promise\.race\(\[/);
+  assert.match(worldSource, /gl\.compileAsync\(scene, camera\)/);
+  assert.match(worldSource, /SCENE_COMPILE_TIMEOUT_MS/);
   assert.match(worldSource, /secondFrame = window\.requestAnimationFrame\(onReady\)/);
 });

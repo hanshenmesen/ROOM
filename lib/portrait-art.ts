@@ -14,23 +14,36 @@ Hard constraints: no anatomically correct eyes, pupils, eyebrows, nostrils, lips
 
 type PortraitArtEnvironment = Record<string, string | undefined>;
 
-export function getPortraitArtConfig(environment: PortraitArtEnvironment = process.env) {
-  const apiKey = (
-    environment.IMAGE_MAAS_API_KEY
-    || environment.MAAS_IMAGE_API_KEY
-    || environment.MAAS_API_KEY
-    || ""
-  ).trim();
-  const baseUrl = (
-    environment.IMAGE_MAAS_BASE_URL
-    || environment.MAAS_IMAGE_BASE_URL
-    || environment.MAAS_BASE_URL
-    || DEFAULT_PORTRAIT_ART_BASE_URL
+export type PortraitArtConfigOverride = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+export function getPortraitArtConfig(
+  environment: PortraitArtEnvironment = process.env,
+  override?: PortraitArtConfigOverride,
+) {
+  const apiKey = override
+    ? override.apiKey.trim()
+    : (
+        environment.IMAGE_MAAS_API_KEY
+        || environment.MAAS_IMAGE_API_KEY
+        || environment.MAAS_API_KEY
+        || ""
+      ).trim();
+  const baseUrl = (override
+    ? override.baseUrl
+    : environment.IMAGE_MAAS_BASE_URL
+      || environment.MAAS_IMAGE_BASE_URL
+      || environment.MAAS_BASE_URL
+      || DEFAULT_PORTRAIT_ART_BASE_URL
   ).trim().replace(/\/+$/, "");
-  const model = (
-    environment.IMAGE_MAAS_MODEL
-    || environment.MAAS_IMAGE_MODEL
-    || DEFAULT_PORTRAIT_ART_MODEL
+  const model = (override
+    ? override.model
+    : environment.IMAGE_MAAS_MODEL
+      || environment.MAAS_IMAGE_MODEL
+      || DEFAULT_PORTRAIT_ART_MODEL
   ).trim();
 
   return {

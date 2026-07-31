@@ -6,15 +6,19 @@ import { fileURLToPath } from "node:url";
 
 const ROUTE_URL = new URL("../app/api/profile-art/route.ts", import.meta.url).href;
 const HELPER_URL = new URL("../lib/portrait-art.ts", import.meta.url).href;
+const BROWSER_CONFIG_URL = new URL("../lib/browser-agent-config.ts", import.meta.url).href;
+const PUBLIC_WEB_URL = new URL("../lib/public-web.ts", import.meta.url).href;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/server") return nextResolve("next/server.js", context);
     if (specifier === "@/lib/portrait-art") return { url: HELPER_URL, shortCircuit: true };
+    if (specifier === "@/lib/browser-agent-config") return { url: BROWSER_CONFIG_URL, shortCircuit: true };
+    if (specifier === "@/lib/public-web") return { url: PUBLIC_WEB_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url === ROUTE_URL || url === HELPER_URL) {
+    if ([ROUTE_URL, HELPER_URL, BROWSER_CONFIG_URL, PUBLIC_WEB_URL].includes(url)) {
       return {
         format: "module",
         shortCircuit: true,
@@ -34,10 +38,10 @@ const ORIGINAL_ENV = {
   maasKey: process.env.MAAS_API_KEY,
 };
 
-function requestWithImage(type = "image/png") {
+function requestWithImage(type = "image/png", headers?: HeadersInit) {
   const form = new FormData();
   form.set("image", new File([new Uint8Array([137, 80, 78, 71])], "profile.png", { type }));
-  return new Request("https://room.test/api/profile-art", { method: "POST", body: form });
+  return new Request("https://room.test/api/profile-art", { method: "POST", headers, body: form });
 }
 
 test.afterEach(() => {
@@ -94,6 +98,49 @@ test("does not call the provider without a server-side key", async () => {
 
   assert.equal(response.status, 503);
   assert.equal(payload.error, "抽象肖像服务尚未配置。");
+  assert.equal(calls, 0);
+});
+
+test("uses the browser-session image provider without mixing server settings", async () => {
+  process.env.IMAGE_MAAS_API_KEY = "server-key";
+  process.env.IMAGE_MAAS_BASE_URL = "https://server.example.test";
+  process.env.IMAGE_MAAS_MODEL = "server-model";
+  let providerForm: FormData | undefined;
+  let authorization = "";
+  globalThis.fetch = (async (input, init) => {
+    assert.equal(String(input), "https://browser.example.test/v1/images/edits");
+    providerForm = init?.body as FormData;
+    authorization = new Headers(init?.headers).get("authorization") || "";
+    return Response.json({ data: [{ b64_json: btoa("png") }] });
+  }) as typeof fetch;
+
+  const response = await POST(requestWithImage("image/png", {
+    "x-room-image-api-key": "browser-key",
+    "x-room-image-base-url": "https://browser.example.test/v1",
+    "x-room-image-model": "browser-model",
+  }));
+
+  assert.equal(response.status, 200);
+  assert.equal(providerForm?.get("model"), "browser-model");
+  assert.equal(authorization, "Bearer browser-key");
+});
+
+test("rejects a private browser-session image provider before calling it", async () => {
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return Response.json({});
+  }) as typeof fetch;
+
+  const response = await POST(requestWithImage("image/png", {
+    "x-room-image-api-key": "browser-key",
+    "x-room-image-base-url": "https://localhost/v1",
+    "x-room-image-model": "browser-model",
+  }));
+  const payload = await response.json() as { error: string };
+
+  assert.equal(response.status, 400);
+  assert.equal(payload.error, "图像服务 Base URL 必须是公开的 HTTPS 地址。");
   assert.equal(calls, 0);
 });
 

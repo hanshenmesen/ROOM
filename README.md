@@ -2,7 +2,7 @@
 
 > Turn a portfolio into a world people can walk through.
 
-ROOM is an agent-driven system that converts an existing personal website or résumé into a traceable two-floor Mardou museum. The Agent pipeline preserves source evidence, while the museum turns the compiled profile into clickable project islands, semantic information objects, a source archive, and a private upper gallery.
+ROOM is an agent-driven system that converts an existing personal website or résumé into a traceable two-floor 3D home. The Agent pipeline preserves source evidence, while the home turns the compiled profile into clickable project islands, semantic information objects, a source archive, and a private upper gallery.
 
 ## Demo
 
@@ -34,6 +34,12 @@ MAAS_API_KEY=your-primary-key
 MAAS_API_KEY_FALLBACK=your-secondary-key
 MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
 MAAS_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
+IMAGE_MAAS_API_KEY=
+IMAGE_MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
+IMAGE_MAAS_MODEL=gpt-image-2
+PET_QA_API_KEY=
+PET_QA_BASE_URL=https://maas.devops.rednote.life/hackson
+PET_QA_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
 ```
 
 Only one valid API key is required. `MAAS_BASE_URL`, `MAAS_MODEL`, `WEBSITE_AGENT_BASE_URL`, and `WEBSITE_AGENT_MODEL` have working defaults, while a dedicated Website Agent key is optional.
@@ -49,30 +55,33 @@ The demo supports:
 - Pasted résumé text plus PDF, image, and common text/web data uploads.
 - Hybrid PDF parsing: a fast page-aware text/link evidence pass plus Claude document vision and semantic extraction.
 - Guarded public-page extraction and automatic personal-website enrichment when the résumé names a homepage. The website Agent starts as soon as the identity shard finds that homepage and runs concurrently with the remaining résumé extraction.
-- A Mardou GLB museum rendered with React Three Fiber, including a long-corridor entrance, first-person WASD movement, collision handling, and a clickable staircase.
+- A Mardou GLB home rendered with React Three Fiber, including a long-corridor entrance, first-person WASD movement, collision handling, and a clickable staircase.
 - A public ground-floor gallery with project islands, semantic profile objects, a visitor book, and a source archive.
 - A password-gated upper gallery for the local private diary and personal scene.
-- Clickable exhibits with line-level source evidence.
+- Clickable exhibits that complete their camera approach before opening a centered, face-forward reading screen with line-level source evidence.
+- A seeded and locally cumulative exhibit-heat sidebar whose entries route back to their exhibit views.
+- A neutral roaming 3D companion with profile-grounded QA, citations, and entrance-level provider configuration.
+- Quiet procedural background music with a persistent local toggle.
 - Deterministic checks for omissions, overlap, dead click targets, room connectivity, and mobile budgets.
 - A license-aware reference catalog plus a syncable local RAG corpus.
 
 This version deliberately does not include racing navigation, generative Blender assets, accounts, or persistent visitor comments. Those remain follow-up iterations.
 
-## Phase 1: Agent-powered Mardou museum
+## Phase 1: Agent-powered Mardou home
 
 ROOM deliberately starts with one experience model:
 
-- Visitors enter from the museum's long corridor and arrive in the public ground-floor gallery.
-- Projects, achievements, experience, skills, and personal background become interactive museum objects rather than uniform rectangular boards.
-- Project details, editing controls, and source evidence remain available in the focused information panel.
+- Visitors enter from the home's long corridor and arrive in the public ground-floor gallery.
+- Projects, achievements, experience, skills, and personal background become interactive exhibit objects rather than uniform rectangular boards.
+- Project details, editing controls, and source evidence remain available in the centered exhibit screen.
 - The staircase opens a password-gated private upper gallery with a browser-local diary.
-- Racing and other game modes are deferred until the museum pipeline is stable.
+- Racing and other game modes are deferred until the home pipeline is stable.
 
 Implemented first world:
 
 | Space | Purpose |
 | --- | --- |
-| Entrance corridor | Slow guided arrival into the museum, then first-person control |
+| Entrance corridor | Slow guided arrival into the home, then first-person control |
 | Ground-floor gallery | Identity, timeline, skills, achievements, contact details, and visitor book |
 | Project islands | Editable project covers and Agent-generated project details |
 | Source archive | Complete source links and evidence provenance |

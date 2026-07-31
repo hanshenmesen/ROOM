@@ -3,6 +3,8 @@ import { afterEach, test } from "node:test";
 import {
   DEFAULT_MAAS_BASE_URL,
   DEFAULT_MAAS_MODEL,
+  DEFAULT_PET_QA_BASE_URL,
+  DEFAULT_PET_QA_MODEL,
   DEFAULT_WEBSITE_AGENT_BASE_URL,
   DEFAULT_WEBSITE_AGENT_MODEL,
   getAgentProviderConfig,
@@ -18,6 +20,10 @@ const ENV_NAMES = [
   "WEBSITE_AGENT_API_KEY_FALLBACK",
   "WEBSITE_AGENT_BASE_URL",
   "WEBSITE_AGENT_MODEL",
+  "PET_QA_API_KEY",
+  "PET_QA_API_KEY_FALLBACK",
+  "PET_QA_BASE_URL",
+  "PET_QA_MODEL",
 ] as const;
 
 const originalEnvironment = Object.fromEntries(ENV_NAMES.map((name) => [name, process.env[name]]));
@@ -43,7 +49,10 @@ test("provider config uses documented defaults without claiming readiness", () =
   assert.equal(config.maas.model, DEFAULT_MAAS_MODEL);
   assert.equal(config.website.baseUrl, DEFAULT_WEBSITE_AGENT_BASE_URL);
   assert.equal(config.website.model, DEFAULT_WEBSITE_AGENT_MODEL);
+  assert.equal(config.petQa.baseUrl, DEFAULT_PET_QA_BASE_URL);
+  assert.equal(config.petQa.model, DEFAULT_PET_QA_MODEL);
   assert.equal(status.ready, false);
+  assert.equal(status.petQa.ready, false);
   assert.equal(status.demoAvailable, true);
   assert.equal(status.secretsExposed, false);
 });
@@ -58,7 +67,10 @@ test("public status reports provider readiness without exposing API keys", () =>
   assert.equal(status.ready, true);
   assert.equal(status.resume.provider, "MAAS");
   assert.equal(status.website.provider, "MAAS fallback");
+  assert.equal(status.petQa.provider, "MAAS fallback");
+  assert.equal(status.petQa.ready, true);
   assert.equal(status.website.dedicatedProviderConfigured, false);
+  assert.equal(status.petQa.dedicatedProviderConfigured, false);
   assert.doesNotMatch(serialized, /server-only-(primary|fallback)-secret/);
   assert.doesNotMatch(serialized, /apiKeys/);
 });
@@ -77,6 +89,21 @@ test("dedicated website provider is surfaced without revealing its key", () => {
   assert.equal(JSON.stringify(status).includes("server-only-website-secret"), false);
 });
 
+test("dedicated pet QA provider is surfaced without revealing its key", () => {
+  clearAgentEnvironment();
+  process.env.PET_QA_API_KEY = "server-only-pet-secret";
+  process.env.PET_QA_BASE_URL = "https://pet.example.test/root";
+  process.env.PET_QA_MODEL = "pet-model";
+  const status = getPublicAgentConfigStatus();
+
+  assert.equal(status.petQa.ready, true);
+  assert.equal(status.petQa.provider, "Pet QA Agent");
+  assert.equal(status.petQa.dedicatedProviderConfigured, true);
+  assert.equal(status.petQa.baseUrl, "https://pet.example.test/root");
+  assert.equal(status.petQa.model, "pet-model");
+  assert.equal(JSON.stringify(status).includes("server-only-pet-secret"), false);
+});
+
 test("a browser override never mixes with server-side provider keys", () => {
   clearAgentEnvironment();
   process.env.MAAS_API_KEY = "server-maas-secret";
@@ -93,4 +120,20 @@ test("a browser override never mixes with server-side provider keys", () => {
   assert.equal(config.maas.baseUrl, "https://browser-provider.example/v1");
   assert.equal(config.maas.model, "browser-model");
   assert.equal(config.maas.mode, "tool");
+});
+
+test("a browser pet QA override falls back to the browser MAAS key when no dedicated QA key is set", () => {
+  clearAgentEnvironment();
+  process.env.MAAS_API_KEY = "server-maas-secret";
+  const config = getAgentProviderConfig({
+    maasApiKey: "browser-maas-secret",
+    maasBaseUrl: "https://browser-maas.example/v1",
+    maasModel: "browser-maas-model",
+    petQaBaseUrl: "https://browser-pet.example/v1",
+    petQaModel: "browser-pet-model",
+  });
+
+  assert.deepEqual(config.petQa.apiKeys, ["browser-maas-secret"]);
+  assert.equal(config.petQa.baseUrl, "https://browser-pet.example/v1");
+  assert.equal(config.petQa.model, "browser-pet-model");
 });

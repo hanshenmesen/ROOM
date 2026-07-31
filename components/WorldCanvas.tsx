@@ -22,6 +22,7 @@ import {
   type CreativeSubject,
 } from "@/lib/agents/creative-subjects";
 import { materialFrameCopy } from "@/lib/exhibit-presentation";
+import { SCENE_COMPILE_TIMEOUT_MS } from "@/lib/scene-entry";
 import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
 import {
   PortfolioEnvironment,
@@ -51,6 +52,7 @@ import {
   type MardouPictureSlotName,
 } from "./MardouMuseumLayout";
 import { MardouMuseumScene } from "./MardouMuseumScene";
+import { RoomCompanion } from "./RoomCompanion";
 import { resolvePlanarMovement, sceneMovementBlocked } from "./FirstPersonCollision";
 import {
   SceneTextureLoader,
@@ -133,9 +135,10 @@ type CameraRoute = {
   elapsed: number;
   fromFov: number;
   toFov: number;
+  focusId?: string;
 };
 
-function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan }) {
+function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSettled }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan; onFocusSettled: (id: string) => void }) {
   const { camera, gl, scene } = useThree();
   const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
   const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
@@ -415,10 +418,11 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
       elapsed: 0,
       fromFov,
       toFov: desiredFov.current,
+      focusId: exhibit || selectedSurface ? selectedExhibit : undefined,
     };
     previousRoom.current = activeRoom;
     previousExhibit.current = selectedExhibit;
-  }, [activeRoom, camera, destination, lookAt, lookAtTarget, sceneReady, selectedExhibit, world]);
+  }, [activeRoom, camera, destination, lookAt, lookAtTarget, onFocusSettled, sceneReady, selectedExhibit, world]);
 
   useFrame((_, delta) => {
     if (lobbyIntroPending.current) {
@@ -439,7 +443,11 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
         camera.fov = THREE.MathUtils.lerp(route.current.fromFov, route.current.toFov, eased);
         camera.updateProjectionMatrix();
       }
-      if (progress >= 1) route.current = null;
+      if (progress >= 1) {
+        const completedFocusId = route.current.focusId;
+        route.current = null;
+        if (completedFocusId) onFocusSettled(completedFocusId);
+      }
       return;
     }
 
@@ -1325,27 +1333,6 @@ function CreativePersonFigure({ subject }: { subject: CreativeSubject }) {
   );
 }
 
-function CreativePetFigure({ subject }: { subject: CreativeSubject }) {
-  return (
-    <group position={[1.2, 0, 0.25]} scale={0.62}>
-      <mesh castShadow position={[0, 0.66, 0]}>
-        <sphereGeometry args={[0.43, 12, 9]} />
-        <meshStandardMaterial color="#c98757" roughness={0.82} />
-      </mesh>
-      <mesh castShadow position={[0.28, 1.02, 0]}>
-        <icosahedronGeometry args={[0.34, 1]} />
-        <meshStandardMaterial color="#d89a68" roughness={0.82} />
-      </mesh>
-      {subject.label === "Cat" ? [-1, 1].map((side) => (
-        <mesh key={side} castShadow position={[0.28 + side * 0.18, 1.32, 0]} rotation={[0, 0, side * -0.18]}>
-          <coneGeometry args={[0.13, 0.28, 4]} />
-          <meshStandardMaterial color="#d89a68" roughness={0.82} />
-        </mesh>
-      )) : null}
-    </group>
-  );
-}
-
 function appendProfileLocation(headline: string, location?: string) {
   if (!location || headline.toLocaleLowerCase().includes(location.toLocaleLowerCase())) return headline;
   return `${headline} · ${location}`;
@@ -1406,7 +1393,6 @@ function fallbackSurfaceLayout(surface: DisplaySurfacePlan, index: number) {
 
 function CreativeSubjectCorner({ subjects }: { subjects: CreativeSubject[] }) {
   const person = findRenderableCreativeSubject(subjects, "person");
-  const pet = findRenderableCreativeSubject(subjects, "pet");
   const rug = useRugTextures(undefined, 1.35);
   if (!person) return null;
   const disclosure = buildCreativeSubjectSceneDisclosure(person);
@@ -1417,7 +1403,6 @@ function CreativeSubjectCorner({ subjects }: { subjects: CreativeSubject[] }) {
         <meshStandardMaterial map={rug.map} bumpMap={rug.bumpMap} bumpScale={0.035} color="#a88978" roughness={0.96} />
       </mesh>
       <group position={[-0.35, 0, 0]}><CreativePersonFigure subject={person} /></group>
-      {pet ? <CreativePetFigure subject={pet} /> : null}
       <LowPolyPlant position={[-1.25, 0, 0.35]} scale={0.58} />
       <TextPanel title="人物角" subtitle={disclosure.title} position={[0.15, 0.16, 1.12]} rotation={[-0.92, 0, 0]} width={1.42} height={0.3} />
     </group>
@@ -1991,12 +1976,15 @@ function SceneReadyNotifier({ onReady }: { onReady: () => void }) {
     let cancelled = false;
     let firstFrame = 0;
     let secondFrame = 0;
+    let compileWatchdog = 0;
     async function warmScene() {
-      try {
-        await gl.compileAsync(scene, camera);
-      } catch {
-        // A normal render remains the fallback when parallel shader compilation is unavailable.
-      }
+      await Promise.race([
+        gl.compileAsync(scene, camera).catch(() => undefined),
+        new Promise<void>((resolve) => {
+          compileWatchdog = window.setTimeout(resolve, SCENE_COMPILE_TIMEOUT_MS);
+        }),
+      ]);
+      if (compileWatchdog) window.clearTimeout(compileWatchdog);
       if (cancelled) return;
       firstFrame = window.requestAnimationFrame(() => {
         secondFrame = window.requestAnimationFrame(onReady);
@@ -2005,6 +1993,7 @@ function SceneReadyNotifier({ onReady }: { onReady: () => void }) {
     void warmScene();
     return () => {
       cancelled = true;
+      if (compileWatchdog) window.clearTimeout(compileWatchdog);
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
@@ -2037,11 +2026,14 @@ type WorldCanvasProps = {
   guestbookMessages?: string[];
   pictureOverrides?: Partial<Record<MardouPictureSlotName, string>>;
   privateFrameImages?: Partial<Record<MardouPrivateFrameSlot, string>>;
+  petQaOpen?: boolean;
   onSelect: (id: string) => void;
   onRoomChange: (roomId: string) => void;
   onLoadProgress: (progress: number) => void;
   onLoadState: (snapshot: SceneLoadingSnapshot) => void;
   onReady: () => void;
+  onFocusSettled: (id: string) => void;
+  onOpenPetQa: () => void;
 };
 
 function sameStringItems(left: string[] = [], right: string[] = []) {
@@ -2058,15 +2050,18 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
     sameStringItems(previous.guestbookMessages, next.guestbookMessages) &&
     previous.pictureOverrides === next.pictureOverrides &&
     previous.privateFrameImages === next.privateFrameImages &&
+    previous.petQaOpen === next.petQaOpen &&
     previous.onSelect === next.onSelect &&
     previous.onRoomChange === next.onRoomChange &&
     previous.onLoadProgress === next.onLoadProgress &&
     previous.onLoadState === next.onLoadState &&
-    previous.onReady === next.onReady
+    previous.onReady === next.onReady &&
+    previous.onFocusSettled === next.onFocusSettled &&
+    previous.onOpenPetQa === next.onOpenPetQa
   );
 }
 
-function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selectedExhibit, guestbookMessages = [], pictureOverrides = {}, privateFrameImages = {}, onSelect, onRoomChange, onLoadProgress, onLoadState, onReady }: WorldCanvasProps) {
+function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selectedExhibit, guestbookMessages = [], pictureOverrides = {}, privateFrameImages = {}, petQaOpen = false, onSelect, onRoomChange, onLoadProgress, onLoadState, onReady, onFocusSettled, onOpenPetQa }: WorldCanvasProps) {
   const projectExhibits = world.exhibits.filter((exhibit) => exhibit.eyebrow === "PROJECT");
   const maxProjectPage = Math.max(0, Math.ceil(projectExhibits.length / PROJECTS_PER_PAGE) - 1);
   const visibleProjectPage = Math.min(projectPage, maxProjectPage);
@@ -2094,7 +2089,7 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
         <pointLight position={[-7, 5, 5]} intensity={activeRoom !== "room-private" ? 12 : 0} distance={12} decay={2} color={CORAL} />
         <pointLight position={[6, 4, -3]} intensity={activeRoom !== "room-private" ? 3.8 : 0} distance={9} decay={2} color="#9fc6b8" />
         <RendererLook />
-        <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} sceneReady={sceneReady} world={world} />
+        <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} sceneReady={sceneReady} world={world} onFocusSettled={onFocusSettled} />
         <Suspense fallback={null}>
           <MardouMuseumScene
             activeRoom={activeRoom}
@@ -2131,6 +2126,11 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
             onSelect={() => onSelect("showroom-source-browser")}
           />
           <CreativeSubjectCorner subjects={creativeSubjects} />
+          <RoomCompanion
+            activeRoom={activeRoom}
+            qaOpen={petQaOpen}
+            onOpenQa={onOpenPetQa}
+          />
           <GuestbookBoard
             messages={guestbookMessages}
             interactive={activeRoom !== "exterior"}

@@ -44,6 +44,23 @@ test("portrait art config falls back to the shared MAAS key and safe defaults", 
   assert.equal(config.endpoint, `${DEFAULT_PORTRAIT_ART_BASE_URL}/v1/images/edits`);
 });
 
+test("browser portrait-art override never mixes with server credentials", () => {
+  const config = getPortraitArtConfig({
+    IMAGE_MAAS_API_KEY: "server-key",
+    IMAGE_MAAS_BASE_URL: "https://server.example.test",
+    IMAGE_MAAS_MODEL: "server-model",
+  }, {
+    apiKey: "browser-key",
+    baseUrl: "https://browser.example.test/v1/",
+    model: "browser-model",
+  });
+
+  assert.equal(config.apiKey, "browser-key");
+  assert.equal(config.baseUrl, "https://browser.example.test/v1");
+  assert.equal(config.model, "browser-model");
+  assert.equal(config.endpoint, "https://browser.example.test/v1/images/edits");
+});
+
 test("extracts only the first provider base64 image", () => {
   assert.equal(extractPortraitImageBase64({ data: [{ b64_json: "first" }, { b64_json: "second" }] }), "first");
   assert.equal(extractPortraitImageBase64({ data: [{ url: "https://example.test/image.png" }] }), "");

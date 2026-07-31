@@ -21,10 +21,12 @@ type AgentSetupDialogProps = {
 
 function freshConfig(config: BrowserAgentConfig | null): BrowserAgentConfig {
   return config
-    ? { maas: { ...config.maas }, website: { ...config.website } }
+    ? { maas: { ...config.maas }, website: { ...config.website }, image: { ...config.image }, petQa: { ...config.petQa } }
     : {
         maas: { ...DEFAULT_BROWSER_AGENT_CONFIG.maas },
         website: { ...DEFAULT_BROWSER_AGENT_CONFIG.website },
+        image: { ...DEFAULT_BROWSER_AGENT_CONFIG.image },
+        petQa: { ...DEFAULT_BROWSER_AGENT_CONFIG.petQa },
       };
 }
 
@@ -33,7 +35,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
   const [concurrentWebsiteAgent, setConcurrentWebsiteAgent] = useState(Boolean(config?.website.apiKey));
   const [feedback, setFeedback] = useState("");
 
-  function selectProvider(target: "maas" | "website", presetId: BrowserAgentProviderPresetId) {
+  function selectProvider(target: "maas" | "website" | "petQa", presetId: BrowserAgentProviderPresetId) {
     const preset = browserAgentProviderPreset(presetId);
     setDraft((current) => ({
       ...current,
@@ -69,8 +71,19 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
         model: draft.website.model.trim(),
         mode: draft.website.mode,
       },
+      image: {
+        apiKey: draft.image.apiKey.trim(),
+        baseUrl: draft.image.baseUrl.trim(),
+        model: draft.image.model.trim(),
+      },
+      petQa: {
+        apiKey: draft.petQa.apiKey.trim(),
+        baseUrl: draft.petQa.baseUrl.trim(),
+        model: draft.petQa.model.trim(),
+        mode: draft.petQa.mode,
+      },
     });
-    setFeedback("当前标签页的 Agent 配置已保存，可以直接开始解析。");
+    setFeedback("当前标签页的解析、抽象肖像与宠物 QA 配置已保存，可以直接开始使用。");
   }
 
   const readyLabel = config
@@ -142,6 +155,93 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
             <small>这套配置默认同时处理简历和个人网站。切换 Provider 时会自动更新 Base URL 和推荐 Model。</small>
           </fieldset>
 
+          <fieldset>
+            <legend><span>02</span> 抽象肖像图像服务</legend>
+            <label>
+              <span>图像 API Key（可选）</span>
+              <input
+                type="password"
+                value={draft.image.apiKey}
+                onChange={(event) => setDraft((current) => ({
+                  ...current,
+                  image: { ...current.image, apiKey: event.target.value },
+                }))}
+                placeholder="不填则复用主解析服务 API Key"
+                autoComplete="off"
+              />
+            </label>
+            <div className="agent-config-row">
+              <label>
+                <span>Image Base URL</span>
+                <input
+                  type="url"
+                  required
+                  value={draft.image.baseUrl}
+                  onChange={(event) => setDraft((current) => ({
+                    ...current,
+                    image: { ...current.image, baseUrl: event.target.value },
+                  }))}
+                  placeholder="https://provider.example/v1"
+                />
+              </label>
+              <label>
+                <span>Image Model</span>
+                <input
+                  required
+                  value={draft.image.model}
+                  onChange={(event) => setDraft((current) => ({
+                    ...current,
+                    image: { ...current.image, model: event.target.value },
+                  }))}
+                />
+              </label>
+            </div>
+            <small>用于把识别到的真人头像转换为抽象画。不填独立 Key 时复用主解析 Key；服务需兼容 OpenAI Images Edits 接口。</small>
+          </fieldset>
+
+          <fieldset>
+            <legend><span>03</span> 宠物 QA 服务</legend>
+            <label>
+              <span>Pet QA API Key（可选）</span>
+              <input
+                type="password"
+                value={draft.petQa.apiKey}
+                onChange={(event) => setDraft((current) => ({
+                  ...current,
+                  petQa: { ...current.petQa, apiKey: event.target.value },
+                }))}
+                placeholder="不填则复用主解析服务 API Key"
+                autoComplete="off"
+              />
+            </label>
+            <div className="agent-config-row">
+              <label>
+                <span>Provider / Base URL</span>
+                <select
+                  aria-label="宠物 QA Provider"
+                  value={browserAgentProviderPresetId(draft.petQa)}
+                  onChange={(event) => selectProvider("petQa", event.target.value as BrowserAgentProviderPresetId)}
+                >
+                  {BROWSER_AGENT_PROVIDER_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>{preset.label} · {preset.baseUrl}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Pet QA Model</span>
+                <input
+                  required
+                  value={draft.petQa.model}
+                  onChange={(event) => setDraft((current) => ({
+                    ...current,
+                    petQa: { ...current.petQa, model: event.target.value },
+                  }))}
+                />
+              </label>
+            </div>
+            <small>大厅宠物会基于已解析的简历/个人网站公开资料回答问题。独立 Key 留空时复用主解析服务；资料外的问题会明确回答不知道。</small>
+          </fieldset>
+
           <details className="agent-advanced" open={concurrentWebsiteAgent || undefined}>
             <summary>高级设置 <span>独立并发网站 Agent</span></summary>
             <div className="agent-advanced-body">
@@ -157,7 +257,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                 </span>
               </label>
               {concurrentWebsiteAgent ? <fieldset>
-                <legend><span>02</span> 并发网站 Agent</legend>
+                <legend><span>04</span> 并发网站 Agent</legend>
                 <label>
                   <span>第二个 API Key</span>
                   <input
@@ -201,7 +301,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
           </details>
 
           <p className="agent-security-note">
-            Key 仅保存在当前标签页的 sessionStorage，并只随解析请求发送给 ROOM 服务端代理；不会写入代码仓库或 localStorage。
+            Key 仅保存在当前标签页的 sessionStorage，并只随对应解析、图像或宠物 QA 请求发送给 ROOM 服务端代理；不会写入代码仓库或 localStorage。
           </p>
           <div className="agent-setup-feedback" aria-live="polite">{feedback}</div>
           <footer>

@@ -101,6 +101,26 @@ export const MARDOU_LOBBY_INTRO_ROUTE = {
   duration: 7,
 };
 
+// Ground-floor safe patrol area for the neutral ROOM companion. These points
+// stay in the lobby circulation band, away from the entrance threshold and the
+// stair treads, and keep y at floor height so the companion never routes
+// upstairs.
+export const MARDOU_COMPANION_SAFE_ZONE = {
+  floorY: 0.25,
+  bodyHeight: 0.62,
+  stoppingRadius: 0.32,
+  clickPauseSeconds: 8,
+  dialoguePoint: [-4.4, 0.25, -11.2] as Vec3,
+  waypoints: [
+    [-4.4, 0.25, -11.2],
+    [-2.1, 0.25, -14.8],
+    [1.7, 0.25, -13.4],
+    [4.2, 0.25, -17.2],
+    [0.5, 0.25, -20.2],
+    [-3.8, 0.25, -18.4],
+  ] as ReadonlyArray<Vec3>,
+} as const;
+
 // Points below were ray-picked against the supplied GLB and checked by
 // scripts/audit-mardou-layout.mjs. Ground-floor surfaces are y ~= 0.246 and
 // the upper gallery surface is y ~= 3.527 in application coordinates.

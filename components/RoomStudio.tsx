@@ -21,6 +21,7 @@ import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
   BROWSER_AGENT_SESSION_KEY,
   browserAgentConfigHeaders,
+  browserPortraitArtConfigHeaders,
   normalizeBrowserAgentConfig,
   type BrowserAgentConfig,
 } from "@/lib/browser-agent-config";
@@ -47,12 +48,27 @@ import {
   upsertSavedProfile,
   type SavedProfileRecord,
 } from "@/lib/profile-history";
+import {
+  createHeatLedger,
+  heatItems,
+  heatStorageKey,
+  incrementHeatLedger,
+  parseHeatLedger,
+  publicHeatTargets,
+  type ExhibitHeatLedger,
+  type ExhibitHeatItem,
+} from "@/lib/exhibit-heat";
+import { sceneReadinessProgress } from "@/lib/scene-entry";
 import type { ContentFamily, ParsedProfile, PipelineResult, ProfileItem, SourceEvidence } from "@/lib/types";
 import {
   beginSceneLoading,
   type SceneLoadingSnapshot,
 } from "./SceneLoadingStore";
 import { AgentSetupDialog } from "./AgentSetupDialog";
+import { ExhibitFocusScreen } from "./ExhibitFocusScreen";
+import { ExhibitHeatPanel } from "./ExhibitHeatPanel";
+import { BackgroundMusicController, type BackgroundMusicControllerHandle } from "./BackgroundMusicController";
+import { PetQaPanel } from "./PetQaPanel";
 import type { MardouPictureSlotName, MardouPrivateFrameSlot } from "./MardouMuseumLayout";
 import { ProductFlowLanding } from "./ProductFlowLanding";
 
@@ -73,7 +89,6 @@ const PRIVATE_FRAME_STORAGE_KEY = "room:mardou-private-frame-images:v1";
 const EDITABLE_PICTURE_SLOTS = ["Picture", "Picture_2"] as const satisfies ReadonlyArray<MardouPictureSlotName>;
 const PRIVATE_FRAME_SLOTS = ["private-frame-11", "private-frame-12", "private-frame-13"] as const satisfies ReadonlyArray<MardouPrivateFrameSlot>;
 const PROJECT_EDITS_STORAGE_PREFIX = "room:project-edits:v1:";
-const SCENE_READY_HOLD_MS = 1200;
 const EMPTY_PROJECT_EDIT: ProjectEdit = { title: "", summary: "" };
 function profileStats(profile: ParsedProfile) {
   return {
@@ -105,6 +120,7 @@ type PictureOverrides = Partial<Record<(typeof EDITABLE_PICTURE_SLOTS)[number], 
 type PrivateFrameImages = Partial<Record<MardouPrivateFrameSlot, string>>;
 
 type PortraitArtStatus = "idle" | "generating" | "ready" | "error";
+type ExhibitFocusPhase = "idle" | "travelling" | "presented";
 
 export const BEDROOM_ACCESS_COPY: Record<BedroomAccessMode, { label: string; password: string; canEditDiary: boolean; description: string }> = {
   owner: {
@@ -294,6 +310,16 @@ function readStoredPictureOverrides() {
   }
 }
 
+function readStoredHeatLedger(profileId: string): ExhibitHeatLedger | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = window.localStorage.getItem(heatStorageKey(profileId));
+    return stored ? parseHeatLedger(JSON.parse(stored)) : null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizePrivateFrameImages(value: unknown): PrivateFrameImages {
   if (!value || typeof value !== "object") return {};
   return Object.fromEntries(
@@ -443,25 +469,6 @@ function projectMetadataForDetail(exhibit: PipelineResult["world"]["exhibits"][n
   return metadata;
 }
 
-function DetailBody({ body }: { body: string }) {
-  const lines = body.split("\n");
-  return (
-    <div className="detail-text">
-      {lines.map((line, index) => {
-        const url = line.match(/https?:\/\/[^\s]+/i)?.[0];
-        const email = line.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0];
-        const href = url || (email ? `mailto:${email}` : undefined);
-        return (
-          <span key={`${index}-${line.slice(0, 24)}`}>
-            {href ? <a href={href} target={url ? "_blank" : undefined} rel={url ? "noreferrer" : undefined}>{line}</a> : line}
-            {index < lines.length - 1 ? <br /> : null}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
 type DiaryComposerProps = {
   idPrefix: string;
   text: string;
@@ -538,6 +545,7 @@ export function RoomStudio() {
   const [activeRoom, setActiveRoom] = useState("room-lobby");
   const [projectPage, setProjectPage] = useState(0);
   const [selectedId, setSelectedId] = useState("");
+  const [focusPhase, setFocusPhase] = useState<ExhibitFocusPhase>("idle");
   const [privateGateOpen, setPrivateGateOpen] = useState(false);
   const [privateAccessMode, setPrivateAccessMode] = useState<BedroomAccessMode | "">("");
   const [privatePassword, setPrivatePassword] = useState("");
@@ -566,11 +574,14 @@ export function RoomStudio() {
   const [portraitArtStatus, setPortraitArtStatus] = useState<PortraitArtStatus>("idle");
   const [portraitArtMessage, setPortraitArtMessage] = useState("");
   const [portraitGenerationSettled, setPortraitGenerationSettled] = useState(true);
+  const [heatPanelOpen, setHeatPanelOpen] = useState(false);
+  const [exhibitHeat, setExhibitHeat] = useState<ExhibitHeatLedger | null>(null);
+  const [petQaOpen, setPetQaOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const creationDiaryImageInput = useRef<HTMLInputElement>(null);
   const diaryImageInput = useRef<HTMLInputElement>(null);
   const projectImageInput = useRef<HTMLInputElement>(null);
-  const sceneReadyTimer = useRef<number | null>(null);
+  const musicController = useRef<BackgroundMusicControllerHandle>(null);
   const pageTransitionTimer = useRef<number | null>(null);
   const portraitGeneration = useRef(0);
   const projectCount = result?.world.exhibits.filter((item) => item.eyebrow === "PROJECT").length || 0;
@@ -590,7 +601,25 @@ export function RoomStudio() {
       ),
   );
   const sceneCanReveal = sceneCommitted && sceneResourcesReady && portraitGenerationSettled;
-  const displayedSceneProgress = sceneCanReveal ? 100 : sceneProgress;
+  const displayedSceneProgress = sceneReadinessProgress({
+    resourceProgress: sceneProgress,
+    portraitSettled: portraitGenerationSettled,
+    sceneCommitted,
+    ready: sceneReady,
+  });
+  const heatTargets = useMemo(() => result ? publicHeatTargets(result.world, PROJECTS_PER_PAGE) : [], [result]);
+  const visibleHeatItems = useMemo(
+    () => exhibitHeat ? heatItems(heatTargets, exhibitHeat) : [],
+    [exhibitHeat, heatTargets],
+  );
+  const focusableExhibitIds = useMemo(() => {
+    if (!result) return [];
+    return [
+      ...result.world.displaySurfaces.filter((surface) => surface.roomId === "room-lobby").map((surface) => surface.id),
+      ...result.world.exhibits.filter((exhibit) => exhibit.roomId === "room-lobby").map((exhibit) => exhibit.id),
+    ];
+  }, [result]);
+  const selectedFocusIndex = focusableExhibitIds.indexOf(selectedId);
   const selectedDetail = useMemo<SelectedDetail | undefined>(() => {
     if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary") return undefined;
     const sourceType = result.profile.source.type;
@@ -741,7 +770,6 @@ export function RoomStudio() {
   }, []);
 
   useEffect(() => () => {
-    if (sceneReadyTimer.current !== null) window.clearTimeout(sceneReadyTimer.current);
     if (pageTransitionTimer.current !== null) window.clearTimeout(pageTransitionTimer.current);
     portraitGeneration.current += 1;
   }, []);
@@ -754,11 +782,13 @@ export function RoomStudio() {
     function closeTransientUi(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setSelectedId("");
+      setFocusPhase("idle");
       setPrivateGateOpen(false);
       setPrivateAccessMode("");
       setPrivatePassword("");
       setPrivatePasswordError("");
       setAgentSetupOpen(false);
+      setPetQaOpen(false);
     }
 
     window.addEventListener("keydown", closeTransientUi);
@@ -767,7 +797,7 @@ export function RoomStudio() {
 
   const handleSceneProgress = useCallback((progress: number) => {
     const rounded = Math.max(0, Math.round(progress));
-    const bounded = rounded >= 100 ? 100 : Math.min(94, rounded);
+    const bounded = Math.min(100, rounded);
     setSceneProgress((current) => Math.max(current, bounded));
   }, []);
 
@@ -781,18 +811,8 @@ export function RoomStudio() {
 
   useEffect(() => {
     if (!result || sceneReady || !sceneCanReveal) return;
-    if (sceneReadyTimer.current !== null) return;
-    sceneReadyTimer.current = window.setTimeout(() => {
-      setSceneReady(true);
-      sceneReadyTimer.current = null;
-    }, SCENE_READY_HOLD_MS);
-
-    return () => {
-      if (sceneReadyTimer.current !== null) {
-        window.clearTimeout(sceneReadyTimer.current);
-        sceneReadyTimer.current = null;
-      }
-    };
+    const revealFrame = window.requestAnimationFrame(() => setSceneReady(true));
+    return () => window.cancelAnimationFrame(revealFrame);
   }, [result, sceneCanReveal, sceneReady]);
 
   function resetPrivateAccess() {
@@ -842,17 +862,19 @@ export function RoomStudio() {
       : editedProfile;
     const next = compileProfile(displayProfile);
     beginSceneLoading();
-    if (sceneReadyTimer.current !== null) window.clearTimeout(sceneReadyTimer.current);
-    sceneReadyTimer.current = null;
+    void musicController.current?.start();
     setSceneProgress(0);
     setSceneCommitted(false);
     setSceneReady(false);
     setSceneLoadState(null);
     setResult(next);
     setProjectEdits(storedProjectEdits);
+    const heatTargetsForWorld = publicHeatTargets(next.world, PROJECTS_PER_PAGE);
+    setExhibitHeat(createHeatLedger(profile.id, heatTargetsForWorld, readStoredHeatLedger(profile.id)));
     setProjectEditDraft(EMPTY_PROJECT_EDIT);
     setProjectEditMessage("");
     setSelectedId("");
+    setFocusPhase("idle");
     setActiveRoom("room-lobby");
     setProjectPage(0);
     setSourceBrowserProjectId("");
@@ -862,6 +884,7 @@ export function RoomStudio() {
     setPortraitArtStatus(sourcePortrait ? "generating" : "idle");
     setPortraitArtMessage(sourcePortrait ? "正在创作抽象肖像，真人照片不会出现在展厅中…" : "");
     setPortraitGenerationSettled(!sourcePortrait);
+    setPetQaOpen(false);
     resetPrivateAccess();
     setMessage("");
     if (sourcePortrait) void generateAbstractPortrait(sourcePortrait, next.profile);
@@ -884,7 +907,11 @@ export function RoomStudio() {
       const form = new FormData();
       const extension = sourceBlob.type === "image/jpeg" ? "jpg" : sourceBlob.type.split("/")[1] || "png";
       form.set("image", new File([sourceBlob], `profile-photo.${extension}`, { type: sourceBlob.type }));
-      const response = await fetch("/api/profile-art", { method: "POST", body: form });
+      const response = await fetch("/api/profile-art", {
+        method: "POST",
+        headers: browserPortraitArtConfigHeaders(browserAgentConfig),
+        body: form,
+      });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error || "抽象肖像生成失败，请稍后重试。");
@@ -962,17 +989,20 @@ export function RoomStudio() {
 
   const requestRoomChange = useCallback((roomId: string) => {
     setSelectedId("");
+    setFocusPhase("idle");
     setActiveRoom(roomId);
   }, []);
 
   function leavePrivateRoom(nextRoom: string) {
     setSelectedId("");
+    setFocusPhase("idle");
     setActiveRoom(nextRoom);
     if (activeRoom === PRIVATE_ROOM_ID) resetPrivateAccess();
   }
 
   function changeProjectPage(nextPage: number) {
     setSelectedId("");
+    setFocusPhase("idle");
     setProjectPage(Math.max(0, Math.min(projectPageCount - 1, nextPage)));
   }
 
@@ -1023,8 +1053,8 @@ export function RoomStudio() {
       setPendingProfile(profile);
       const remembered = rememberGeneratedProfile(profile);
       setMessage(remembered
-        ? "个人博物馆已经准备好，并已加入最近生成。你可以再写一页日记，然后进入。"
-        : "个人博物馆已经准备好；浏览器空间不足，暂时没有加入最近生成。");
+        ? "你的小家已经准备好，并已加入最近生成。你可以再写一页日记，然后进入。"
+        : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "读取失败，请稍后重试。 ");
     } finally {
@@ -1058,8 +1088,8 @@ export function RoomStudio() {
       setPendingProfile(data.profile);
       const remembered = rememberGeneratedProfile(data.profile);
       setMessage(remembered
-        ? "个人博物馆已经准备好，并已加入最近生成。你可以再写一页日记，然后进入。"
-        : "个人博物馆已经准备好；浏览器空间不足，暂时没有加入最近生成。");
+        ? "你的小家已经准备好，并已加入最近生成。你可以再写一页日记，然后进入。"
+        : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取这个文件。");
     } finally {
@@ -1184,6 +1214,11 @@ export function RoomStudio() {
     if (PRIVATE_FRAME_SLOTS.includes(id as MardouPrivateFrameSlot)) setPrivateFrameMessage("");
     if (projectImageInput.current) projectImageInput.current.value = "";
     setSelectedId(id);
+    const focusable = Boolean(id) && Boolean(
+      result?.world.exhibits.some((item) => item.id === id)
+      || result?.world.displaySurfaces.some((item) => item.id === id),
+    );
+    setFocusPhase(focusable ? "travelling" : "idle");
     setSourceBrowserProjectId(
       id === SOURCE_BROWSER_ID
         ? result?.profile.items.find((item) => item.kind === "project")?.id || ""
@@ -1192,6 +1227,52 @@ export function RoomStudio() {
     setGuestbookError("");
     setDiaryError("");
   }, [activeRoom, privateUnlocked, result]);
+
+  function routeToWorldObject(id: string) {
+    if (!result) return;
+    if (id === selectedId && focusPhase !== "idle") return;
+    const exhibit = result.world.exhibits.find((item) => item.id === id);
+    const surface = result.world.displaySurfaces.find((item) => item.id === id);
+    const targetRoom = exhibit?.roomId || surface?.roomId;
+    if (targetRoom && targetRoom !== activeRoom) setActiveRoom(targetRoom);
+    if (exhibit?.eyebrow === "PROJECT") {
+      const projectIndex = result.world.exhibits.filter((item) => item.eyebrow === "PROJECT").findIndex((item) => item.id === id);
+      if (projectIndex >= 0) setProjectPage(Math.floor(projectIndex / PROJECTS_PER_PAGE));
+    }
+    selectWorldObject(id);
+  }
+
+  function selectHeatItem(item: ExhibitHeatItem) {
+    routeToWorldObject(item.id);
+    if (window.matchMedia("(max-width: 680px)").matches) setHeatPanelOpen(false);
+  }
+
+  const handleExhibitFocusSettled = useCallback((id: string) => {
+    if (id !== selectedId) return;
+    setFocusPhase("presented");
+    setExhibitHeat((current) => {
+      if (!current || !current.entries[id]) return current;
+      const next = incrementHeatLedger(current, id);
+      try {
+        window.localStorage.setItem(heatStorageKey(next.profileId), JSON.stringify(next));
+      } catch {
+        // Demo heat remains usable in memory when browser storage is unavailable.
+      }
+      return next;
+    });
+  }, [selectedId]);
+  const openPetQa = useCallback(() => setPetQaOpen(true), []);
+
+  function closeExhibitFocus() {
+    setSelectedId("");
+    setFocusPhase("idle");
+  }
+
+  function focusAdjacentExhibit(direction: -1 | 1) {
+    if (!focusableExhibitIds.length || selectedFocusIndex < 0) return;
+    const nextIndex = (selectedFocusIndex + direction + focusableExhibitIds.length) % focusableExhibitIds.length;
+    routeToWorldObject(focusableExhibitIds[nextIndex]);
+  }
 
   function openSourceBrowser(item?: ProfileItem) {
     if (!result) return;
@@ -1345,29 +1426,35 @@ export function RoomStudio() {
   }
 
   if (!introComplete && !result && !loading && !pendingProfile) {
-    return <ProductFlowLanding onEnter={showIntake} />;
+    return (
+      <>
+        <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
+        <ProductFlowLanding onEnter={showIntake} />
+      </>
+    );
   }
 
   if (!result && (loading || pendingProfile)) {
     const creationReady = Boolean(pendingProfile);
     return (
       <main className={`creation-page ${creationReady ? "is-ready" : "is-parsing"}`}>
+        <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
         <header className="minimal-header creation-header">
           <span className="wordmark">ROOM</span>
           <span className="edition">MOVE-IN DESK · PRIVATE LOCAL MEMORY</span>
         </header>
 
-        <section className="creation-workspace" aria-label="个人博物馆创建进度与日记准备台">
+        <section className="creation-workspace" aria-label="个人小家创建进度与日记准备台">
           <section className="creation-progress" aria-live="polite">
             <span className="creation-index">ROOM / BUILD 01</span>
             <div className={`creation-orbit ${creationReady ? "is-complete" : ""}`} aria-hidden="true"><span /></div>
-            <p className="creation-kicker">{creationReady ? "YOUR MUSEUM IS READY" : "PROFILE AGENT IS WORKING"}</p>
-            <h1>{creationReady ? "你的博物馆，已经可以进入。" : "让 Agent 继续搭建，先写点自己的事。"}</h1>
+            <p className="creation-kicker">{creationReady ? "YOUR HOME IS READY" : "PROFILE AGENT IS WORKING"}</p>
+            <h1>{creationReady ? "你的小家，已经可以进入。" : "让 Agent 继续搭建，先写点自己的事。"}</h1>
             <p className="creation-message">{message}</p>
             <ol className="creation-steps">
               <li className="is-complete"><span>01</span><div><strong>资料已接收</strong><small>简历与公开信息进入解析队列</small></div></li>
               <li className={creationReady ? "is-complete" : "is-active"}><span>02</span><div><strong>Agent 解析与整合</strong><small>项目、经历和个人网站并行整理</small></div></li>
-              <li className={creationReady ? "is-complete" : ""}><span>03</span><div><strong>生成可进入的博物馆</strong><small>内容会被编排到展厅和二楼私人日记</small></div></li>
+              <li className={creationReady ? "is-complete" : ""}><span>03</span><div><strong>生成可进入的小家</strong><small>内容会被编排到展厅和二楼私人日记</small></div></li>
             </ol>
           </section>
 
@@ -1396,7 +1483,7 @@ export function RoomStudio() {
               ) : <span>日记本还是空的，第一条记录可以从这里开始。</span>}
             </div>
             <button className="creation-enter" type="button" disabled={!creationReady} onClick={enterPendingWorld}>
-              <span>{creationReady ? "进入我的博物馆" : "Agent 搭建中"}</span><span aria-hidden="true">{creationReady ? "→" : "···"}</span>
+              <span>{creationReady ? "进入小家" : "Agent 搭建中"}</span><span aria-hidden="true">{creationReady ? "→" : "···"}</span>
             </button>
             <small className="creation-draft-note">进入时，尚未点击保存的文字或图片也会自动收进日记本。</small>
           </section>
@@ -1412,6 +1499,7 @@ export function RoomStudio() {
   if (!result) {
     return (
       <main className={`intake-page is-${intakeTransition}`}>
+        <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
         <header className="minimal-header">
           <Link className="wordmark intake-wordmark" href="/" aria-label="ROOM home">
             <img src="/assets/blueprint/parts/room-logo.png" alt="ROOM" />
@@ -1439,7 +1527,7 @@ export function RoomStudio() {
               <span>开始搭建。</span>
             </h1>
             <p className="intro">
-              提交个人网页或简历。ROOM 会沿着上一页的路径，把项目、经历和技能继续编排成一座可以进入的 3D 博物馆。
+              提交个人网页或简历。ROOM 会沿着上一页的路径，把项目、经历和技能继续编排成一个可以进入的 3D 小家。
             </p>
           </div>
 
@@ -1465,7 +1553,7 @@ export function RoomStudio() {
                   placeholder="https://yourname.com"
                   autoComplete="url"
                 />
-                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成博物馆">
+                <button type="submit" disabled={loading || !url.trim()} aria-label="从网址生成小家">
                   <span>继续</span><span aria-hidden="true">→</span>
                 </button>
               </div>
@@ -1518,7 +1606,7 @@ export function RoomStudio() {
                       </div>
                       <p>{stats.projects} 个项目 · {stats.journey} 段经历与教育 · {stats.skills} 项技能 · {stats.achievements} 项成就</p>
                       <button type="button" disabled={loading} onClick={() => openWorld(record.profile)}>
-                        重新进入这个博物馆 <span aria-hidden="true">→</span>
+                        重新进入这个小家 <span aria-hidden="true">→</span>
                       </button>
                     </article>
                   );
@@ -1530,7 +1618,7 @@ export function RoomStudio() {
                   </div>
                   <p>{hanchenDemoStats.projects} 个项目 · {hanchenDemoStats.journey} 段经历与教育 · {hanchenDemoStats.skills} 项技能 · {hanchenDemoStats.achievements} 项成就</p>
                   <button type="button" disabled={loading} onClick={openDemo}>
-                    进入韩晨的博物馆 <span aria-hidden="true">→</span>
+                    进入韩晨的小家 <span aria-hidden="true">→</span>
                   </button>
                 </article>
               </div>
@@ -1560,10 +1648,13 @@ export function RoomStudio() {
 
   return (
     <main className="world-page">
+      <BackgroundMusicController ref={musicController} enabled={sceneReady} />
       <section className={`world-stage ${sceneReady ? "is-ready" : "is-loading"}`} aria-label={`${result.profile.name} 的 3D 个人世界`}>
         <div className="scene-loading-screen" aria-live="polite" aria-hidden={sceneReady}>
           <div className="scene-loading-brand">ROOM / BUILD</div>
-          <div className="scene-loading-spinner" aria-hidden="true"><span /></div>
+          {sceneReady
+            ? <div className="scene-loading-complete" aria-hidden="true">✓</div>
+            : <div className="scene-loading-spinner" aria-hidden="true"><span /></div>}
           <strong>{displayedSceneProgress}%</strong>
           <div className="scene-loading-track" aria-hidden="true"><span style={{ width: `${displayedSceneProgress}%` }} /></div>
           <p>
@@ -1571,9 +1662,9 @@ export function RoomStudio() {
               ? "部分独立装饰未加载，基础房间仍可正常进入"
               : !portraitGenerationSettled
                 ? "正在创作抽象肖像，真人照片不会出现在展厅"
-                : displayedSceneProgress < 100
-                ? "正在组装材质、灯光与个人展品"
-                : "加载完成，正在稳定画面，即将进入"}
+                : sceneCommitted
+                  ? "正在确认最后一帧与缓存状态"
+                  : "正在组装材质、灯光与个人展品"}
           </p>
         </div>
         <button className="home-return" type="button" onClick={returnToIntake}>
@@ -1588,12 +1679,33 @@ export function RoomStudio() {
           guestbookMessages={guestbookEntries.map((entry) => entry.message)}
           pictureOverrides={pictureOverrides}
           privateFrameImages={privateFrameImages}
+          petQaOpen={petQaOpen}
           onSelect={selectWorldObject}
           onRoomChange={requestRoomChange}
           onLoadProgress={handleSceneProgress}
           onLoadState={handleSceneLoadState}
           onReady={handleSceneReady}
+          onFocusSettled={handleExhibitFocusSettled}
+          onOpenPetQa={openPetQa}
         />
+
+        <ExhibitHeatPanel
+          items={visibleHeatItems}
+          open={heatPanelOpen}
+          onToggle={() => setHeatPanelOpen((value) => !value)}
+          onSelect={selectHeatItem}
+        />
+
+        <button
+          className="companion-qa-launch"
+          type="button"
+          onClick={openPetQa}
+          aria-expanded={petQaOpen}
+          aria-controls="pet-qa-panel"
+        >
+          <span aria-hidden="true">◇</span>
+          问问小伙伴
+        </button>
 
         <div className={`private-gate ${privateGateOpen ? "is-open" : ""}`} aria-hidden={!privateGateOpen}>
           {privateGateOpen ? (
@@ -1658,7 +1770,7 @@ export function RoomStudio() {
                   leavePrivateRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
                 }}
               >
-                ← {activeRoom === "room-lobby" ? "回到展馆外" : "返回主展厅"}
+                ← {activeRoom === "room-lobby" ? "回到小家外" : "返回主展厅"}
               </button>
               {activeRoom === PRIVATE_ROOM_ID ? (
                 <button type="button" onClick={() => { setSelectedId(PRIVATE_FRAME_SLOTS[0]); setPrivateFrameMessage(""); }}>
@@ -1690,13 +1802,20 @@ export function RoomStudio() {
           )}
         </nav>
 
-        <div className={`exhibit-detail ${selectedDetail ? "is-open" : ""}`}>
-          {selectedDetail ? (
+        <ExhibitFocusScreen
+          open={Boolean(selectedDetail && focusPhase === "presented")}
+          title={selectedDetail?.title || ""}
+          exhibitType={selectedDetail?.eyebrow || "SHOWROOM"}
+          body={selectedDetail?.body}
+          image={selectedDetail?.imageUrl ? { src: selectedDetail.imageUrl, alt: `${selectedDetail.title} 展台图片` } : undefined}
+          sourceLinks={selectedDetail?.sourceUrl ? [{ label: "在来源终端打开源文件 ↗", url: selectedDetail.sourceUrl }] : []}
+          currentIndex={selectedFocusIndex >= 0 ? selectedFocusIndex : undefined}
+          totalCount={focusableExhibitIds.length}
+          onClose={closeExhibitFocus}
+          onPrevious={selectedFocusIndex >= 0 ? () => focusAdjacentExhibit(-1) : undefined}
+          onNext={selectedFocusIndex >= 0 ? () => focusAdjacentExhibit(1) : undefined}
+          projectEditSlot={selectedDetail ? (
             <>
-              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭详情">×</button>
-              <p>{selectedDetail.eyebrow}</p>
-              <h2>{selectedDetail.title}</h2>
-              <DetailBody body={selectedDetail.body} />
               {portraitDetailSelected && originalPortraitUrl ? (
                 <section className="portrait-art-control" aria-labelledby="portrait-art-title">
                   <div className="portrait-art-heading">
@@ -1798,13 +1917,17 @@ export function RoomStudio() {
               ) : null}
               <small>
                 {selectedDetail.source}
-                {selectedDetail.sourceUrl ? (
-                  <> · <a href={selectedDetail.sourceUrl} target="_blank" rel="noreferrer">在来源终端打开源文件 ↗</a></>
-                ) : null}
               </small>
             </>
           ) : null}
-        </div>
+        />
+
+        <PetQaPanel
+          profile={result.profile}
+          config={browserAgentConfig}
+          open={petQaOpen}
+          onClose={() => setPetQaOpen(false)}
+        />
 
         <aside className={`memory-panel ${selectedId === "showroom-guestbook" ? "is-open" : ""}`} aria-hidden={selectedId !== "showroom-guestbook"}>
           {selectedId === "showroom-guestbook" ? (
@@ -1817,7 +1940,7 @@ export function RoomStudio() {
                 <label htmlFor="guest-name">名字</label>
                 <input id="guest-name" value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="匿名访客" maxLength={32} />
                 <label htmlFor="guest-message">留言</label>
-                <textarea id="guest-message" value={guestMessage} onChange={(event) => { setGuestMessage(event.target.value); setGuestbookError(""); }} placeholder="这座展馆让你想到什么？" maxLength={160} rows={4} />
+                <textarea id="guest-message" value={guestMessage} onChange={(event) => { setGuestMessage(event.target.value); setGuestbookError(""); }} placeholder="这个小家让你想到什么？" maxLength={160} rows={4} />
                 <div className="memory-error" aria-live="polite">{guestbookError}</div>
                 <button type="submit">写入签到簿</button>
               </form>
@@ -1869,7 +1992,7 @@ export function RoomStudio() {
             <>
               <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭图片位配置">×</button>
               <p>GLB PICTURE SLOTS</p>
-              <h2>替换展馆原生图片</h2>
+              <h2>替换小家原生图片</h2>
               <div className="memory-description">
                 Picture_1 是重叠占位网格，始终保留但默认隐藏；其余两个图片位可独立使用 URL 或本地图片替换。
               </div>

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
+const setupDialog = readFileSync(new URL("../components/AgentSetupDialog.tsx", import.meta.url), "utf8");
 const design = readFileSync(new URL("../DESIGN.md", import.meta.url), "utf8");
 const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
 const viteConfig = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
@@ -28,6 +29,14 @@ test("portrait detail exposes only abstract art and a retry action", () => {
 test("intake discloses automatic photo transformation", () => {
   assert.match(source, /自动把它发送至图像服务生成抽象肖像/);
   assert.match(design, /source photo is an identity input, never a public exhibit/i);
+});
+
+test("second-page Agent settings expose portrait-art provider configuration", () => {
+  assert.match(setupDialog, /抽象肖像图像服务/);
+  assert.match(setupDialog, /图像 API Key（可选）/);
+  assert.match(setupDialog, /Image Base URL/);
+  assert.match(setupDialog, /Image Model/);
+  assert.match(source, /browserPortraitArtConfigHeaders\(browserAgentConfig\)/);
 });
 
 test("multipart runtime limit remains just above the route's explicit image limit", () => {
