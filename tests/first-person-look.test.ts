@@ -15,3 +15,11 @@ test("first-person mouse look keeps vertical rotation bounded", () => {
   assert.match(source, /FIRST_PERSON_MAX_PITCH = THREE\.MathUtils\.degToRad\(75\)/);
   assert.match(source, /THREE\.MathUtils\.clamp\([\s\S]*-FIRST_PERSON_MAX_PITCH,[\s\S]*FIRST_PERSON_MAX_PITCH/);
 });
+
+test("Q and E turn the first-person view left or right by 180 degrees", () => {
+  assert.match(source, /\["q", "e"\]\.includes\(key\)/);
+  assert.match(source, /keyboardTurnRemaining\.current = key === "q" \? Math\.PI : -Math\.PI/);
+  assert.match(source, /event\.repeat \|\| selectedExhibit \|\| route\.current/);
+  assert.match(source, /FIRST_PERSON_HALF_TURN_DURATION = 0\.55/);
+  assert.match(source, /firstPersonYaw\.current \+= yawStep/);
+});

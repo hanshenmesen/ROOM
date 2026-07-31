@@ -21,6 +21,7 @@ import {
   planCreativeSubjects,
   type CreativeSubject,
 } from "@/lib/agents/creative-subjects";
+import { materialFrameCopy } from "@/lib/exhibit-presentation";
 import type { ContentFamily, DisplaySurfacePlan, ExhibitPlan, ProfileItem, Vec3, WorldPlan } from "@/lib/types";
 import {
   PortfolioEnvironment,
@@ -97,6 +98,7 @@ const FIRST_PERSON_SPEED = 2.7;
 const FIRST_PERSON_COLLISION_RADIUS = 0.42;
 const FIRST_PERSON_LOOK_SENSITIVITY = 0.004;
 const FIRST_PERSON_MAX_PITCH = THREE.MathUtils.degToRad(75);
+const FIRST_PERSON_HALF_TURN_DURATION = 0.55;
 const FIRST_PERSON_BOUNDS = {
   "room-lobby": { minX: -9.2, maxX: 7, minZ: -25.5, maxZ: 4 },
   "room-private": { minX: -10.4, maxX: 9.2, minZ: -26.5, maxZ: -8.5 },
@@ -154,6 +156,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
   const pressedMovementKeys = useRef(new Set<string>());
   const firstPersonYaw = useRef(0);
   const firstPersonPitch = useRef(0);
+  const keyboardTurnRemaining = useRef(0);
   const draggingLook = useRef(false);
   const previousLookPointer = useRef({ x: 0, y: 0 });
   const route = useRef<CameraRoute | null>(null);
@@ -166,7 +169,14 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
 
     function handleKeyDown(event: KeyboardEvent) {
       const key = event.key.toLowerCase();
-      if (!FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS] || !["w", "a", "s", "d"].includes(key) || isTypingTarget(event.target)) return;
+      if (!FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS] || isTypingTarget(event.target)) return;
+      if (["q", "e"].includes(key)) {
+        if (event.repeat || selectedExhibit || route.current || Math.abs(keyboardTurnRemaining.current) > 0.001) return;
+        event.preventDefault();
+        keyboardTurnRemaining.current = key === "q" ? Math.PI : -Math.PI;
+        return;
+      }
+      if (!["w", "a", "s", "d"].includes(key)) return;
       event.preventDefault();
       pressedMovementKeys.current.add(key);
     }
@@ -188,7 +198,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
       window.removeEventListener("blur", clearKeys);
       clearKeys();
     };
-  }, [activeRoom]);
+  }, [activeRoom, selectedExhibit]);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -301,6 +311,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
 
     firstPersonYaw.current = 0;
     firstPersonPitch.current = 0;
+    keyboardTurnRemaining.current = 0;
     draggingLook.current = false;
 
     const startPosition = camera.position.clone();
@@ -326,10 +337,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
         new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryLook),
         lookAtTarget.clone(),
       ];
-      const introPath = new THREE.CurvePath<THREE.Vector3>();
-      introPath.add(new THREE.CatmullRomCurve3(positionPoints.slice(0, 3), false, "centripetal"));
-      introPath.add(new THREE.CatmullRomCurve3(positionPoints.slice(2), false, "centripetal"));
-      positionCurve = introPath;
+      positionCurve = new THREE.CatmullRomCurve3(positionPoints, false, "centripetal");
       duration = MARDOU_LOBBY_INTRO_ROUTE.duration;
       lobbyIntroPending.current = false;
     } else if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
@@ -421,11 +429,11 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
     }
 
     if (route.current) {
-      route.current.elapsed = Math.min(route.current.duration, route.current.elapsed + delta);
+      route.current.elapsed = Math.min(route.current.duration, route.current.elapsed + Math.min(delta, 1 / 24));
       const progress = route.current.elapsed / route.current.duration;
       const eased = progress * progress * (3 - 2 * progress);
-      route.current.position.getPoint(eased, camera.position);
-      route.current.target.getPoint(eased, lookAt);
+      route.current.position.getPointAt(eased, camera.position);
+      route.current.target.getPointAt(eased, lookAt);
       camera.lookAt(lookAt);
       if (camera instanceof THREE.PerspectiveCamera) {
         camera.fov = THREE.MathUtils.lerp(route.current.fromFov, route.current.toFov, eased);
@@ -436,6 +444,13 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
     }
 
     const walkBounds = FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS];
+    if (walkBounds && !selectedExhibit && Math.abs(keyboardTurnRemaining.current) > 0.001) {
+      const maxStep = Math.PI * Math.min(delta, 0.05) / FIRST_PERSON_HALF_TURN_DURATION;
+      const yawStep = Math.sign(keyboardTurnRemaining.current)
+        * Math.min(Math.abs(keyboardTurnRemaining.current), maxStep);
+      firstPersonYaw.current += yawStep;
+      keyboardTurnRemaining.current -= yawStep;
+    }
     if (walkBounds && !selectedExhibit && pressedMovementKeys.current.size) {
       const forwardInput = Number(pressedMovementKeys.current.has("w")) - Number(pressedMovementKeys.current.has("s"));
       const rightInput = Number(pressedMovementKeys.current.has("d")) - Number(pressedMovementKeys.current.has("a"));
@@ -1443,16 +1458,15 @@ function LivingInformationWall({ world, activeRoom, selectedId, onSelect }: { wo
           />
         );
       })}
-      {activeRoom === "room-lobby" ? <pointLight position={[0, 3, -19.4]} intensity={14} distance={13} decay={2} color="#ffe3bd" /> : null}
+      <pointLight position={[0, 3, -19.4]} intensity={activeRoom === "room-lobby" ? 14 : 0} distance={13} decay={2} color="#ffe3bd" />
     </group>
   );
 }
 
 function ShowroomDetails({ lit }: { lit: boolean }) {
-  if (!lit) return null;
   return <group>
-    <pointLight position={[-2, 3.2, -12]} intensity={7} distance={12} decay={2} color="#ffe2b2" />
-    <pointLight position={[1, 5.4, -19]} intensity={3} distance={9} decay={2} color="#9fc6b8" />
+    <pointLight position={[-2, 3.2, -12]} intensity={lit ? 7 : 0} distance={12} decay={2} color="#ffe2b2" />
+    <pointLight position={[1, 5.4, -19]} intensity={lit ? 3 : 0} distance={9} decay={2} color="#9fc6b8" />
   </group>;
 }
 
@@ -1510,9 +1524,9 @@ function GuestbookBoard({ messages, interactive, selected, onSelect }: { message
             <cylinderGeometry args={[0.78, 0.78, 1.45, 18]} />
             <meshBasicMaterial color="#7088d4" transparent opacity={0.001} depthWrite={false} toneMapped={false} />
           </mesh>
-          <pointLight position={[0.65, 0.55, 0.2]} intensity={selected ? 4.5 : hovered ? 3 : 1.2} distance={3} color="#b6c4ff" />
         </>
       ) : null}
+      <pointLight position={[0.65, 0.55, 0.2]} intensity={interactive ? selected ? 4.5 : hovered ? 3 : 1.2 : 0} distance={3} color="#b6c4ff" />
     </group>
   );
 }
@@ -1604,9 +1618,9 @@ function SourceArchiveTerminal({ interactive, selected, onSelect }: { interactiv
             <cylinderGeometry args={[0.82, 0.82, 1.5, 18]} />
             <meshBasicMaterial color={TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
           </mesh>
-          <pointLight position={[0.65, 1.15, 0.3]} intensity={selected ? 4.2 : hovered ? 2.8 : 1.1} distance={3} color={selected ? CORAL : TEAL} />
         </>
       ) : null}
+      <pointLight position={[0.65, 1.15, 0.3]} intensity={interactive ? selected ? 4.2 : hovered ? 2.8 : 1.1 : 0} distance={3} color={selected ? CORAL : TEAL} />
     </group>
   );
 }
@@ -1665,7 +1679,7 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
         <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
       <TextPanel title="PRIVATE DIARY" subtitle="CLICK THE OPEN BOOK" position={[0, 0.5, 0.9]} width={1.34} height={0.3} />
-      {interactive ? <pointLight position={[0.8, 1.45, 0.3]} intensity={selected ? 5 : 2.8} distance={3.5} color="#ffcc91" /> : null}
+      <pointLight position={[0.8, 1.45, 0.3]} intensity={interactive ? selected ? 5 : 2.8 : 0} distance={3.5} color="#ffcc91" />
     </group>
   );
 }
@@ -1815,7 +1829,7 @@ function LoadedProjectTextureFaces({ url }: { url: string }) {
 
 function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; index: number; selected: boolean }) {
   const artwork = useRef<THREE.Group>(null);
-  const fallbackLabel = exhibit.imageUrl ? "SOURCED IMAGE LOADING" : "SYSTEM PLACEHOLDER";
+  const frameCopy = useMemo(() => materialFrameCopy(exhibit, index + 1), [exhibit, index]);
   useFrame((state, delta) => {
     if (!artwork.current) return;
     const baseYaw = index % 2 === 0 ? 0.05 : -0.05;
@@ -1832,23 +1846,27 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
     const context = canvas.getContext("2d")!;
     context.fillStyle = "#f4eadb";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    drawProjectArtwork(context, exhibit.title, accent);
+    drawProjectArtwork(context, frameCopy.title, accent);
     context.fillStyle = accent;
     context.fillRect(0, 348, canvas.width, 16);
     context.fillStyle = "#6e5c51";
     context.font = "700 25px Arial";
-    context.fillText(`${fallbackLabel} ${String(index + 1).padStart(2, "0")}`, 48, 416, 920);
+    context.fillText(frameCopy.marker, 48, 416, 920);
     context.fillStyle = INK;
     context.font = "700 54px Arial";
-    const titleBottom = drawWrappedText(context, exhibit.title, 48, 486, 920, 60, 2);
+    const titleBottom = drawWrappedText(context, frameCopy.title, 48, 486, 920, 60, 2);
+    const metaY = titleBottom + 38;
+    context.fillStyle = accent;
+    context.font = "700 24px Arial";
+    context.fillText(frameCopy.meta, 48, metaY, 920);
     context.fillStyle = "#514640";
-    context.font = "27px Arial";
-    drawWrappedText(context, exhibit.body, 48, titleBottom + 42, 920, 36, 3);
+    context.font = "26px Arial";
+    drawWrappedText(context, frameCopy.takeaway, 48, metaY + 40, 920, 34, 2);
     const result = new THREE.CanvasTexture(canvas);
     result.colorSpace = THREE.SRGBColorSpace;
     result.anisotropy = 4;
     return result;
-  }, [accent, exhibit.body, exhibit.title, fallbackLabel, index]);
+  }, [accent, frameCopy]);
 
   useEffect(() => () => texture.dispose(), [texture]);
   const placeholderFaces = <ProjectTextureFaces texture={texture} />;
@@ -1875,6 +1893,7 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
 function ProjectPedestal({ exhibit, position, displayIndex, selected, interactive, onSelect }: { exhibit: ExhibitPlan; position: Vec3; displayIndex: number; selected: boolean; interactive: boolean; onSelect: (id: string) => void }) {
   const [hovered, setHovered] = useState(false);
   const group = useRef<THREE.Group>(null);
+  const frameCopy = useMemo(() => materialFrameCopy(exhibit, displayIndex), [displayIndex, exhibit]);
   useFrame(() => {
     if (!group.current) return;
     const targetScale = selected ? 1.055 : hovered ? 1.035 : 1;
@@ -1903,8 +1922,8 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
       </mesh>
       <ProjectImageCard exhibit={exhibit} index={displayIndex - 1} selected={selected} />
       <TextPanel
-        title={`PROJECT ${String(displayIndex).padStart(2, "0")}`}
-        subtitle={exhibit.title}
+        title={frameCopy.marker}
+        subtitle={frameCopy.title}
         position={[0, 0.43, 0.74]}
         width={1.12}
         height={0.26}
@@ -1915,9 +1934,9 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
             <cylinderGeometry args={[1.02, 1.02, 1.1, 20]} />
             <meshBasicMaterial color={projectAccent(exhibit.title)} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
           </mesh>
-          <pointLight position={[0, 1.15, 0.35]} intensity={selected ? 3.2 : hovered ? 2 : 0.65} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} />
         </>
       ) : null}
+      <pointLight position={[0, 1.15, 0.35]} intensity={interactive ? selected ? 3.2 : hovered ? 2 : 0.65 : 0} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} />
     </group>
   );
 }
@@ -1967,16 +1986,29 @@ class TextureAssetBoundary extends Component<
 }
 
 function SceneReadyNotifier({ onReady }: { onReady: () => void }) {
+  const { camera, gl, scene } = useThree();
   useEffect(() => {
+    let cancelled = false;
+    let firstFrame = 0;
     let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(onReady);
-    });
+    async function warmScene() {
+      try {
+        await gl.compileAsync(scene, camera);
+      } catch {
+        // A normal render remains the fallback when parallel shader compilation is unavailable.
+      }
+      if (cancelled) return;
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(onReady);
+      });
+    }
+    void warmScene();
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(firstFrame);
       if (secondFrame) window.cancelAnimationFrame(secondFrame);
     };
-  }, [onReady]);
+  }, [camera, gl, onReady, scene]);
   return null;
 }
 
@@ -2059,8 +2091,8 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
         <ambientLight intensity={0.5} color="#ead9c4" />
         <hemisphereLight intensity={0.65} color="#bfd6e8" groundColor="#432f2a" />
         <directionalLight castShadow position={[14, 22, 12]} intensity={2.35} color="#ffd8ad" shadow-mapSize={[2048, 2048]} shadow-camera-left={-26} shadow-camera-right={26} shadow-camera-top={24} shadow-camera-bottom={-24} />
-        {activeRoom !== "room-private" ? <pointLight position={[-7, 5, 5]} intensity={12} distance={12} decay={2} color={CORAL} /> : null}
-        {activeRoom !== "room-private" ? <pointLight position={[6, 4, -3]} intensity={3.8} distance={9} decay={2} color="#9fc6b8" /> : null}
+        <pointLight position={[-7, 5, 5]} intensity={activeRoom !== "room-private" ? 12 : 0} distance={12} decay={2} color={CORAL} />
+        <pointLight position={[6, 4, -3]} intensity={activeRoom !== "room-private" ? 3.8 : 0} distance={9} decay={2} color="#9fc6b8" />
         <RendererLook />
         <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} sceneReady={sceneReady} world={world} />
         <Suspense fallback={null}>

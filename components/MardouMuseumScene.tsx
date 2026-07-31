@@ -14,6 +14,10 @@ import { SceneGltfLoader, SceneTextureLoader } from "./SceneAssetLoaders";
 
 const MUSEUM_URL = "/vendor/mardou/MardouMuseumResult.glb";
 
+export function preloadMardouMuseum() {
+  useLoader.preload(SceneGltfLoader, MUSEUM_URL);
+}
+
 // Local coordinates inside the Walls mesh. The GLB authors baked both door
 // leaves into that mesh, so these triangles are removed before independent
 // animated leaves are inserted in WorldCanvas.

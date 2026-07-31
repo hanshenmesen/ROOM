@@ -3,8 +3,8 @@
 ## Source of truth
 - Status: Active
 - Last refreshed: 2026-07-31
-- Primary product surfaces: intake screen, single demo résumé, explorable Three.js villa
-- Evidence reviewed: `docs/PRODUCT.md`, `docs/TEMPLATE_RESEARCH.md`, `lib/rag/reference-catalog.ts`, `components/RoomStudio.tsx`, `components/WorldCanvas.tsx`, `app/globals.css`, `/Users/hanchen/Documents/room-materials/components/SceneMaterials.tsx`, `/Users/hanchen/Documents/room-materials/public/assets/materials/ASSETS.md`
+- Primary product surfaces: animated process-blueprint landing, intake screen, single demo résumé, explorable Three.js museum
+- Evidence reviewed: `docs/PRODUCT.md`, `docs/TEMPLATE_RESEARCH.md`, `lib/rag/reference-catalog.ts`, `components/ProductFlowLanding.tsx`, `components/RoomStudio.tsx`, `components/WorldCanvas.tsx`, `app/globals.css`, the user-provided `ROOM_可编辑重建版.pptx` and `图片 2.pdf`, `public/assets/blueprint/parts/`, `/Users/hanchen/Documents/room-materials/components/SceneMaterials.tsx`, `/Users/hanchen/Documents/room-materials/public/assets/materials/ASSETS.md`
 
 ## Brand
 - Personality: playful architectural studio, handcrafted digital diorama, personal and discoverable
@@ -12,8 +12,8 @@
 - Avoid: monochrome gallery minimalism, unnecessary room proliferation, generic SaaS dashboard chrome, an empty public showroom, importing a complete third-party room scene
 
 ## Product goals
-- Goals: perfect one résumé-to-villa demo; make spatial discovery happen through the villa itself; couple every navigation step to a camera transition
-- Non-goals: multiple demo personas, free-walk keyboard controls, photorealism, publishing workflows
+- Goals: explain the résumé-to-space mechanism before intake; perfect one résumé-to-museum demo; make spatial discovery happen through the museum itself; couple every navigation step to a camera transition
+- Non-goals: multiple demo personas, photorealism, publishing workflows
 - Success signals: a visitor feels positioned at human eye height, sees the next space revealed by an opening door, follows one continuous camera path across each threshold, and can move closer to a selected résumé exhibit
 
 ## Personas and jobs
@@ -22,18 +22,26 @@
 - Key contexts of use: desktop exploration; this MVP's visual acceptance is desktop-only
 
 ## Information architecture
-- Primary navigation: personal URL, file upload, one featured demo; generated world uses the front door, in-world room doors, a single return-home control, back controls, and exhibit selection
-- Core routes/screens: single intake screen and single generated-house screen
-- Content hierarchy: promise → one demo → villa exterior → public showroom → front résumé wall / side-wall project archive / central four-corner project plinths / visitor corner → password gate → private bedroom diary
+- Primary navigation: one quiet start-creation action over the process artwork plus a return-to-process action on intake; personal URL, file upload, saved recent profiles, one permanent featured demo; generated world uses the front door, stairs, a single return-home control, back controls, and exhibit selection
+- Core routes/screens: interactive process landing, intake screen, Agent parsing/move-in desk, loading cover, and generated-museum screen
+- Content hierarchy: single-screen process artwork → intake, saved profile, or permanent demo → parsing/move-in diary desk → 100% scene-loading cover → museum exterior → public showroom → front résumé wall / project islands / visitor corner → open second-floor gallery → password-gated diary book
 - Content-to-object mapping: identity and biography → portrait frame; work and education → chronological timeline; skills and tools → compact capability matrix; achievements and measurable impact → highlight plaque; contact links → contact card; projects → paired side-wall posters and rotating low-plinth image cards; visitor messages → corner board; private text and images → bedroom diary
 
 ## Design principles
+- Reference-first introduction: rebuild the supplied editable PPT artwork as independently positioned web elements rather than using a flattened slide background. Keep the original ROOM mark, pixel people, document illustrations, Agent pictograms, generated house, and color relationships, but organize them into one restrained editorial input → Agent pipeline → world composition. The three stages share one optical center and one scale system; source material stays compact, Agent cards behave like a process diagram rather than dashboard panels, and the house remains the visual destination without dominating the viewport. Avoid added navigation bars, side rails, generic cards, or scrolling. Motion belongs to the extracted visual elements and their connectors.
+- Editorial headline: the landing headline is “把你的经历，变成你的世界。” It is the only large text on the page, centered against the ROOM mark with no competing top-level labels or decorative chrome.
+- Optical asset scale: landing illustrations are normalized by their visible alpha bounds rather than raw PNG canvas dimensions. The PDF and WEB profile are peer input documents and must occupy the exact same visible width and height on one vertical axis; their CSS boxes compensate for each PNG's different transparent padding. The WEB profile remains the focal sheet through position and motion only, the owner is roughly four-fifths of its visible height, Agent pictograms are normalized to one optical icon box, and the visitor remains intentionally smaller than the generated house.
+- Shared stage frame: INPUT, PROCESS, and WORLD use one heading baseline, one body height, and one connector axis. The PDF and owner converge around the WEB profile sheet before the flow enters the Agent stack; independent vertical centering per column is forbidden because it breaks the single-diagram reading.
+- Anchored creation action: “开始创建” is the sole primary action and remains in the viewport's lower-right corner, independent of the three-stage diagram.
+- Directional handoff: the landing exits toward the left and intake enters from the right; intake exposes a visible “查看流程” control that reverses the transition without a route reload.
+- Continuous page family: landing and intake share the ROOM image mark, blue-gray ink/rules, compact mono labels, editorial Chinese typography, restrained radial paper background, and dark-blue primary actions. Intake must feel like the next working state of the landing—not a separate black-and-white campaign page—so heavy black frames, oversized repeated headlines, and unrelated button geometry are forbidden.
+- Honest scene reveal: the 3D canvas remains fully covered until tracked resources reach 100% and the Suspense scene has committed; retain the completed state for 1.2 seconds so the first visible frame is stable.
 - One small house, two roles: the first shot must read as a small villa facade; the public showroom holds all résumé content while the password-gated private bedroom holds a local personal diary
 - Spatial navigation first: never begin with a dollhouse overview or room tabs; the door, room thresholds, and exhibits are the primary navigation targets
 - Camera follows intent: entering the villa, entering a room, and selecting an exhibit each produces a progressively closer camera composition
-- Bounded mouse look: desktop pointer movement rotates the visitor's gaze within an authored yaw/pitch envelope so side walls and corners can be inspected without exposing the room shell. Click-driven door and exhibit camera routes always take priority; after arrival, focused exhibits permit only a small observation offset.
+- First-person exploration: after the authored entrance route, desktop visitors use WASD to walk, drag the pointer for full 360° horizontal look with bounded pitch, and press Q or E for a smooth 180° left/right turn. Radius-aware mesh collision and floor bounds prevent walking through walls or outside the museum. Click-driven room and exhibit camera routes always take priority.
 - Oblique display, frontal reading: showroom objects may sit at side-facing angles; selecting one moves the camera along that object's own facing vector until its content is readable head-on
-- Human-scale occlusion: exterior, public showroom, and private bedroom coexist in one coordinate system; walls and the locked bedroom door hide the private interior until access succeeds
+- Human-scale occlusion: exterior, public showroom, and the second-floor gallery coexist in one coordinate system; architecture controls sightlines without using a password to block spatial exploration
 - Fixed viewpoints: each stage has an authored eye-level camera position and target; the exterior camera sits below the facade midpoint and looks slightly upward
 - Full-frame embodiment: the canvas is the visitor's field of view, never a black presentation stage around a room model; interior frames must be filled by floor, walls, ceiling, doors, furniture, and light
 - Threshold orientation: after crossing a side door, the camera stands just inside that exact doorway and faces into the room from that side, preserving the direction of travel
@@ -43,47 +51,52 @@
 - Entry clearance: exhibit layouts leave a walkable buffer between the threshold and the first interactive object so nothing appears pressed against the visitor's face on entry
 - Object-level reference boundary: open-source projects supply individually named display-support nodes such as a catalog table, screen, lamp, shelf, books, contact letter, radio, skill object, globe, bench, and lantern. Decorative furniture without an information role is excluded; complete rooms, terrain, vehicles, and original layouts are never inserted.
 - Information before decoration: every retained object must help present, index, illuminate, archive, or navigate résumé content. Empty visual filler is removed even when a suitable model is available.
-- Dense but legible: the doubled public showroom reserves the front wall for résumé reading, hangs each side wall's two project posters at one shared height with generous horizontal spacing, and places four low plinths at the corners of a centered, walkable square. The visitor corner and open archive occupy opposite entrance corners. No standing project frame, table, or room-name sign may rise into the direct entrance-to-résumé-wall sightline.
+- Layered exhibit copy: Agent extraction and source evidence remain complete in the saved profile, while physical project and publication text surfaces receive a deterministic editorial projection: content type, concise title, venue/status/time, and one short takeaway. Source illustrations remain unchanged. Clicking the frame reveals the complete text, link, and evidence, and the owner can edit those full fields locally; the compact text projection updates from the edit. This rule applies to material exhibits, not the personal introduction.
+- Dense but legible: the public showroom uses three authored low circular project islands per page. One project occupies island 4; two occupy islands 4 and 5; three occupy islands 3, 4, and 5. Unused islands stay hidden, and the visitor corner and archive preserve the main walking route.
 - Paired project representation: each project has one rotating flat image card on a low central plinth and one readable side-wall poster. Either object opens the same résumé-backed project detail, but each owns an authored camera focus that matches its physical orientation. Parsed website or résumé images should populate the card first; this demo renders a project-cover image fallback from the parsed title and summary.
 - Résumé becomes architecture: the full résumé remains parsed and traceable inside the public showroom; every authored information surface is clickable and has a fixed close-view camera composition
-- Local personal memory: the private bedroom is not another résumé category. Its diary stores text and optional images in browser local storage, never through the server in this MVP.
+- Abstract portrait only: a source photo is an identity input, never a public exhibit. Creating a world automatically sends that photo to the configured image service, and the 3D portrait remains behind the loading cover until generation settles. The generated image never overwrites the saved source URL or its evidence; a non-photographic placeholder is used if generation fails, with a retry action in the profile detail.
+- Playful deconstructed face: generated portraits use black ink-like strokes on warm white, broken contours, loops, sharp angles, asymmetrical negative space, and intentionally non-anatomical facial cues. They must never become a realistic, painted, or merely stylized version of the source photograph.
+- Local personal memory: the second-floor diary is not another résumé category. Its text and optional images stay in browser local storage and require an owner or visitor credential before reading; the surrounding second-floor space remains open.
+- Productive parsing wait: as soon as a URL or document enters the Agent pipeline, intake becomes a move-in desk where the user can write text and select images for the private diary. Diary content is saved locally and is never included in the Agent request or uploaded to the server.
+- Persistent generated people: every successfully parsed profile is stored locally, deduplicated by profile ID, and surfaced newest-first in the intake Demo / 最近生成 area. A saved card recompiles and opens the same profile without running Agent parsing again; the permanent Han Chen demo remains available.
 - Private-room first view: the bedroom door is taller than the public-room display furniture and carries no floating placard. After crossing its threshold, the diary desk sits on the doorway's center axis, faces the arriving visitor head-on, and the open book tilts slightly upward for immediate recognition.
 - Parsed project imagery: a source project's own thumbnail or embedded image is the preferred rotating exhibit. Before a source provides one, the demo renders the same parsed project content into a flat cover image; it must never fall back to an abstract 3D sculpture.
-- Password boundary: the MVP uses a transparent local demo password to prove the locked-room interaction; it is a spatial concept gate, not production authentication
-- Tradeoffs: use perspective projection and staged cinematic movement rather than free-walk controls; both interiors remain mounted for uninterrupted threshold travel
+- Password boundary: the MVP uses transparent local demo passwords only when the diary book is opened. Owner mode can read and write; visitor mode can only read. The second-floor gallery itself never requires authentication.
+- Tradeoffs: authored cinematic routes handle entry, stairs, and exhibit focus; free first-person movement resumes after each route. Both floors remain mounted for uninterrupted transitions.
 
 ## Visual language
 - Color: warm terracotta and walnut architecture, cream plaster, moss and teal rooms, violet and amber emissive accents; exterior gaps use sky and landscape color, interior gaps use the current room envelope—never black stage color
 - Material system: reuse the local lime-plaster, walnut-herringbone, terracotta-roof, and woven-rug texture sets from the isolated materials branch. They belong to architecture and display furniture only; parsed résumé/project images remain the content layer.
 - Typography: editorial oversized Chinese headline, compact mono labels, readable sans-serif supporting text
-- Spacing/layout rhythm: spacious intake composition; full-viewport 3D field of view; compact floating controls
+- Spacing/layout rhythm: the landing uses one compact horizontal narrative centered vertically inside a single viewport, with generous outer margins, narrow connector columns, consistent stage headings, and deliberately unequal content weights that build toward the house. Intake inherits the same outer margins and header rhythm, then resolves into a quiet two-column source-selection workspace with an internal scrolling recent-profile list; the 3D field of view remains full viewport and controls stay compact and floating.
 - Shape/radius/elevation: architectural hard edges with selectively rounded UI cards; layered podium, facade, roof beams, furniture, and lighting
-- Motion: centripetal spline camera tracking across exterior, living room, doorway, room, and exhibit distances; door motion and camera travel stay synchronized; idle desktop views smoothly follow the pointer while focused views use a reduced range
-- Imagery/iconography: ROOM authors data-driven portrait, timeline, tool matrix, plaques, thematic project posters, walls, doors, cameras, and layout; individually extracted open-source screens and archive objects support the content without competing with it.
+- Motion: a quiet page handoff plus source convergence around the WEB sheet, a traveling connector pulse, sequential Agent scan, visitor movement, and staggered room-light animation inside the generated house; motion must reveal transformation order rather than make every asset float independently. The museum then uses one continuous centripetal, arc-length camera curve across entrance corners and authored spline routes elsewhere. Door motion and camera travel stay synchronized; idle desktop views smoothly follow the pointer while focused views use a reduced range.
+- Imagery/iconography: the landing uses the transparent source artwork extracted from the editable PPTX, with HTML/CSS owning labels, connectors, and layout. ROOM authors data-driven portrait, timeline, tool matrix, plaques, thematic project posters, walls, doors, cameras, and layout; individually extracted open-source screens and archive objects support the content without competing with it. AI portrait art uses pure black expressive strokes on warm white with no gray, color, shading, realistic texture, or filled facial planes.
 
 ## Components
 - Existing components to reuse: `RoomStudio`, `WorldCanvas`, URL form, upload zone, exhibit detail
-- New/changed components: single featured résumé card, exterior villa facade, animated front door, authored public showroom, portrait/timeline/skill frame variants, information plaques, horizontal side-wall project archive, rotating project-image plinths, open-archive dressing, visitor message board, password gate, private diary desk, contextual back navigation
-- Variants and states: exterior, front-door-opening, public showroom, focused wall/project exhibit, visitor-board editor, password prompt, password error, private-bedroom-opening, private diary editor; idle/hover/selected objects
+- New/changed components: `ProductFlowLanding`, independently positioned PPT artwork and three-stage flow, bidirectional intake handoff, parsing move-in diary desk, saved-profile demo list, single permanent featured résumé card, loading cover, museum exterior, animated front door, authored public showroom, portrait/timeline/skill frame variants, abstract portrait status/retry control, information plaques, project islands, concise material-frame copy projection, open-archive dressing, visitor message board, diary access gate, private diary desk, contextual back navigation
+- Variants and states: blueprint idle/leaving/reduced-motion, intake entering/idle/leaving, no saved profiles/saved profiles, Agent parsing, parsing-ready, loading below 100%, portrait-generating gate, loading-complete hold, exterior, front-door-opening, public showroom, open second-floor gallery, focused wall/project exhibit, concise material frame/full editable detail, profile portrait generating/abstract/error states, visitor-board editor, diary password prompt/error, owner diary editor, visitor diary reader; idle/hover/selected objects
 - Token/component ownership: UI tokens in `app/globals.css`; world palette in `lib/agents/creative-director.ts`; spatial geometry in `components/WorldCanvas.tsx`
 
 ## Accessibility
 - Target standard: keyboard-operable form, tabs, buttons, and room navigation; readable HTML detail for selected exhibits
-- Keyboard/focus behavior: the featured demo and contextual navigation use buttons; the private bedroom has a keyboard-accessible password form with focused input, cancel, and submit actions; guestbook and diary editors use labeled native form controls
+- Keyboard/focus behavior: the blueprint handoff, featured demo, contextual navigation, and portrait retry action use buttons; the diary has a keyboard-accessible password form with focused input, cancel, and submit actions; guestbook and diary editors use labeled native form controls
 - Contrast/readability: dark text on warm light UI; translucent world overlays retain opaque backing
 - Screen-reader semantics: tablist/tab/tabpanel relationships and named world region
 - Reduced motion and sensory considerations: CSS reduced-motion support; camera motion remains gradual and non-flashing
 
 ## Responsive behavior
 - Supported visual-acceptance device: desktop 1280×720 and wider
-- Layout adaptations: the intake screen may still collapse through existing CSS, but the 3D showroom has one authored desktop composition and no narrow-screen spatial rearrangement
+- Layout adaptations: the landing preserves the same three-stage horizontal story down to the in-app browser's narrow desktop panel by using fluid columns, smaller typography, reduced document/Agent scale, and a simplified visitor comment—never horizontal overflow or a second page. The intake screen may still collapse through existing CSS; the 3D showroom has one authored desktop composition and no narrow-screen spatial rearrangement.
 - Pointer behavior: every exhibit responds to click; hover is enhancement only
 
 ## Interaction states
-- Loading: URL/file parsing uses the inline form message; after a world is generated, an opaque full-viewport architectural loading screen keeps the 3D canvas hidden while local material maps, environment images, GLTF/DRACO objects, and parsed project images load. It shows a rotating mark and monotonic 0–100% progress, reveals the villa only after the Suspense scene has committed, and never exposes partially loaded geometry.
+- Loading: URL/file parsing moves into a dedicated progress workspace with a local-only text/image diary composer; after parsing is ready, the user explicitly enters. An opaque full-viewport architectural loading screen then keeps the 3D canvas hidden while local material maps, environment images, GLTF/DRACO objects, parsed project images, and the abstract portrait load. Progress is monotonic, displays a real 100% completion state only after portrait generation settles, then waits 1.2 seconds after both resource completion and scene commit before revealing the museum.
 - Empty: intake screen includes one immediately usable featured résumé
-- Error: concise form message near the input
-- Success: transition directly into the generated house; a correct bedroom password opens the door and starts the camera route; saved guestbook and diary entries reappear after refresh in the same browser
+- Error: concise form message near the input; portrait generation failures retain the abstract placeholder and offer retry without exposing the source photo
+- Success: the stable generated museum appears after the completed loading hold; its parsed profile is listed in Demo / 最近生成 after refresh and can be reopened without parsing; project and publication frames remain glanceable while retaining full editable detail and evidence; a successful portrait generation updates the 3D portrait and exposes an AI-art label; stairs enter the second floor immediately; clicking the diary opens authentication, and valid owner/visitor credentials reveal the corresponding editable/read-only view; saved guestbook and diary entries reappear after refresh in the same browser
 - Disabled: generation buttons communicate disabled state through opacity
 - Offline/slow network: local demo résumés remain available without network access
 
@@ -95,9 +108,10 @@
 ## Implementation constraints
 - Framework/styling system: Next/vinext, React Three Fiber, Three.js, repository-native CSS
 - Design-token constraints: extend existing CSS variables rather than add a second design system
-- Performance constraints: preload and retain the two authored interiors in one canvas for uninterrupted threshold travel; gate first paint until all scene resources reach 100%; never load complete vendor room scenes; keep the vendor object catalog bounded; cap canvas DPR; and cap diary image uploads at 1 MB
+- Performance constraints: begin preloading the shared museum GLB when the user advances to intake; retain both authored floors in one canvas; keep the scene's light-node count stable across floors; precompile the complete WebGL scene before ending the loading cover; use one continuous arc-length entrance curve and cap route delta so a slow frame cannot jump at a corner; gate first paint until scene resources reach 100%, portrait generation settles, shader compilation finishes, the scene commits, and the 1.2-second stability hold finishes; cap saved profiles at six, canvas DPR, diary images at 1 MB, and source portraits at 8 MB
+- Privacy constraints: source portraits are fetched through the existing validated media proxy only for automatic abstract transformation; image-service credentials remain server-side, and source/generated image bytes are neither logged nor persisted by the server. Intake copy discloses the transformation before submission.
 - Compatibility constraints: preserve Cloudflare-compatible build; local-only delivery for this iteration
-- Test/screenshot expectations: pipeline tests, lint, build, rendered HTML smoke test, and desktop browser verification at 1280×720 of exterior → public showroom → wall focus → central project focus → visitor message persistence → password error → password success → diary persistence → return paths
+- Test/screenshot expectations: landing-source regression, diary move-in regression, upstairs-preload regression, scene-entry gate regression, pipeline tests, lint, build, and rendered HTML smoke test. Interactive desktop acceptance remains user-led for this iteration.
 
 ## Open questions
 - [ ] Should future themes change only materials/lighting or also the house topology? / product / affects the world schema
@@ -105,3 +119,4 @@
 - [ ] Should source project thumbnails always override semantic poster art, or should users choose per project? / product / affects ingestion schema and creative-direction controls
 - [ ] Should production passwords be owner-defined access codes or authenticated sharing links? / product / affects the eventual security boundary
 - [ ] Should guestbook entries remain local per visitor or eventually sync to the portfolio owner's shared backend? / product / affects moderation and ownership
+- [ ] Should generated portraits be saved to the portfolio or remain session-only by default? / product / affects storage, consent revocation, and publishing
