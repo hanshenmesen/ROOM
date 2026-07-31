@@ -30,17 +30,22 @@ import {
 } from "./OpenSourceRoomDressing";
 import {
   MARDOU_AUTO_DOOR,
+  MARDOU_ACHIEVEMENT_PLACEMENT,
   MARDOU_CREATIVE_CORNER_POSITION,
   MARDOU_DIARY_FOCUS,
   MARDOU_DIARY_POSITION,
   MARDOU_ENTRANCE_ROUTE,
   MARDOU_EXTERIOR_FOCUS,
   MARDOU_GUESTBOOK_PLACEMENT,
+  MARDOU_GRAMOPHONE_PLACEMENT,
+  MARDOU_INNER_GALLERY_DOOR,
   MARDOU_LOBBY_FOCUS,
   MARDOU_LOBBY_INTRO_ROUTE,
+  MARDOU_LOBBY_WIDE_FOCUS,
   MARDOU_PRIVATE_FOCUS,
   MARDOU_PRIVATE_PICTURE_FRAMES,
   MARDOU_PRIVATE_ROUTE,
+  MARDOU_PRIVATE_WIDE_FOCUS,
   MARDOU_PRIVATE_SURFACE_PLACEMENTS,
   MARDOU_PROFILE_PLACEMENT,
   MARDOU_EDUCATION_PLACEMENT,
@@ -49,14 +54,15 @@ import {
   MARDOU_STAIR_CLICK_TARGETS,
   mardouProjectPlacementsForCount,
   type MardouPrivateFrameSlot,
-  type MardouPictureSlotName,
 } from "./MardouMuseumLayout";
 import { MardouMuseumScene } from "./MardouMuseumScene";
 import { RoomCompanion } from "./RoomCompanion";
 import { resolvePlanarMovement, sceneMovementBlocked } from "./FirstPersonCollision";
 import {
+  SceneGltfLoader,
   SceneTextureLoader,
 } from "./SceneAssetLoaders";
+import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   retainSceneMediaTexture,
 } from "./SceneMediaTextureRegistry";
@@ -79,6 +85,15 @@ const DARK_WOOD = "#34231f";
 const TEAL = "#65d7c3";
 const CORAL = "#ff8b61";
 const PROJECTS_PER_PAGE = 3;
+const SKILLS_BOOKCASE_URL = "/vendor/mardou/skills-bookcase.glb";
+const EXHIBIT_PEDESTAL_URL = "/vendor/mardou/exhibit-pedestal-2.glb";
+const BLANK_ART_FRAME_URL = "/vendor/mardou/blank-art-frame.glb";
+const GRAMOPHONE_URL = "/vendor/mardou/gramophone.glb";
+const SKILLS_BOOKCASE_SIZE: Vec3 = [1.75, 2.2, 0.8];
+const PROJECT_PEDESTAL_SIZE: Vec3 = [1.3, 0.62, 1.3];
+const PRIVATE_FRAME_SIZE: Vec3 = [1.22, 2, 0.12];
+const GRAMOPHONE_SIZE: Vec3 = [1, 1.05, 1];
+const INFORMATION_OBJECT_FLOOR_OFFSET = -1.39;
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
   publication: "论文",
   talk: "演讲",
@@ -95,12 +110,13 @@ function sceneMediaUrl(url: string) {
 
 const PROJECT_CARD_SIZE = [1.68, 1.12, 0.09] as const;
 const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
-const PROJECT_ISLAND_RADIUS = 0.92;
+const PROJECT_CARD_TILT = -0.82;
 const FIRST_PERSON_SPEED = 2.7;
 const FIRST_PERSON_COLLISION_RADIUS = 0.42;
 const FIRST_PERSON_LOOK_SENSITIVITY = 0.004;
 const FIRST_PERSON_MAX_PITCH = THREE.MathUtils.degToRad(75);
-const FIRST_PERSON_HALF_TURN_DURATION = 0.55;
+const FIRST_PERSON_KEY_TURN_ANGLE = THREE.MathUtils.degToRad(10);
+const FIRST_PERSON_KEY_TURN_DURATION = 0.55;
 const FIRST_PERSON_BOUNDS = {
   "room-lobby": { minX: -9.2, maxX: 7, minZ: -25.5, maxZ: 4 },
   "room-private": { minX: -10.4, maxX: 9.2, minZ: -26.5, maxZ: -8.5 },
@@ -109,23 +125,27 @@ const FIRST_PERSON_BOUNDS = {
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
   "showroom-guestbook": MARDOU_GUESTBOOK_PLACEMENT.focus,
   "showroom-source-browser": MARDOU_SOURCE_ARCHIVE_PLACEMENT.focus,
+  "showroom-gramophone": MARDOU_GRAMOPHONE_PLACEMENT.focus,
   "bedroom-diary": MARDOU_DIARY_FOCUS,
   ...Object.fromEntries(MARDOU_PRIVATE_PICTURE_FRAMES.map((frame) => [frame.slot, frame.focus])),
 };
 
 function isLobbySurface(surface: DisplaySurfacePlan) {
   return surface.semanticRole === "profile"
-    || surface.semanticRole === "education"
+    || surface.semanticRole === "achievement"
     || surface.semanticRole === "skills";
 }
 
 function surfacePlacementFor(world: WorldPlan, surface: DisplaySurfacePlan) {
   if (surface.semanticRole === "profile") return MARDOU_PROFILE_PLACEMENT;
   if (surface.semanticRole === "education") return MARDOU_EDUCATION_PLACEMENT;
+  if (surface.semanticRole === "achievement") return MARDOU_ACHIEVEMENT_PLACEMENT;
   if (surface.semanticRole === "skills") return MARDOU_SKILLS_PLACEMENT;
+  if (surface.semanticRole === "experience") return MARDOU_PRIVATE_SURFACE_PLACEMENTS[0];
+  if (surface.semanticRole === "works") return MARDOU_PRIVATE_SURFACE_PLACEMENTS[2];
+  if (surface.semanticRole === "contact") return MARDOU_PRIVATE_SURFACE_PLACEMENTS[3];
   const privateSurfaces = world.displaySurfaces.filter((candidate) => !isLobbySurface(candidate));
-  const privateIndex = privateSurfaces.findIndex((candidate) => candidate.id === surface.id);
-  return MARDOU_PRIVATE_SURFACE_PLACEMENTS[privateIndex];
+  return MARDOU_PRIVATE_SURFACE_PLACEMENTS[privateSurfaces.findIndex((candidate) => candidate.id === surface.id)];
 }
 
 type CameraRoute = {
@@ -138,11 +158,20 @@ type CameraRoute = {
   focusId?: string;
 };
 
+function silkyCameraEase(progress: number) {
+  const t = THREE.MathUtils.clamp(progress, 0, 1);
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function silkyCameraCurve(points: THREE.Vector3[]) {
+  return new THREE.CatmullRomCurve3(points, false, "centripetal", 0.42);
+}
+
 function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSettled }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan; onFocusSettled: (id: string) => void }) {
   const { camera, gl, scene } = useThree();
-  const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
-  const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
-  const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
+  const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt), []);
+  const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt), []);
+  const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt), []);
   const destination = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.spawn), []);
   const frameDestination = useMemo(() => new THREE.Vector3(), []);
   const viewDirection = useMemo(() => new THREE.Vector3(), []);
@@ -160,8 +189,13 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
   const firstPersonYaw = useRef(0);
   const firstPersonPitch = useRef(0);
   const keyboardTurnRemaining = useRef(0);
-  const draggingLook = useRef(false);
+  const keyboardTurnElapsed = useRef(0);
+  const keyboardTurnHeld = useRef(0);
+  const keyboardTurnQueuedSteps = useRef(0);
   const previousLookPointer = useRef({ x: 0, y: 0 });
+  const pointerLookReady = useRef(false);
+  const pointerLookLocked = useRef(false);
+  const wideAngleRequested = useRef(false);
   const route = useRef<CameraRoute | null>(null);
 
   useEffect(() => {
@@ -173,10 +207,29 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     function handleKeyDown(event: KeyboardEvent) {
       const key = event.key.toLowerCase();
       if (!FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS] || isTypingTarget(event.target)) return;
-      if (["q", "e"].includes(key)) {
-        if (event.repeat || selectedExhibit || route.current || Math.abs(keyboardTurnRemaining.current) > 0.001) return;
+      if (key === "r") {
+        if (event.repeat) return;
         event.preventDefault();
-        keyboardTurnRemaining.current = key === "q" ? Math.PI : -Math.PI;
+        wideAngleRequested.current = true;
+        return;
+      }
+      if (["q", "e"].includes(key)) {
+        if (selectedExhibit || route.current) return;
+        event.preventDefault();
+        const direction = key === "q" ? 1 : -1;
+        keyboardTurnHeld.current = direction;
+        if (!event.repeat) {
+          if (Math.abs(keyboardTurnRemaining.current) <= 0.001) {
+            keyboardTurnRemaining.current = direction * FIRST_PERSON_KEY_TURN_ANGLE;
+            keyboardTurnElapsed.current = 0;
+          } else {
+            keyboardTurnQueuedSteps.current = THREE.MathUtils.clamp(
+              keyboardTurnQueuedSteps.current + direction,
+              -12,
+              12,
+            );
+          }
+        }
         return;
       }
       if (!["w", "a", "s", "d"].includes(key)) return;
@@ -185,11 +238,17 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     }
 
     function handleKeyUp(event: KeyboardEvent) {
-      pressedMovementKeys.current.delete(event.key.toLowerCase());
+      const key = event.key.toLowerCase();
+      pressedMovementKeys.current.delete(key);
+      if ((key === "q" && keyboardTurnHeld.current > 0) || (key === "e" && keyboardTurnHeld.current < 0)) {
+        keyboardTurnHeld.current = 0;
+      }
     }
 
     function clearKeys() {
       pressedMovementKeys.current.clear();
+      keyboardTurnHeld.current = 0;
+      keyboardTurnQueuedSteps.current = 0;
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -207,22 +266,18 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     const canvas = gl.domElement;
     const canLookAround = Boolean(FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS]) && !selectedExhibit;
 
-    function stopDragging() {
-      draggingLook.current = false;
-      canvas.style.removeProperty("cursor");
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!canLookAround || route.current || event.button !== 0) return;
-      draggingLook.current = true;
+    function beginPointerLook(event: PointerEvent) {
       previousLookPointer.current = { x: event.clientX, y: event.clientY };
-      canvas.style.cursor = "grabbing";
+      pointerLookReady.current = true;
     }
 
     function handlePointerMove(event: PointerEvent) {
-      if (!draggingLook.current) return;
-      if ((event.buttons & 1) === 0) {
-        stopDragging();
+      if (!canLookAround || route.current || pointerLookLocked.current) {
+        beginPointerLook(event);
+        return;
+      }
+      if (!pointerLookReady.current) {
+        beginPointerLook(event);
         return;
       }
       const movementX = event.clientX - previousLookPointer.current.x;
@@ -239,16 +294,33 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       );
     }
 
-    canvas.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", stopDragging);
-    window.addEventListener("blur", stopDragging);
+    function endPointerLook() {
+      pointerLookReady.current = false;
+    }
+
+    function togglePointerLookLock(event: MouseEvent) {
+      event.preventDefault();
+      if (!canLookAround || route.current) return;
+      pointerLookLocked.current = !pointerLookLocked.current;
+      pointerLookReady.current = false;
+      canvas.dataset.viewLocked = pointerLookLocked.current ? "true" : "false";
+      canvas.title = pointerLookLocked.current ? "视角已锁定 · 右键解除" : "移动鼠标环视 · 右键锁定";
+    }
+
+    canvas.addEventListener("pointerenter", beginPointerLook);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerleave", endPointerLook);
+    canvas.addEventListener("contextmenu", togglePointerLookLock);
+    window.addEventListener("blur", endPointerLook);
     return () => {
-      canvas.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopDragging);
-      window.removeEventListener("blur", stopDragging);
-      stopDragging();
+      canvas.removeEventListener("pointerenter", beginPointerLook);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerleave", endPointerLook);
+      canvas.removeEventListener("contextmenu", togglePointerLookLock);
+      window.removeEventListener("blur", endPointerLook);
+      delete canvas.dataset.viewLocked;
+      canvas.removeAttribute("title");
+      endPointerLook();
     };
   }, [activeRoom, gl, selectedExhibit]);
 
@@ -315,7 +387,8 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     firstPersonYaw.current = 0;
     firstPersonPitch.current = 0;
     keyboardTurnRemaining.current = 0;
-    draggingLook.current = false;
+    keyboardTurnElapsed.current = 0;
+    pointerLookReady.current = false;
 
     const startPosition = camera.position.clone();
     const startTarget = lookAt.clone();
@@ -323,24 +396,24 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     let positionPoints = [startPosition, destination.clone()];
     let targetPoints = [startTarget, lookAtTarget.clone()];
     let positionCurve: THREE.Curve<THREE.Vector3> | undefined;
-    let duration = exhibit || authoredFocus ? 1.7 : 2.2;
+    let duration = exhibit || authoredFocus ? 2.4 : 2.8;
 
     if (shouldPlayLobbyIntro) {
       positionPoints = [
         new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.spawn),
-        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn),
-        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.waypoint),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.approach),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.threshold),
         new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryTurn),
-        destination.clone(),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.arrival),
       ];
       targetPoints = [
-        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn),
-        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.waypoint),
-        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryTurn),
-        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryLook),
-        lookAtTarget.clone(),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt),
+        new THREE.Vector3(-2.2, 1.5, -7.2),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.mainTarget),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.mainTarget),
       ];
-      positionCurve = new THREE.CatmullRomCurve3(positionPoints, false, "centripetal");
+      positionCurve = silkyCameraCurve(positionPoints);
       duration = MARDOU_LOBBY_INTRO_ROUTE.duration;
       lobbyIntroPending.current = false;
     } else if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
@@ -349,53 +422,62 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.threshold),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.gallery),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.introApproach),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
         new THREE.Vector3(2, 2, 8),
         new THREE.Vector3(2, 1.6, -2),
-        new THREE.Vector3(0, 1.5, -10),
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.introApproach),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt),
         lookAtTarget.clone(),
       ];
-      duration = 3;
+      duration = 5.2;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "room-private") {
       positionPoints = [
         startPosition,
-        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.lobbyApproach),
-        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.ground),
-        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.stairs),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.approach),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.lowerFlight),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.landing),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.upperFlight),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.galleryEntry),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
-        new THREE.Vector3(2.5, 1.85, -13),
-        new THREE.Vector3(2.5, 3.4, -15),
-        new THREE.Vector3(0, 4.2, -18),
+        new THREE.Vector3(0.8, 1.9, -8.753),
+        new THREE.Vector3(2.5, 2.65, -8.753),
+        new THREE.Vector3(3.7, 4.05, -8.753),
+        new THREE.Vector3(1.8, 4.45, -12.5),
+        new THREE.Vector3(2.8, 4.45, -12.2),
         lookAtTarget.clone(),
       ];
-      duration = 3;
+      duration = MARDOU_PRIVATE_ROUTE.duration;
     } else if (previousRoom.current === "room-private" && activeRoom === "room-lobby") {
       positionPoints = [
         startPosition,
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.galleryEntry),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.upperFlight),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.landing),
-        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.stairs),
-        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.ground),
-        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.lobbyApproach),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.lowerFlight),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.approach),
         destination.clone(),
       ];
       targetPoints = [
         startTarget,
-        new THREE.Vector3(2.5, 3.4, -15),
-        new THREE.Vector3(2.5, 1.85, -13),
-        new THREE.Vector3(0, 1.5, -10),
+        new THREE.Vector3(2.2, 4.4, -8.753),
+        new THREE.Vector3(1.2, 3.9, -8.753),
+        new THREE.Vector3(-0.2, 2.8, -8.753),
+        new THREE.Vector3(-1.4, 1.8, -8.753),
+        new THREE.Vector3(-2.4, 1.5, -7),
         lookAtTarget.clone(),
       ];
-      duration = 3;
+      duration = MARDOU_PRIVATE_ROUTE.duration;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "exterior") {
       positionPoints = [
         startPosition,
+        new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.introApproach),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.gallery),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.threshold),
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
@@ -403,17 +485,18 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       ];
       targetPoints = [
         startTarget,
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt),
         new THREE.Vector3(0, 1.5, -10),
         new THREE.Vector3(2, 1.6, -2),
         new THREE.Vector3(2, 2, 8),
         lookAtTarget.clone(),
       ];
-      duration = 3;
+      duration = 5.2;
     }
 
     route.current = {
-      position: positionCurve || new THREE.CatmullRomCurve3(positionPoints, false, "centripetal"),
-      target: new THREE.CatmullRomCurve3(targetPoints, false, "centripetal"),
+      position: positionCurve || silkyCameraCurve(positionPoints),
+      target: silkyCameraCurve(targetPoints),
       duration,
       elapsed: 0,
       fromFov,
@@ -427,15 +510,37 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
   useFrame((_, delta) => {
     if (lobbyIntroPending.current) {
       camera.position.set(...MARDOU_LOBBY_INTRO_ROUTE.spawn);
-      lookAt.set(...MARDOU_LOBBY_INTRO_ROUTE.turn);
+      lookAt.set(...MARDOU_LOBBY_INTRO_ROUTE.lookAt);
       camera.lookAt(lookAt);
       return;
+    }
+
+    if (wideAngleRequested.current) {
+      const wideFocus = activeRoom === "room-private" ? MARDOU_PRIVATE_WIDE_FOCUS : MARDOU_LOBBY_WIDE_FOCUS;
+      destination.set(...wideFocus.camera);
+      lookAtTarget.set(...wideFocus.target);
+      desiredFov.current = wideFocus.fov;
+      route.current = {
+        position: silkyCameraCurve([camera.position.clone(), destination.clone()]),
+        target: silkyCameraCurve([lookAt.clone(), lookAtTarget.clone()]),
+        duration: 3.2,
+        elapsed: 0,
+        fromFov: camera instanceof THREE.PerspectiveCamera ? camera.fov : wideFocus.fov,
+        toFov: wideFocus.fov,
+      };
+      firstPersonYaw.current = 0;
+      firstPersonPitch.current = 0;
+      keyboardTurnRemaining.current = 0;
+      keyboardTurnElapsed.current = 0;
+      keyboardTurnHeld.current = 0;
+      keyboardTurnQueuedSteps.current = 0;
+      wideAngleRequested.current = false;
     }
 
     if (route.current) {
       route.current.elapsed = Math.min(route.current.duration, route.current.elapsed + Math.min(delta, 1 / 24));
       const progress = route.current.elapsed / route.current.duration;
-      const eased = progress * progress * (3 - 2 * progress);
+      const eased = silkyCameraEase(progress);
       route.current.position.getPointAt(eased, camera.position);
       route.current.target.getPointAt(eased, lookAt);
       camera.lookAt(lookAt);
@@ -453,11 +558,30 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
 
     const walkBounds = FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS];
     if (walkBounds && !selectedExhibit && Math.abs(keyboardTurnRemaining.current) > 0.001) {
-      const maxStep = Math.PI * Math.min(delta, 0.05) / FIRST_PERSON_HALF_TURN_DURATION;
+      const previousProgress = keyboardTurnElapsed.current / FIRST_PERSON_KEY_TURN_DURATION;
+      keyboardTurnElapsed.current = Math.min(
+        FIRST_PERSON_KEY_TURN_DURATION,
+        keyboardTurnElapsed.current + Math.min(delta, 0.05),
+      );
+      const nextProgress = keyboardTurnElapsed.current / FIRST_PERSON_KEY_TURN_DURATION;
+      const easedStep = silkyCameraEase(nextProgress) - silkyCameraEase(previousProgress);
       const yawStep = Math.sign(keyboardTurnRemaining.current)
-        * Math.min(Math.abs(keyboardTurnRemaining.current), maxStep);
+        * Math.min(Math.abs(keyboardTurnRemaining.current), FIRST_PERSON_KEY_TURN_ANGLE * easedStep);
       firstPersonYaw.current += yawStep;
       keyboardTurnRemaining.current -= yawStep;
+      if (keyboardTurnElapsed.current >= FIRST_PERSON_KEY_TURN_DURATION) {
+        firstPersonYaw.current += keyboardTurnRemaining.current;
+        if (keyboardTurnQueuedSteps.current !== 0) {
+          const direction = Math.sign(keyboardTurnQueuedSteps.current);
+          keyboardTurnQueuedSteps.current -= direction;
+          keyboardTurnRemaining.current = direction * FIRST_PERSON_KEY_TURN_ANGLE;
+        } else if (keyboardTurnHeld.current !== 0) {
+          keyboardTurnRemaining.current = keyboardTurnHeld.current * FIRST_PERSON_KEY_TURN_ANGLE;
+        } else {
+          keyboardTurnRemaining.current = 0;
+        }
+        keyboardTurnElapsed.current = 0;
+      }
     }
     if (walkBounds && !selectedExhibit && pressedMovementKeys.current.size) {
       const forwardInput = Number(pressedMovementKeys.current.has("w")) - Number(pressedMovementKeys.current.has("s"));
@@ -524,7 +648,9 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
   return null;
 }
 
-function AutoOpeningMuseumDoor({ interactive }: { interactive: boolean }) {
+type MardouDoorConfig = typeof MARDOU_AUTO_DOOR | typeof MARDOU_INNER_GALLERY_DOOR;
+
+function AutoOpeningMuseumDoor({ interactive, door }: { interactive: boolean; door: MardouDoorConfig }) {
   const { camera } = useThree();
   const leftLeaf = useRef<THREE.Group>(null);
   const rightLeaf = useRef<THREE.Group>(null);
@@ -534,21 +660,21 @@ function AutoOpeningMuseumDoor({ interactive }: { interactive: boolean }) {
   const [hovered, setHovered] = useState(false);
   const sensor = useMemo(
     () => new THREE.Vector3(
-      MARDOU_AUTO_DOOR.position[0],
-      MARDOU_AUTO_DOOR.position[1] + MARDOU_AUTO_DOOR.height * 0.5,
-      MARDOU_AUTO_DOOR.position[2],
+      door.position[0],
+      door.position[1] + door.height * 0.5,
+      door.position[2],
     ),
-    [],
+    [door],
   );
   const open = interactive && (nearby || latchedOpen);
-  const leafWidth = (MARDOU_AUTO_DOOR.width - 0.06) / 2;
+  const leafWidth = (door.width - 0.06) / 2;
 
   useFrame((_, delta) => {
     const distance = camera.position.distanceTo(sensor);
     const shouldOpenForProximity = interactive && (
       proximityOpen.current
-        ? distance < MARDOU_AUTO_DOOR.releaseRadius
-        : distance < MARDOU_AUTO_DOOR.sensorRadius
+        ? distance < door.releaseRadius
+        : distance < door.sensorRadius
     );
     if (shouldOpenForProximity !== proximityOpen.current) {
       proximityOpen.current = shouldOpenForProximity;
@@ -582,10 +708,11 @@ function AutoOpeningMuseumDoor({ interactive }: { interactive: boolean }) {
   return (
     <group
       position={[
-        MARDOU_AUTO_DOOR.position[0],
-        MARDOU_AUTO_DOOR.position[1],
-        MARDOU_AUTO_DOOR.position[2] + 0.06,
+        door.position[0] + door.normal[0] * 0.06,
+        door.position[1],
+        door.position[2] + door.normal[2] * 0.06,
       ]}
+      rotation={door.rotation}
       onClick={toggleDoor}
       onPointerOver={(event) => {
         event.stopPropagation();
@@ -597,27 +724,27 @@ function AutoOpeningMuseumDoor({ interactive }: { interactive: boolean }) {
         document.body.style.cursor = "default";
       }}
     >
-      <mesh castShadow position={[-MARDOU_AUTO_DOOR.width / 2 - 0.045, MARDOU_AUTO_DOOR.height / 2, 0]}>
-        <boxGeometry args={[0.09, MARDOU_AUTO_DOOR.height + 0.14, 0.11]} />
+      <mesh castShadow position={[-door.width / 2 - 0.045, door.height / 2, 0]}>
+        <boxGeometry args={[0.09, door.height + 0.14, 0.11]} />
         <meshStandardMaterial color="#25282a" metalness={0.55} roughness={0.38} />
       </mesh>
-      <mesh castShadow position={[MARDOU_AUTO_DOOR.width / 2 + 0.045, MARDOU_AUTO_DOOR.height / 2, 0]}>
-        <boxGeometry args={[0.09, MARDOU_AUTO_DOOR.height + 0.14, 0.11]} />
+      <mesh castShadow position={[door.width / 2 + 0.045, door.height / 2, 0]}>
+        <boxGeometry args={[0.09, door.height + 0.14, 0.11]} />
         <meshStandardMaterial color="#25282a" metalness={0.55} roughness={0.38} />
       </mesh>
-      <mesh castShadow position={[0, MARDOU_AUTO_DOOR.height + 0.045, 0]}>
-        <boxGeometry args={[MARDOU_AUTO_DOOR.width + 0.18, 0.09, 0.11]} />
+      <mesh castShadow position={[0, door.height + 0.045, 0]}>
+        <boxGeometry args={[door.width + 0.18, 0.09, 0.11]} />
         <meshStandardMaterial color="#25282a" metalness={0.55} roughness={0.38} />
       </mesh>
 
-      <group ref={leftLeaf} position={[-MARDOU_AUTO_DOOR.width / 2, 0, 0.015]}>
-        <group position={[leafWidth / 2, MARDOU_AUTO_DOOR.height / 2, 0]}>
+      <group ref={leftLeaf} position={[-door.width / 2, 0, 0.015]}>
+        <group position={[leafWidth / 2, door.height / 2, 0]}>
           <mesh castShadow userData={{ ignoreCameraCollision: open }}>
-            <boxGeometry args={[leafWidth, MARDOU_AUTO_DOOR.height, 0.055]} />
+            <boxGeometry args={[leafWidth, door.height, 0.055]} />
             {leafMaterial}
           </mesh>
           <mesh position={[0, 0, 0.035]} userData={{ ignoreCameraCollision: true }}>
-            <boxGeometry args={[0.035, MARDOU_AUTO_DOOR.height, 0.025]} />
+            <boxGeometry args={[0.035, door.height, 0.025]} />
             <meshStandardMaterial color="#303537" metalness={0.6} roughness={0.32} />
           </mesh>
           <mesh position={[leafWidth * 0.38, 0, 0.052]} userData={{ ignoreCameraCollision: true }}>
@@ -627,14 +754,14 @@ function AutoOpeningMuseumDoor({ interactive }: { interactive: boolean }) {
         </group>
       </group>
 
-      <group ref={rightLeaf} position={[MARDOU_AUTO_DOOR.width / 2, 0, 0.015]}>
-        <group position={[-leafWidth / 2, MARDOU_AUTO_DOOR.height / 2, 0]}>
+      <group ref={rightLeaf} position={[door.width / 2, 0, 0.015]}>
+        <group position={[-leafWidth / 2, door.height / 2, 0]}>
           <mesh castShadow userData={{ ignoreCameraCollision: open }}>
-            <boxGeometry args={[leafWidth, MARDOU_AUTO_DOOR.height, 0.055]} />
+            <boxGeometry args={[leafWidth, door.height, 0.055]} />
             {leafMaterial}
           </mesh>
           <mesh position={[0, 0, 0.035]} userData={{ ignoreCameraCollision: true }}>
-            <boxGeometry args={[0.035, MARDOU_AUTO_DOOR.height, 0.025]} />
+            <boxGeometry args={[0.035, door.height, 0.025]} />
             <meshStandardMaterial color="#303537" metalness={0.6} roughness={0.32} />
           </mesh>
           <mesh position={[-leafWidth * 0.38, 0, 0.052]} userData={{ ignoreCameraCollision: true }}>
@@ -873,6 +1000,86 @@ function MuseumObjectLabel({ texture, accent, position, width = 1.2, height = 0.
   );
 }
 
+function prepareImportedAsset(
+  source: THREE.Object3D,
+  targetSize: Vec3,
+  anchor: "bottom" | "center",
+  anchorY: number,
+) {
+  const model = source.clone(true);
+  const materials = new Set<THREE.Material>();
+  model.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    object.castShadow = true;
+    object.receiveShadow = true;
+    object.material = Array.isArray(object.material)
+      ? object.material.map((material) => material.clone())
+      : object.material.clone();
+    const meshMaterials = Array.isArray(object.material) ? object.material : [object.material];
+    meshMaterials.forEach((material) => materials.add(material));
+  });
+
+  model.updateWorldMatrix(true, true);
+  const bounds = new THREE.Box3().setFromObject(model);
+  if (!bounds.isEmpty()) {
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = Math.min(
+      targetSize[0] / Math.max(size.x, 0.001),
+      targetSize[1] / Math.max(size.y, 0.001),
+      targetSize[2] / Math.max(size.z, 0.001),
+    );
+    model.scale.multiplyScalar(scale);
+    model.position.set(
+      -center.x * scale,
+      anchor === "center" ? anchorY - center.y * scale : anchorY - bounds.min.y * scale,
+      -center.z * scale,
+    );
+  }
+  return { model, materials };
+}
+
+function ImportedGltfAsset({
+  url,
+  targetSize,
+  anchor = "bottom",
+  anchorY = 0,
+}: {
+  url: string;
+  targetSize: Vec3;
+  anchor?: "bottom" | "center";
+  anchorY?: number;
+}) {
+  const gltf = useLoader(SceneGltfLoader, url) as GLTF;
+  const prepared = useMemo(
+    () => prepareImportedAsset(gltf.scene, targetSize, anchor, anchorY),
+    [anchor, anchorY, gltf.scene, targetSize],
+  );
+  useEffect(() => () => {
+    prepared.materials.forEach((material) => material.dispose());
+  }, [prepared]);
+  return <primitive object={prepared.model} />;
+}
+
+function LoadedSkillsBookcase() {
+  return (
+    <ImportedGltfAsset
+      url={SKILLS_BOOKCASE_URL}
+      targetSize={SKILLS_BOOKCASE_SIZE}
+      anchorY={INFORMATION_OBJECT_FLOOR_OFFSET}
+    />
+  );
+}
+
+function SkillsBookcaseFallback() {
+  return (
+    <mesh castShadow receiveShadow position={[0, -0.29, 0]}>
+      <boxGeometry args={[1.35, 2.2, 0.62]} />
+      <meshStandardMaterial color="#4d3526" roughness={0.78} />
+    </mesh>
+  );
+}
+
 function InformationObjectGeometry({
   semanticRole,
   texture,
@@ -944,24 +1151,12 @@ function InformationObjectGeometry({
   if (role === "skills") {
     return (
       <group>
-        {roundBase}
-        <mesh castShadow receiveShadow position={[0, -0.48, 0]}>
-          <boxGeometry args={[1.18, 1.55, 0.56]} />
-          <meshStandardMaterial color="#736255" roughness={0.76} />
-        </mesh>
-        {[-0.92, -0.56, -0.2, 0.16].map((y, index) => (
-          <group key={y}>
-            <mesh castShadow position={[0, y, 0.3]}>
-              <boxGeometry args={[1.03, 0.27, 0.08]} />
-              <meshStandardMaterial color={index % 2 ? "#c9b89f" : "#ddcfbb"} roughness={0.72} />
-            </mesh>
-            <mesh position={[0, y, 0.355]}>
-              <sphereGeometry args={[0.045, 10, 8]} />
-              <meshStandardMaterial color="#b98a4c" metalness={0.62} roughness={0.34} />
-            </mesh>
-          </group>
-        ))}
-        <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0.46, 0.08]} width={1.12} height={0.48} />
+        <OptionalAssetBoundary>
+          <Suspense fallback={<SkillsBookcaseFallback />}>
+            <LoadedSkillsBookcase />
+          </Suspense>
+        </OptionalAssetBoundary>
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0.95, 0.12]} width={1.24} height={0.34} />
       </group>
     );
   }
@@ -1197,8 +1392,8 @@ function LoadedPrivateFrameImage({ url }: { url: string }) {
   const displayTexture = useMemo(() => {
     const texture = sourceTexture.clone();
     const image = sourceTexture.image as { width?: number; height?: number } | undefined;
-    const sourceAspect = image?.width && image?.height ? image.width / image.height : 1.5;
-    const frameAspect = 1.5;
+    const sourceAspect = image?.width && image?.height ? image.width / image.height : 0.59;
+    const frameAspect = 0.59;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
     if (sourceAspect > frameAspect) {
@@ -1217,9 +1412,16 @@ function LoadedPrivateFrameImage({ url }: { url: string }) {
     useLoader.clear(SceneTextureLoader, cacheKey);
   }), [mediaUrl, sourceTexture]);
   useEffect(() => () => displayTexture.dispose(), [displayTexture]);
-  return <mesh position={[0, 0, 0.061]}>
-    <planeGeometry args={[1.5, 1]} />
+  return <mesh position={[0, 0, 0.071]}>
+    <planeGeometry args={[1.02, 1.72]} />
     <meshBasicMaterial map={displayTexture} toneMapped={false} />
+  </mesh>;
+}
+
+function PrivateFrameFallback() {
+  return <mesh castShadow>
+    <boxGeometry args={[1.22, 2, 0.1]} />
+    <meshStandardMaterial color={DARK_WOOD} roughness={0.52} metalness={0.12} />
   </mesh>;
 }
 
@@ -1256,22 +1458,23 @@ function PrivatePictureFrame({
     onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
     onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
   >
-    <mesh castShadow>
-      <boxGeometry args={[1.76, 1.26, 0.1]} />
-      <meshStandardMaterial color={hovered || selected ? "#d3aa54" : DARK_WOOD} roughness={0.48} metalness={0.18} />
-    </mesh>
-    <mesh position={[0, 0, 0.056]}>
-      <planeGeometry args={[1.52, 1.02]} />
-      <meshStandardMaterial color="#efe7db" roughness={0.92} />
+    <OptionalAssetBoundary fallback={<PrivateFrameFallback />}>
+      <Suspense fallback={<PrivateFrameFallback />}>
+        <ImportedGltfAsset url={BLANK_ART_FRAME_URL} targetSize={PRIVATE_FRAME_SIZE} anchor="center" />
+      </Suspense>
+    </OptionalAssetBoundary>
+    <mesh position={[0, 0, 0.061]}>
+      <planeGeometry args={[1.02, 1.72]} />
+      <meshBasicMaterial color="#ffffff" toneMapped={false} />
     </mesh>
     {imageUrl ? (
       <TextureAssetBoundary fallback={null} resetKey={imageUrl}>
         <Suspense fallback={null}><LoadedPrivateFrameImage url={imageUrl} /></Suspense>
       </TextureAssetBoundary>
     ) : null}
-    <mesh position={[0, -0.72, 0.04]}>
-      <boxGeometry args={[0.78, 0.18, 0.055]} />
-      <meshStandardMaterial color="#e5d8c4" roughness={0.8} />
+    <mesh position={[0, 0, 0.02]}>
+      <boxGeometry args={[1.28, 2.06, 0.18]} />
+      <meshBasicMaterial color={selected ? CORAL : hovered ? TEAL : "#ffffff"} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
     </mesh>
   </group>;
 }
@@ -1295,7 +1498,7 @@ function PrivatePictureFrames({
         position={frame.position}
         rotation={frame.rotation}
         imageUrl={images[frame.slot]}
-        interactive={activeRoom === "room-private"}
+        interactive={activeRoom !== "exterior"}
         selected={selectedId === frame.slot}
         onSelect={() => onSelect(frame.slot)}
       />
@@ -1857,7 +2060,7 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
   const placeholderFaces = <ProjectTextureFaces texture={texture} />;
 
   return (
-    <group ref={artwork} position={[0, 0.72, 0]} rotation={[-1.12, 0, 0]}>
+    <group ref={artwork} position={[0, 0.72, 0]} rotation={[PROJECT_CARD_TILT, 0, 0]}>
       <mesh castShadow>
         <boxGeometry args={PROJECT_CARD_SIZE} />
         <meshStandardMaterial color={DARK_WOOD} roughness={0.54} metalness={0.12} />
@@ -1871,6 +2074,52 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
           </TextureAssetBoundary>
         )
         : placeholderFaces}
+    </group>
+  );
+}
+
+function GramophoneExhibit({
+  interactive,
+  selected,
+  onSelect,
+}: {
+  interactive: boolean;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const group = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!group.current) return;
+    const targetScale = selected ? 1.04 : hovered ? 1.025 : 1;
+    group.current.scale.setScalar(THREE.MathUtils.lerp(group.current.scale.x, targetScale, 0.14));
+  });
+  return (
+    <group
+      ref={group}
+      name="showroom-gramophone"
+      position={MARDOU_GRAMOPHONE_PLACEMENT.position}
+      rotation={MARDOU_GRAMOPHONE_PLACEMENT.rotation}
+      onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
+      onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
+      onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
+    >
+      <OptionalAssetBoundary fallback={<ProjectPedestalFallback accent={CORAL} selected={selected} />}>
+        <Suspense fallback={<ProjectPedestalFallback accent={CORAL} selected={selected} />}>
+          <ImportedGltfAsset url={EXHIBIT_PEDESTAL_URL} targetSize={PROJECT_PEDESTAL_SIZE} />
+        </Suspense>
+      </OptionalAssetBoundary>
+      <OptionalAssetBoundary>
+        <Suspense fallback={null}>
+          <ImportedGltfAsset url={GRAMOPHONE_URL} targetSize={GRAMOPHONE_SIZE} anchorY={PROJECT_PEDESTAL_SIZE[1]} />
+        </Suspense>
+      </OptionalAssetBoundary>
+      <TextPanel title="音乐留声机" subtitle="点击选择与调整音乐" position={[0, 0.42, 0.68]} width={1.2} height={0.28} />
+      <mesh position={[0, 0.95, 0]}>
+        <cylinderGeometry args={[0.82, 0.82, 1.9, 18]} />
+        <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <pointLight position={[0, 1.55, 0.35]} intensity={interactive ? selected ? 2.8 : hovered ? 1.6 : 0.35 : 0} distance={2.8} color={selected ? CORAL : "#d3aa54"} />
     </group>
   );
 }
@@ -1893,18 +2142,11 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
       onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
     >
-      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[PROJECT_ISLAND_RADIUS, PROJECT_ISLAND_RADIUS + 0.08, 0.24, 24]} />
-        <meshStandardMaterial color={DARK_WOOD} emissive={selected ? projectAccent(exhibit.title) : INK} emissiveIntensity={selected ? 0.24 : hovered ? 0.1 : 0} roughness={0.62} metalness={0.08} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.3, 0]}>
-        <cylinderGeometry args={[0.76, 0.82, 0.14, 24]} />
-        <meshStandardMaterial color="#e6d5bd" roughness={0.76} />
-      </mesh>
-      <mesh position={[0, 0.38, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.73, 0.025, 8, 32]} />
-        <meshStandardMaterial color={projectAccent(exhibit.title)} emissive={projectAccent(exhibit.title)} emissiveIntensity={selected ? 0.8 : 0.22} roughness={0.45} />
-      </mesh>
+      <OptionalAssetBoundary fallback={<ProjectPedestalFallback accent={projectAccent(exhibit.title)} selected={selected} />}>
+        <Suspense fallback={<ProjectPedestalFallback accent={projectAccent(exhibit.title)} selected={selected} />}>
+          <ImportedGltfAsset url={EXHIBIT_PEDESTAL_URL} targetSize={PROJECT_PEDESTAL_SIZE} />
+        </Suspense>
+      </OptionalAssetBoundary>
       <ProjectImageCard exhibit={exhibit} index={displayIndex - 1} selected={selected} />
       <TextPanel
         title={frameCopy.marker}
@@ -1926,8 +2168,15 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
   );
 }
 
+function ProjectPedestalFallback({ accent, selected }: { accent: string; selected: boolean }) {
+  return <mesh castShadow receiveShadow position={[0, 0.31, 0]}>
+    <cylinderGeometry args={[0.5, 0.58, 0.62, 24]} />
+    <meshStandardMaterial color="#e6d5bd" emissive={accent} emissiveIntensity={selected ? 0.24 : 0} roughness={0.76} />
+  </mesh>;
+}
+
 class OptionalAssetBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; fallback?: ReactNode },
   { failed: boolean }
 > {
   state = { failed: false };
@@ -1941,7 +2190,7 @@ class OptionalAssetBoundary extends Component<
   }
 
   render() {
-    return this.state.failed ? null : this.props.children;
+    return this.state.failed ? this.props.fallback ?? null : this.props.children;
   }
 }
 
@@ -2021,10 +2270,8 @@ type WorldCanvasProps = {
   world: WorldPlan;
   activeRoom: string;
   sceneReady: boolean;
-  projectPage?: number;
   selectedExhibit?: string;
   guestbookMessages?: string[];
-  pictureOverrides?: Partial<Record<MardouPictureSlotName, string>>;
   privateFrameImages?: Partial<Record<MardouPrivateFrameSlot, string>>;
   petQaOpen?: boolean;
   onSelect: (id: string) => void;
@@ -2045,10 +2292,8 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
     previous.world === next.world &&
     previous.activeRoom === next.activeRoom &&
     previous.sceneReady === next.sceneReady &&
-    (previous.projectPage ?? 0) === (next.projectPage ?? 0) &&
     previous.selectedExhibit === next.selectedExhibit &&
     sameStringItems(previous.guestbookMessages, next.guestbookMessages) &&
-    previous.pictureOverrides === next.pictureOverrides &&
     previous.privateFrameImages === next.privateFrameImages &&
     previous.petQaOpen === next.petQaOpen &&
     previous.onSelect === next.onSelect &&
@@ -2061,12 +2306,9 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
   );
 }
 
-function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selectedExhibit, guestbookMessages = [], pictureOverrides = {}, privateFrameImages = {}, petQaOpen = false, onSelect, onRoomChange, onLoadProgress, onLoadState, onReady, onFocusSettled, onOpenPetQa }: WorldCanvasProps) {
+function WorldCanvasImpl({ world, activeRoom, sceneReady, selectedExhibit, guestbookMessages = [], privateFrameImages = {}, petQaOpen = false, onSelect, onRoomChange, onLoadProgress, onLoadState, onReady, onFocusSettled, onOpenPetQa }: WorldCanvasProps) {
   const projectExhibits = world.exhibits.filter((exhibit) => exhibit.eyebrow === "PROJECT");
-  const maxProjectPage = Math.max(0, Math.ceil(projectExhibits.length / PROJECTS_PER_PAGE) - 1);
-  const visibleProjectPage = Math.min(projectPage, maxProjectPage);
-  const projectStart = visibleProjectPage * PROJECTS_PER_PAGE;
-  const visibleProjectExhibits = projectExhibits.slice(projectStart, projectStart + PROJECTS_PER_PAGE);
+  const visibleProjectExhibits = projectExhibits.slice(0, PROJECTS_PER_PAGE);
   const visibleProjectPlacements = mardouProjectPlacementsForCount(visibleProjectExhibits.length);
   const creativeSubjects = useMemo(() => planCreativeSubjects(world.profile), [world.profile]);
 
@@ -2075,7 +2317,7 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
     return () => {
       document.body.style.cursor = "default";
     };
-  }, [activeRoom, selectedExhibit, visibleProjectPage]);
+  }, [activeRoom, selectedExhibit]);
 
   return (
     <>
@@ -2095,13 +2337,13 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
             activeRoom={activeRoom}
             onEnter={() => onRoomChange("room-lobby")}
             onBackgroundClick={() => onSelect("")}
-            pictureOverrides={pictureOverrides}
           />
           <StairwayClickTarget
             interactive={activeRoom === "room-lobby" && !selectedExhibit}
             onGoUpstairs={() => onRoomChange("room-private")}
           />
-          <AutoOpeningMuseumDoor interactive={activeRoom === "room-lobby" && !selectedExhibit} />
+          <AutoOpeningMuseumDoor door={MARDOU_AUTO_DOOR} interactive={activeRoom === "room-lobby" && !selectedExhibit} />
+          <AutoOpeningMuseumDoor door={MARDOU_INNER_GALLERY_DOOR} interactive={activeRoom === "room-lobby" && !selectedExhibit} />
           <OptionalAssetBoundary key={world.id}>
             <Suspense fallback={null}>
               <PortfolioEnvironment />
@@ -2124,6 +2366,11 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
             interactive={activeRoom === "room-lobby"}
             selected={selectedExhibit === "showroom-source-browser"}
             onSelect={() => onSelect("showroom-source-browser")}
+          />
+          <GramophoneExhibit
+            interactive={activeRoom === "room-lobby"}
+            selected={selectedExhibit === "showroom-gramophone"}
+            onSelect={() => onSelect("showroom-gramophone")}
           />
           <CreativeSubjectCorner subjects={creativeSubjects} />
           <RoomCompanion
@@ -2149,7 +2396,7 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
                 key={exhibit.id}
                 exhibit={exhibit}
                 position={placement.position}
-                displayIndex={projectStart + slot + 1}
+                displayIndex={slot + 1}
                 selected={selectedExhibit === exhibit.id}
                 interactive={activeRoom === "room-lobby"}
                 onSelect={onSelect}

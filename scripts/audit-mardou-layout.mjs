@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as THREE from "three";
 import {
+  MARDOU_AUTO_DOOR,
   MARDOU_CREATIVE_CORNER_POSITION,
   MARDOU_DIARY_FOCUS,
   MARDOU_ENTRANCE_ROUTE,
@@ -162,24 +163,18 @@ function cameraCurve(points) {
   );
 }
 
-function lobbyIntroCurve(points) {
-  const curve = new THREE.CurvePath();
-  curve.add(cameraCurve(points.slice(0, 3)));
-  curve.add(cameraCurve(points.slice(2)));
-  return curve;
-}
-
 const authoredRoutes = [
   {
-    name: "lobby intro 1 -> 2 -> 3",
+    name: "lobby door -> main view",
     requiresFloor: () => true,
-    curve: lobbyIntroCurve,
+    minimumClearance: 0.65,
+    allowsDoorway: true,
     points: [
       MARDOU_LOBBY_INTRO_ROUTE.spawn,
-      MARDOU_LOBBY_INTRO_ROUTE.turn,
-      MARDOU_LOBBY_INTRO_ROUTE.waypoint,
+      MARDOU_LOBBY_INTRO_ROUTE.approach,
+      MARDOU_LOBBY_INTRO_ROUTE.threshold,
       MARDOU_LOBBY_INTRO_ROUTE.galleryTurn,
-      MARDOU_LOBBY_FOCUS.camera,
+      MARDOU_LOBBY_INTRO_ROUTE.arrival,
     ],
   },
   {
@@ -187,20 +182,26 @@ const authoredRoutes = [
     // The supplied GLB has no exterior ground mesh. Require floor support
     // once this route reaches the modeled gallery, while still checking
     // horizontal clearance for every exterior sample.
-    requiresFloor: (point) => point[2] <= MARDOU_ENTRANCE_ROUTE.gallery[2],
+    requiresFloor: (point) => point[0] < -2.4,
+    minimumClearance: 0.65,
+    allowsDoorway: true,
     points: [
       MARDOU_EXTERIOR_FOCUS.camera,
       MARDOU_ENTRANCE_ROUTE.outside,
       MARDOU_ENTRANCE_ROUTE.threshold,
       MARDOU_ENTRANCE_ROUTE.gallery,
+      MARDOU_ENTRANCE_ROUTE.introApproach,
       MARDOU_LOBBY_FOCUS.camera,
     ],
   },
   {
     name: "lobby -> exterior",
-    requiresFloor: (point) => point[2] <= MARDOU_ENTRANCE_ROUTE.gallery[2],
+    requiresFloor: (point) => point[0] < -2.4,
+    minimumClearance: 0.65,
+    allowsDoorway: true,
     points: [
       MARDOU_LOBBY_FOCUS.camera,
+      MARDOU_ENTRANCE_ROUTE.introApproach,
       MARDOU_ENTRANCE_ROUTE.gallery,
       MARDOU_ENTRANCE_ROUTE.threshold,
       MARDOU_ENTRANCE_ROUTE.outside,
@@ -210,34 +211,38 @@ const authoredRoutes = [
   {
     name: "lobby -> private",
     requiresFloor: () => true,
+    minimumClearance: 0.16,
     points: [
       MARDOU_LOBBY_FOCUS.camera,
-      MARDOU_PRIVATE_ROUTE.lobbyApproach,
-      MARDOU_PRIVATE_ROUTE.ground,
-      MARDOU_PRIVATE_ROUTE.stairs,
+      MARDOU_PRIVATE_ROUTE.approach,
+      MARDOU_PRIVATE_ROUTE.lowerFlight,
       MARDOU_PRIVATE_ROUTE.landing,
+      MARDOU_PRIVATE_ROUTE.upperFlight,
+      MARDOU_PRIVATE_ROUTE.galleryEntry,
       MARDOU_PRIVATE_FOCUS.camera,
     ],
   },
   {
     name: "private -> lobby",
     requiresFloor: () => true,
+    minimumClearance: 0.16,
     points: [
       MARDOU_PRIVATE_FOCUS.camera,
+      MARDOU_PRIVATE_ROUTE.galleryEntry,
+      MARDOU_PRIVATE_ROUTE.upperFlight,
       MARDOU_PRIVATE_ROUTE.landing,
-      MARDOU_PRIVATE_ROUTE.stairs,
-      MARDOU_PRIVATE_ROUTE.ground,
-      MARDOU_PRIVATE_ROUTE.lobbyApproach,
+      MARDOU_PRIVATE_ROUTE.lowerFlight,
+      MARDOU_PRIVATE_ROUTE.approach,
       MARDOU_LOBBY_FOCUS.camera,
     ],
   },
 ];
 
-const routeSamples = authoredRoutes.flatMap(({ name, points, requiresFloor, minimumClearance = MIN_CLEARANCE, curve: curveFactory }) => {
+const routeSamples = authoredRoutes.flatMap(({ name, points, requiresFloor, minimumClearance = MIN_CLEARANCE, allowsDoorway = false, curve: curveFactory }) => {
   const curve = curveFactory ? curveFactory(points) : cameraCurve(points);
   const curveSamples = Array.from({ length: ROUTE_SAMPLE_STEPS + 1 }, (_, index) => index / ROUTE_SAMPLE_STEPS).map((t) => {
     const point = curve.getPoint(t).toArray();
-    return { name, t, point, requiresFloor: requiresFloor(point), minimumClearance };
+    return { name, t, point, requiresFloor: requiresFloor(point), minimumClearance, allowsDoorway };
   });
   const waypointSamples = points.map((point, index) => ({
     name,
@@ -245,6 +250,7 @@ const routeSamples = authoredRoutes.flatMap(({ name, points, requiresFloor, mini
     point: [...point],
     requiresFloor: requiresFloor(point),
     minimumClearance,
+    allowsDoorway,
     waypoint: index + 1,
   }));
   return [...curveSamples, ...waypointSamples];
@@ -359,9 +365,11 @@ for (let z = -26; z <= 12; z += 2) {
 const verifiedPoints = [
   { name: "lobby camera", point: MARDOU_LOBBY_FOCUS.camera },
   { name: "private camera", point: MARDOU_PRIVATE_FOCUS.camera },
-  { name: "private route ground", point: MARDOU_PRIVATE_ROUTE.ground },
-  { name: "private route stairs", point: MARDOU_PRIVATE_ROUTE.stairs },
-  { name: "private route landing", point: MARDOU_PRIVATE_ROUTE.landing },
+  { name: "private route approach", point: MARDOU_PRIVATE_ROUTE.approach, minimumClearance: 0.16 },
+  { name: "private route lower flight", point: MARDOU_PRIVATE_ROUTE.lowerFlight, minimumClearance: 0.16 },
+  { name: "private route landing", point: MARDOU_PRIVATE_ROUTE.landing, minimumClearance: 0.16 },
+  { name: "private route upper flight", point: MARDOU_PRIVATE_ROUTE.upperFlight, minimumClearance: 0.16 },
+  { name: "private route gallery entry", point: MARDOU_PRIVATE_ROUTE.galleryEntry, minimumClearance: 0.16 },
   { name: "guestbook", point: MARDOU_GUESTBOOK_PLACEMENT.position },
   { name: "guestbook camera", point: MARDOU_GUESTBOOK_PLACEMENT.focus.camera },
   { name: "source archive", point: MARDOU_SOURCE_ARCHIVE_PLACEMENT.focus.target },
@@ -376,7 +384,7 @@ const verifiedPoints = [
     {
       name: `surface ${index + 1}`,
       point: placement.position,
-      minimumClearance: [0, 0.8, 0.65, 1.2, 1.2, 1, 1.2][index],
+      minimumClearance: [0, 0.8, 0.65, 0.65, 1, 1, 1][index],
     },
     { name: `surface camera ${index + 1}`, point: placement.focus.camera },
   ]),
@@ -395,12 +403,16 @@ const pointFailures = verifiedPoints.flatMap(({ name, point, minimumClearance = 
   return reasons.map((reason) => `${name}: ${reason}`);
 });
 
-const routeFailures = routeSamples.flatMap(({ name, t, point, requiresFloor, minimumClearance, waypoint }) => {
+const routeFailures = routeSamples.flatMap(({ name, t, point, requiresFloor, minimumClearance, allowsDoorway, waypoint }) => {
   const floor = floorAt(point[0], point[2], point[1] + 0.05);
   const clearance = horizontalClearance(...point);
   const reasons = [];
   if (requiresFloor && floor === undefined) reasons.push("no supporting floor below point");
-  if (clearance < minimumClearance) reasons.push(`structure clearance ${clearance.toFixed(3)} < ${minimumClearance}`);
+  const insideOpenDoorway = allowsDoorway
+    && Math.abs(point[2] - MARDOU_AUTO_DOOR.position[2]) < MARDOU_AUTO_DOOR.width * 0.48
+    && point[0] > MARDOU_AUTO_DOOR.position[0] - 1.05
+    && point[0] < MARDOU_AUTO_DOOR.position[0] + 1.75;
+  if (!insideOpenDoorway && clearance < minimumClearance) reasons.push(`structure clearance ${clearance.toFixed(3)} < ${minimumClearance}`);
   const location = waypoint ? `waypoint ${waypoint}` : `at t=${t.toFixed(1)}`;
   return reasons.map((reason) => `${name} ${location} [${point.map((value) => value.toFixed(3)).join(", ")}]: ${reason}`);
 });

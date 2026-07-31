@@ -13,16 +13,31 @@ export type MuseumPlacement = {
 };
 
 export type MardouPictureSlotName = "Picture" | "Picture_1" | "Picture_2";
-export type MardouPrivateFrameSlot = "private-frame-11" | "private-frame-12" | "private-frame-13";
+export type MardouPrivateFrameSlot =
+  | "private-frame-1"
+  | "private-frame-2"
+  | "private-frame-3"
+  | "private-frame-4"
+  | "private-frame-5"
+  | "private-frame-6";
+export const MARDOU_HIDDEN_MESH_NAMES = [
+  "Picture",
+  "Picture_1",
+  "Picture_2",
+  "bix_body",
+  "bix_eye_upper",
+  "Bix_Hair",
+  "bix_eye_lower",
+] as const;
 
 export const MARDOU_PICTURE_SLOTS: ReadonlyArray<{
   name: MardouPictureSlotName;
   defaultVisible: boolean;
   replaceable: boolean;
 }> = [
-  { name: "Picture", defaultVisible: true, replaceable: true },
+  { name: "Picture", defaultVisible: false, replaceable: false },
   { name: "Picture_1", defaultVisible: false, replaceable: false },
-  { name: "Picture_2", defaultVisible: true, replaceable: true },
+  { name: "Picture_2", defaultVisible: false, replaceable: false },
 ] as const;
 
 // Source-space bounds measured from MardouMuseumResult.glb. These constants
@@ -50,55 +65,59 @@ export function mardouSourcePointToWorld([x, y, z]: Vec3): Vec3 {
   ];
 }
 
-// The supplied point X -9.238, Y -15.647, Z -551.199 lands on the center
-// jamb of this double door. The outer frame bounds were measured from the
-// adjacent Walls triangles in source space.
+const MARDOU_GROUND_FLOOR_Y = mardouSourcePointToWorld([0, -16.2896, 0])[1];
+const MARDOU_CAMERA_EYE_HEIGHT = 1.5 - MARDOU_GROUND_FLOOR_Y;
+const entranceDoorWallPoint = mardouSourcePointToWorld([-4.3212, -11.6679, -489.4383]);
+
+// Point 1 from 入场门.txt is on an X-facing wall. The independent door is
+// therefore rotated into the YZ plane and begins at the authored floor.
 export const MARDOU_AUTO_DOOR = {
-  position: mardouSourcePointToWorld([-9.2042236328125, -16.28961181640625, -551.1992950439453]),
-  width: (-4.937145233154297 - -13.471298217773438) * MARDOU_SCALE,
-  height: (-7.9461669921875 - -16.28961181640625) * MARDOU_SCALE,
+  id: "entrance-door",
+  position: [entranceDoorWallPoint[0], MARDOU_GROUND_FLOOR_Y, entranceDoorWallPoint[2]] as Vec3,
+  normal: [-1, 0, 0] as Vec3,
+  rotation: [0, Math.PI / 2, 0] as Vec3,
+  width: 1.72,
+  height: 2.12,
+  sensorRadius: 2.2,
+  releaseRadius: 2.6,
+} as const;
+
+const innerGalleryDoorWallPoint = mardouSourcePointToWorld([-9.2487, -11.6312, -551.1993]);
+export const MARDOU_INNER_GALLERY_DOOR = {
+  id: "inner-gallery-door",
+  position: [innerGalleryDoorWallPoint[0], MARDOU_GROUND_FLOOR_Y, innerGalleryDoorWallPoint[2]] as Vec3,
+  normal: [0, 0, 1] as Vec3,
+  rotation: [0, 0, 0] as Vec3,
+  width: 1.76,
+  height: 1.74,
   sensorRadius: 2.2,
   releaseRadius: 2.6,
 } as const;
 
 const LOBBY_INTRO_SOURCE_POINTS = {
-  spawnFloor: [-32.244, -16.2896, -452.0684] as Vec3,
-  turnFloor: [-36.32435, -16.2896, -475.783767] as Vec3,
-  waypointFloor: [-38.745973, -16.2896, -497.578377] as Vec3,
-  galleryTurnFloor: [-33.902727, -16.2896, -512.108117] as Vec3,
+  spawnFloor: [3.3326, -16.2896, -489.2497] as Vec3,
+  mainTarget: [-13.2137, -9.3034, -551.1993] as Vec3,
 };
-const LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR = 1.5 - mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.spawnFloor)[1];
 const lobbyIntroSpawnFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.spawnFloor);
-const lobbyIntroTurnFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.turnFloor);
-const lobbyIntroWaypointFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.waypointFloor);
-const lobbyIntroGalleryTurnFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.galleryTurnFloor);
+const lobbyMainTarget = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.mainTarget);
+const lobbyDoorLook: Vec3 = [entranceDoorWallPoint[0], entranceDoorWallPoint[1], entranceDoorWallPoint[2]];
 
-// The three anchors were ray-picked from the supplied GLB in source space.
-// All three sit on the Floor mesh along the long west corridor and receive
-// the same eye-height lift before the camera follows 1 -> 2 -> 3.
+// The camera begins at the supplied floor point, approaches the door slowly
+// enough for its proximity sensor to open both leaves, crosses the threshold,
+// then turns into the authored main view facing the supplied wall point.
 export const MARDOU_LOBBY_INTRO_ROUTE = {
   spawn: [
     lobbyIntroSpawnFloor[0],
-    lobbyIntroSpawnFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
+    lobbyIntroSpawnFloor[1] + MARDOU_CAMERA_EYE_HEIGHT,
     lobbyIntroSpawnFloor[2],
   ] as Vec3,
-  turn: [
-    lobbyIntroTurnFloor[0],
-    lobbyIntroTurnFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
-    lobbyIntroTurnFloor[2],
-  ] as Vec3,
-  waypoint: [
-    lobbyIntroWaypointFloor[0],
-    lobbyIntroWaypointFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
-    lobbyIntroWaypointFloor[2],
-  ] as Vec3,
-  galleryTurn: [
-    lobbyIntroGalleryTurnFloor[0],
-    lobbyIntroGalleryTurnFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
-    lobbyIntroGalleryTurnFloor[2],
-  ] as Vec3,
-  galleryLook: [-2, 1.5, -10] as Vec3,
-  duration: 7,
+  approach: [entranceDoorWallPoint[0] + 0.72, 1.5, entranceDoorWallPoint[2]] as Vec3,
+  threshold: [entranceDoorWallPoint[0] - 0.82, 1.5, entranceDoorWallPoint[2]] as Vec3,
+  galleryTurn: [-2.7, 1.5, -7.4] as Vec3,
+  arrival: [-4.408, 1.5, -11.169] as Vec3,
+  lookAt: lobbyDoorLook,
+  mainTarget: lobbyMainTarget,
+  duration: 7.8,
 };
 
 // Ground-floor safe patrol area for the neutral ROOM companion. These points
@@ -125,9 +144,15 @@ export const MARDOU_COMPANION_SAFE_ZONE = {
 // scripts/audit-mardou-layout.mjs. Ground-floor surfaces are y ~= 0.246 and
 // the upper gallery surface is y ~= 3.527 in application coordinates.
 export const MARDOU_LOBBY_FOCUS: MuseumFocus = {
-  target: [-0.506, 1.5, -9.819],
-  camera: [-4.408, 1.5, -11.169],
+  target: MARDOU_LOBBY_INTRO_ROUTE.mainTarget,
+  camera: MARDOU_LOBBY_INTRO_ROUTE.arrival,
   fov: 60,
+};
+
+export const MARDOU_LOBBY_WIDE_FOCUS: MuseumFocus = {
+  target: [0, 1.5, -13],
+  camera: [-7.2, 1.65, -10],
+  fov: 82,
 };
 
 export const MARDOU_EXTERIOR_FOCUS: MuseumFocus = {
@@ -141,20 +166,31 @@ export const MARDOU_EXTERIOR_FOCUS: MuseumFocus = {
 export const MARDOU_ENTRANCE_ROUTE = {
   outside: [2.5, 1.5, 13.8] as Vec3,
   threshold: [2, 1.5, 8] as Vec3,
-  gallery: [-1.5, 1.5, -8] as Vec3,
+  gallery: [2, 1.5, -2] as Vec3,
+  introApproach: MARDOU_LOBBY_INTRO_ROUTE.galleryTurn,
 };
 
+const privateArrivalFloor = mardouSourcePointToWorld([30.7634, -0.3973, -513.8498]);
 export const MARDOU_PRIVATE_FOCUS: MuseumFocus = {
-  target: [0, 4.25, -20],
-  camera: [0, 4.8, -16],
-  fov: 54,
+  target: [4.35, 4.45, -11.1],
+  camera: [privateArrivalFloor[0], privateArrivalFloor[1] + MARDOU_CAMERA_EYE_HEIGHT, privateArrivalFloor[2]],
+  fov: 58,
+};
+
+export const MARDOU_PRIVATE_WIDE_FOCUS: MuseumFocus = {
+  target: [0, 4.25, -19],
+  camera: [5.8, 4.95, -11.2],
+  fov: 82,
 };
 
 export const MARDOU_PRIVATE_ROUTE = {
-  lobbyApproach: [-1.5, 1.5, -10] as Vec3,
-  ground: [0, 1.5, -10] as Vec3,
-  stairs: [2.5, 2.5, -12] as Vec3,
-  landing: [2.5, 4.8, -15] as Vec3,
+  approach: [-1.35, 1.5, -8.753] as Vec3,
+  lowerFlight: [0.45, 2.05, -8.753] as Vec3,
+  landing: [1.9, 3.58, -8.753] as Vec3,
+  upperFlight: [3.25, 4.48, -8.753] as Vec3,
+  galleryEntry: [4.55, 4.8, -9.05] as Vec3,
+  arrival: MARDOU_PRIVATE_FOCUS.camera,
+  duration: 8.6,
 };
 
 // The GLB merges the stairs into the shared Walls mesh, so there is no named
@@ -206,9 +242,13 @@ const MARDOU_CONTENT_SOURCE_POINTS = {
   private8: [-20.9003, -0.3973, -550.2894] as Vec3,
   private9: [-27.8284, -0.3973, -533.54] as Vec3,
   skills: [-3.346, -16.2896, -568.1041] as Vec3,
-  frame11: [37.9883, 7.0115, -524.9566] as Vec3,
-  frame12: [28.5801, 6.7098, -541.2597] as Vec3,
-  frame13: [-49.9476, 5.7021, -517.8082] as Vec3,
+  frame1: [-26.3949, -11.4074, -431.54] as Vec3,
+  frame2: [-34.3672, -11.1549, -443.382] as Vec3,
+  frame3: [-40.9912, -11.1117, -456.3047] as Vec3,
+  frame4: [-45.7948, -10.8606, -469.2781] as Vec3,
+  frame5: [-49.1467, -10.9222, -483.6486] as Vec3,
+  frame6: [-50.6895, -10.7098, -497.7521] as Vec3,
+  gramophone: [33.0739, -16.2896, -509.7867] as Vec3,
 } as const;
 
 const FLOOR_OBJECT_CENTER_LIFT = 1.39;
@@ -236,7 +276,7 @@ export const MARDOU_PROFILE_PLACEMENT = placement(
   [profilePoint[0], profilePoint[1], profilePoint[2] + 3],
 );
 
-export const MARDOU_EDUCATION_PLACEMENT = placement(
+export const MARDOU_ACHIEVEMENT_PLACEMENT = placement(
   educationPoint,
   [0, 0, 0],
   [-3.7, 1.5, -3.35],
@@ -283,6 +323,15 @@ const privateSurfacePoints = [
   floorObjectPoint(MARDOU_CONTENT_SOURCE_POINTS.private9),
 ];
 
+// Education and achievements exchange their authored stands: achievements
+// now use the former ground-floor education stand, while education uses the
+// former upper-gallery achievement position (private point 7).
+export const MARDOU_EDUCATION_PLACEMENT = placement(
+  privateSurfacePoints[1],
+  [0, 0, 0],
+  [privateSurfacePoints[1][0], 4.8, privateSurfacePoints[1][2] + 3],
+);
+
 export const MARDOU_PRIVATE_SURFACE_PLACEMENTS: MuseumPlacement[] = [
   placement(privateSurfacePoints[0], [0, -Math.PI / 2, 0], [privateSurfacePoints[0][0] - 3, 4.8, privateSurfacePoints[0][2]]),
   placement(privateSurfacePoints[1], [0, 0, 0], [privateSurfacePoints[1][0], 4.8, privateSurfacePoints[1][2] + 3]),
@@ -292,8 +341,11 @@ export const MARDOU_PRIVATE_SURFACE_PLACEMENTS: MuseumPlacement[] = [
 
 export const MARDOU_SURFACE_PLACEMENTS: MuseumPlacement[] = [
   MARDOU_PROFILE_PLACEMENT,
+  MARDOU_ACHIEVEMENT_PLACEMENT,
   MARDOU_EDUCATION_PLACEMENT,
-  ...MARDOU_PRIVATE_SURFACE_PLACEMENTS,
+  MARDOU_PRIVATE_SURFACE_PLACEMENTS[0],
+  MARDOU_PRIVATE_SURFACE_PLACEMENTS[2],
+  MARDOU_PRIVATE_SURFACE_PLACEMENTS[3],
   MARDOU_SKILLS_PLACEMENT,
 ];
 
@@ -324,10 +376,24 @@ function wallFramePlacement(
 }
 
 export const MARDOU_PRIVATE_PICTURE_FRAMES = [
-  wallFramePlacement("private-frame-11", MARDOU_CONTENT_SOURCE_POINTS.frame11, [-0.8661, 0, 0.4998]),
-  wallFramePlacement("private-frame-12", MARDOU_CONTENT_SOURCE_POINTS.frame12, [-0.8661, 0, 0.4998]),
-  wallFramePlacement("private-frame-13", MARDOU_CONTENT_SOURCE_POINTS.frame13, [0.9926, 0, 0.1214]),
+  wallFramePlacement("private-frame-1", MARDOU_CONTENT_SOURCE_POINTS.frame1, [0.7818, 0, -0.6235]),
+  wallFramePlacement("private-frame-2", MARDOU_CONTENT_SOURCE_POINTS.frame2, [0.8615, 0, -0.5078]),
+  wallFramePlacement("private-frame-3", MARDOU_CONTENT_SOURCE_POINTS.frame3, [0.9239, 0, -0.3827]),
+  wallFramePlacement("private-frame-4", MARDOU_CONTENT_SOURCE_POINTS.frame4, [0.9484, 0, -0.3172]),
+  wallFramePlacement("private-frame-5", MARDOU_CONTENT_SOURCE_POINTS.frame5, [0.9834, 0, -0.1816]),
+  wallFramePlacement("private-frame-6", MARDOU_CONTENT_SOURCE_POINTS.frame6, [0.9991, 0, -0.0413]),
 ] as const;
+
+const gramophoneFloorPoint = mardouSourcePointToWorld(MARDOU_CONTENT_SOURCE_POINTS.gramophone);
+export const MARDOU_GRAMOPHONE_PLACEMENT: MuseumPlacement = {
+  position: gramophoneFloorPoint,
+  rotation: [0, -Math.PI / 2, 0],
+  focus: {
+    target: [gramophoneFloorPoint[0], gramophoneFloorPoint[1] + 0.9, gramophoneFloorPoint[2]],
+    camera: [gramophoneFloorPoint[0] - 3, 1.5, gramophoneFloorPoint[2]],
+    fov: 46,
+  },
+};
 
 export const MARDOU_GUESTBOOK_PLACEMENT: MuseumPlacement = {
   position: [-5, 4.65, -18],

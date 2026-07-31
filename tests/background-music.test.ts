@@ -26,3 +26,9 @@ test("controller uses procedural Web Audio, visibility pause, and a persistent t
   assert.match(controllerSource, /linearRampToValueAtTime/);
   assert.match(controllerSource, /aria-pressed/);
 });
+
+test("the local gramophone yields to and restores the ambient controller", () => {
+  assert.match(studioSource, /musicController\.current\?\.stop\(\);[\s\S]{0,100}await audio\.play\(\)/);
+  assert.match(studioSource, /audio\.pause\(\);[\s\S]{0,100}musicController\.current\?\.start\(\)/);
+  assert.match(studioSource, /onEnded=\{\(\) => \{[\s\S]{0,120}musicController\.current\?\.start\(\)/);
+});

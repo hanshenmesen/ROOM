@@ -69,7 +69,7 @@ import { ExhibitFocusScreen } from "./ExhibitFocusScreen";
 import { ExhibitHeatPanel } from "./ExhibitHeatPanel";
 import { BackgroundMusicController, type BackgroundMusicControllerHandle } from "./BackgroundMusicController";
 import { PetQaPanel } from "./PetQaPanel";
-import type { MardouPictureSlotName, MardouPrivateFrameSlot } from "./MardouMuseumLayout";
+import type { MardouPrivateFrameSlot } from "./MardouMuseumLayout";
 import { ProductFlowLanding } from "./ProductFlowLanding";
 
 const WorldCanvas = dynamic(
@@ -83,11 +83,16 @@ const OWNER_PRIVATE_PASSWORD = "owner2026";
 const VISITOR_PRIVATE_PASSWORD = "visit2026";
 const GUESTBOOK_STORAGE_KEY = "room:guestbook:v1";
 const SOURCE_BROWSER_ID = "showroom-source-browser";
-const PICTURE_CONFIG_ID = "museum-picture-config";
-const MUSEUM_PICTURE_STORAGE_KEY = "room:mardou-picture-overrides:v1";
-const PRIVATE_FRAME_STORAGE_KEY = "room:mardou-private-frame-images:v1";
-const EDITABLE_PICTURE_SLOTS = ["Picture", "Picture_2"] as const satisfies ReadonlyArray<MardouPictureSlotName>;
-const PRIVATE_FRAME_SLOTS = ["private-frame-11", "private-frame-12", "private-frame-13"] as const satisfies ReadonlyArray<MardouPrivateFrameSlot>;
+const GRAMOPHONE_ID = "showroom-gramophone";
+const PRIVATE_FRAME_STORAGE_KEY = "room:mardou-private-frame-images:v2";
+const PRIVATE_FRAME_SLOTS = [
+  "private-frame-1",
+  "private-frame-2",
+  "private-frame-3",
+  "private-frame-4",
+  "private-frame-5",
+  "private-frame-6",
+] as const satisfies ReadonlyArray<MardouPrivateFrameSlot>;
 const PROJECT_EDITS_STORAGE_PREFIX = "room:project-edits:v1:";
 const EMPTY_PROJECT_EDIT: ProjectEdit = { title: "", summary: "" };
 function profileStats(profile: ParsedProfile) {
@@ -116,7 +121,6 @@ type GuestbookEntry = {
 };
 
 type BedroomAccessMode = "owner" | "visitor";
-type PictureOverrides = Partial<Record<(typeof EDITABLE_PICTURE_SLOTS)[number], string>>;
 type PrivateFrameImages = Partial<Record<MardouPrivateFrameSlot, string>>;
 
 type PortraitArtStatus = "idle" | "generating" | "ready" | "error";
@@ -289,25 +293,6 @@ function readStoredProjectEdits(profileId: string): ProjectEdits {
 
 function writeStoredProjectEdits(profileId: string, edits: ProjectEdits) {
   window.localStorage.setItem(`${PROJECT_EDITS_STORAGE_PREFIX}${profileId}`, JSON.stringify(edits));
-}
-
-export function normalizePictureOverrides(value: unknown): PictureOverrides {
-  if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    EDITABLE_PICTURE_SLOTS
-      .map((slot) => [slot, (value as Record<string, unknown>)[slot]] as const)
-      .filter((entry): entry is readonly [(typeof EDITABLE_PICTURE_SLOTS)[number], string] => typeof entry[1] === "string" && Boolean(entry[1])),
-  );
-}
-
-function readStoredPictureOverrides() {
-  if (typeof window === "undefined") return {};
-  try {
-    const stored = window.localStorage.getItem(MUSEUM_PICTURE_STORAGE_KEY);
-    return stored ? normalizePictureOverrides(JSON.parse(stored)) : {};
-  } catch {
-    return {};
-  }
 }
 
 function readStoredHeatLedger(profileId: string): ExhibitHeatLedger | null {
@@ -543,7 +528,6 @@ export function RoomStudio() {
   const [sceneLoadState, setSceneLoadState] = useState<SceneLoadingSnapshot | null>(null);
   const [dragging, setDragging] = useState(false);
   const [activeRoom, setActiveRoom] = useState("room-lobby");
-  const [projectPage, setProjectPage] = useState(0);
   const [selectedId, setSelectedId] = useState("");
   const [focusPhase, setFocusPhase] = useState<ExhibitFocusPhase>("idle");
   const [privateGateOpen, setPrivateGateOpen] = useState(false);
@@ -564,11 +548,13 @@ export function RoomStudio() {
   const [projectEditDraft, setProjectEditDraft] = useState<ProjectEdit>(EMPTY_PROJECT_EDIT);
   const [projectEditMessage, setProjectEditMessage] = useState("");
   const [sourceBrowserProjectId, setSourceBrowserProjectId] = useState("");
-  const [pictureOverrides, setPictureOverrides] = useState<PictureOverrides>({});
-  const [pictureUrlDrafts, setPictureUrlDrafts] = useState<PictureOverrides>({});
-  const [pictureConfigMessage, setPictureConfigMessage] = useState("");
   const [privateFrameImages, setPrivateFrameImages] = useState<PrivateFrameImages>({});
   const [privateFrameMessage, setPrivateFrameMessage] = useState("");
+  const [gramophoneMusicUrl, setGramophoneMusicUrl] = useState("");
+  const [gramophoneMusicName, setGramophoneMusicName] = useState("");
+  const [gramophoneVolume, setGramophoneVolume] = useState(0.7);
+  const [gramophonePlaying, setGramophonePlaying] = useState(false);
+  const [gramophoneMessage, setGramophoneMessage] = useState("");
   const [originalPortraitUrl, setOriginalPortraitUrl] = useState("");
   const [abstractPortraitUrl, setAbstractPortraitUrl] = useState("");
   const [portraitArtStatus, setPortraitArtStatus] = useState<PortraitArtStatus>("idle");
@@ -582,10 +568,10 @@ export function RoomStudio() {
   const diaryImageInput = useRef<HTMLInputElement>(null);
   const projectImageInput = useRef<HTMLInputElement>(null);
   const musicController = useRef<BackgroundMusicControllerHandle>(null);
+  const gramophoneAudio = useRef<HTMLAudioElement>(null);
+  const gramophoneFileInput = useRef<HTMLInputElement>(null);
   const pageTransitionTimer = useRef<number | null>(null);
   const portraitGeneration = useRef(0);
-  const projectCount = result?.world.exhibits.filter((item) => item.eyebrow === "PROJECT").length || 0;
-  const projectPageCount = Math.max(1, Math.ceil(projectCount / PROJECTS_PER_PAGE));
   const selectedPrivateFrameSlot = PRIVATE_FRAME_SLOTS.includes(selectedId as MardouPrivateFrameSlot)
     ? selectedId as MardouPrivateFrameSlot
     : undefined;
@@ -607,21 +593,21 @@ export function RoomStudio() {
     sceneCommitted,
     ready: sceneReady,
   });
-  const heatTargets = useMemo(() => result ? publicHeatTargets(result.world, PROJECTS_PER_PAGE) : [], [result]);
+  const heatTargets = useMemo(
+    () => result
+      ? publicHeatTargets(result.world, PROJECTS_PER_PAGE)
+        .filter((target) => target.projectPage === undefined || target.projectPage === 0)
+      : [],
+    [result],
+  );
   const visibleHeatItems = useMemo(
     () => exhibitHeat ? heatItems(heatTargets, exhibitHeat) : [],
     [exhibitHeat, heatTargets],
   );
-  const focusableExhibitIds = useMemo(() => {
-    if (!result) return [];
-    return [
-      ...result.world.displaySurfaces.filter((surface) => surface.roomId === "room-lobby").map((surface) => surface.id),
-      ...result.world.exhibits.filter((exhibit) => exhibit.roomId === "room-lobby").map((exhibit) => exhibit.id),
-    ];
-  }, [result]);
+  const focusableExhibitIds = useMemo(() => heatTargets.map((target) => target.id), [heatTargets]);
   const selectedFocusIndex = focusableExhibitIds.indexOf(selectedId);
   const selectedDetail = useMemo<SelectedDetail | undefined>(() => {
-    if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary") return undefined;
+    if (!result || !selectedId || selectedId === "showroom-guestbook" || selectedId === "bedroom-diary" || selectedId === GRAMOPHONE_ID) return undefined;
     const sourceType = result.profile.source.type;
     const exhibit = result.world.exhibits.find((item) => item.id === selectedId);
     if (exhibit) {
@@ -758,9 +744,6 @@ export function RoomStudio() {
     const hydrationTimer = window.setTimeout(() => {
       setGuestbookEntries(readStoredEntries<GuestbookEntry>(GUESTBOOK_STORAGE_KEY));
       setDiaryEntries(readStoredEntries<DiaryEntry>(DIARY_STORAGE_KEY));
-      const storedPictures = readStoredPictureOverrides();
-      setPictureOverrides(storedPictures);
-      setPictureUrlDrafts(storedPictures);
       setPrivateFrameImages(readStoredPrivateFrameImages());
       setSavedProfiles(
         readStoredEntries<unknown>(PROFILE_HISTORY_STORAGE_KEY).filter(isSavedProfileRecord),
@@ -777,6 +760,14 @@ export function RoomStudio() {
   useEffect(() => () => {
     if (abstractPortraitUrl.startsWith("blob:")) URL.revokeObjectURL(abstractPortraitUrl);
   }, [abstractPortraitUrl]);
+
+  useEffect(() => {
+    if (gramophoneAudio.current) gramophoneAudio.current.volume = gramophoneVolume;
+  }, [gramophoneVolume]);
+
+  useEffect(() => () => {
+    if (gramophoneMusicUrl.startsWith("blob:")) URL.revokeObjectURL(gramophoneMusicUrl);
+  }, [gramophoneMusicUrl]);
 
   useEffect(() => {
     function closeTransientUi(event: KeyboardEvent) {
@@ -869,14 +860,14 @@ export function RoomStudio() {
     setSceneLoadState(null);
     setResult(next);
     setProjectEdits(storedProjectEdits);
-    const heatTargetsForWorld = publicHeatTargets(next.world, PROJECTS_PER_PAGE);
+    const heatTargetsForWorld = publicHeatTargets(next.world, PROJECTS_PER_PAGE)
+      .filter((target) => target.projectPage === undefined || target.projectPage === 0);
     setExhibitHeat(createHeatLedger(profile.id, heatTargetsForWorld, readStoredHeatLedger(profile.id)));
     setProjectEditDraft(EMPTY_PROJECT_EDIT);
     setProjectEditMessage("");
     setSelectedId("");
     setFocusPhase("idle");
     setActiveRoom("room-lobby");
-    setProjectPage(0);
     setSourceBrowserProjectId("");
     setPendingProfile(null);
     setOriginalPortraitUrl(sourcePortrait);
@@ -1000,12 +991,6 @@ export function RoomStudio() {
     if (activeRoom === PRIVATE_ROOM_ID) resetPrivateAccess();
   }
 
-  function changeProjectPage(nextPage: number) {
-    setSelectedId("");
-    setFocusPhase("idle");
-    setProjectPage(Math.max(0, Math.min(projectPageCount - 1, nextPage)));
-  }
-
   function unlockPrivateDiary(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!privateAccessMode) {
@@ -1118,49 +1103,6 @@ export function RoomStudio() {
     setAgentSetupOpen(false);
   }
 
-  function persistPictureOverrides(next: PictureOverrides) {
-    setPictureOverrides(next);
-    try {
-      window.localStorage.setItem(MUSEUM_PICTURE_STORAGE_KEY, JSON.stringify(next));
-      setPictureConfigMessage("图片位已更新并保存到当前浏览器。");
-    } catch {
-      setPictureConfigMessage("图片已更新，但浏览器存储空间不足，本次只在当前会话保留。");
-    }
-  }
-
-  function applyPictureUrl(slot: (typeof EDITABLE_PICTURE_SLOTS)[number]) {
-    const value = pictureUrlDrafts[slot]?.trim() || "";
-    if (value && !safeExternalHref(value) && !value.startsWith("data:image/")) {
-      setPictureConfigMessage("请输入完整的 http:// 或 https:// 图片地址。");
-      return;
-    }
-    const next = { ...pictureOverrides, [slot]: value || undefined };
-    if (!value) delete next[slot];
-    persistPictureOverrides(next);
-  }
-
-  async function readPictureSlotImage(slot: (typeof EDITABLE_PICTURE_SLOTS)[number], event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setPictureConfigMessage(`正在优化 ${slot} 图片…`);
-    try {
-      const imageUrl = await resizeProjectCover(file);
-      const next = { ...pictureOverrides, [slot]: imageUrl };
-      setPictureUrlDrafts((current) => ({ ...current, [slot]: imageUrl }));
-      persistPictureOverrides(next);
-    } catch (error) {
-      setPictureConfigMessage(error instanceof Error ? error.message : "这张图片无法处理，请换一张再试。");
-      event.target.value = "";
-    }
-  }
-
-  function resetPictureSlot(slot: (typeof EDITABLE_PICTURE_SLOTS)[number]) {
-    const next = { ...pictureOverrides };
-    delete next[slot];
-    setPictureUrlDrafts((current) => ({ ...current, [slot]: undefined }));
-    persistPictureOverrides(next);
-  }
-
   function persistPrivateFrameImages(next: PrivateFrameImages) {
     setPrivateFrameImages(next);
     try {
@@ -1190,6 +1132,55 @@ export function RoomStudio() {
     persistPrivateFrameImages(next);
   }
 
+  function selectGramophoneMusic(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("audio/")) {
+      setGramophoneMessage("请选择浏览器可播放的音频文件。");
+      event.target.value = "";
+      return;
+    }
+    gramophoneAudio.current?.pause();
+    setGramophonePlaying(false);
+    void musicController.current?.start();
+    setGramophoneMusicUrl(URL.createObjectURL(file));
+    setGramophoneMusicName(file.name);
+    setGramophoneMessage("音乐已载入当前会话，尚未自动播放。");
+  }
+
+  async function toggleGramophoneMusic() {
+    const audio = gramophoneAudio.current;
+    if (!audio || !gramophoneMusicUrl) {
+      setGramophoneMessage("当前未设置音乐，请先选择本地音频。");
+      return;
+    }
+    if (gramophonePlaying) {
+      audio.pause();
+      setGramophonePlaying(false);
+      void musicController.current?.start();
+      return;
+    }
+    try {
+      musicController.current?.stop();
+      await audio.play();
+      setGramophonePlaying(true);
+      setGramophoneMessage("");
+    } catch {
+      void musicController.current?.start();
+      setGramophoneMessage("浏览器暂时无法播放这段音频，请换一个文件再试。");
+    }
+  }
+
+  function clearGramophoneMusic() {
+    gramophoneAudio.current?.pause();
+    setGramophonePlaying(false);
+    void musicController.current?.start();
+    setGramophoneMusicUrl("");
+    setGramophoneMusicName("");
+    setGramophoneMessage("音乐已清空。");
+    if (gramophoneFileInput.current) gramophoneFileInput.current.value = "";
+  }
+
   function clearBrowserAgentConfig() {
     window.sessionStorage.removeItem(BROWSER_AGENT_SESSION_KEY);
     setBrowserAgentConfig(null);
@@ -1212,6 +1203,7 @@ export function RoomStudio() {
     setProjectEditDraft(selectedProject ? projectEditFromItem(selectedProject) : EMPTY_PROJECT_EDIT);
     setProjectEditMessage("");
     if (PRIVATE_FRAME_SLOTS.includes(id as MardouPrivateFrameSlot)) setPrivateFrameMessage("");
+    if (id === GRAMOPHONE_ID) setGramophoneMessage("");
     if (projectImageInput.current) projectImageInput.current.value = "";
     setSelectedId(id);
     const focusable = Boolean(id) && Boolean(
@@ -1235,10 +1227,6 @@ export function RoomStudio() {
     const surface = result.world.displaySurfaces.find((item) => item.id === id);
     const targetRoom = exhibit?.roomId || surface?.roomId;
     if (targetRoom && targetRoom !== activeRoom) setActiveRoom(targetRoom);
-    if (exhibit?.eyebrow === "PROJECT") {
-      const projectIndex = result.world.exhibits.filter((item) => item.eyebrow === "PROJECT").findIndex((item) => item.id === id);
-      if (projectIndex >= 0) setProjectPage(Math.floor(projectIndex / PROJECTS_PER_PAGE));
-    }
     selectWorldObject(id);
   }
 
@@ -1674,10 +1662,8 @@ export function RoomStudio() {
           world={result.world}
           activeRoom={activeRoom}
           sceneReady={sceneReady}
-          projectPage={projectPage}
           selectedExhibit={selectedId}
           guestbookMessages={guestbookEntries.map((entry) => entry.message)}
-          pictureOverrides={pictureOverrides}
           privateFrameImages={privateFrameImages}
           petQaOpen={petQaOpen}
           onSelect={selectWorldObject}
@@ -1687,6 +1673,15 @@ export function RoomStudio() {
           onReady={handleSceneReady}
           onFocusSettled={handleExhibitFocusSettled}
           onOpenPetQa={openPetQa}
+        />
+        <audio
+          ref={gramophoneAudio}
+          src={gramophoneMusicUrl || undefined}
+          onEnded={() => {
+            setGramophonePlaying(false);
+            void musicController.current?.start();
+          }}
+          aria-label="展厅留声机音频"
         />
 
         <ExhibitHeatPanel
@@ -1770,7 +1765,7 @@ export function RoomStudio() {
                   leavePrivateRoom(activeRoom === "room-lobby" ? "exterior" : "room-lobby");
                 }}
               >
-                ← {activeRoom === "room-lobby" ? "回到小家外" : "返回主展厅"}
+                ← {activeRoom === "room-lobby" ? "回到展馆外" : "返回主展厅"}
               </button>
               {activeRoom === PRIVATE_ROOM_ID ? (
                 <button type="button" onClick={() => { setSelectedId(PRIVATE_FRAME_SLOTS[0]); setPrivateFrameMessage(""); }}>
@@ -1778,25 +1773,9 @@ export function RoomStudio() {
                 </button>
               ) : null}
               {activeRoom === "room-lobby" ? (
-                <>
-                  <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
-                    二层展区 · 直接进入
-                  </button>
-                  <button type="button" onClick={() => { setSelectedId(PICTURE_CONFIG_ID); setPictureConfigMessage(""); }}>
-                    配置 GLB 图片位
-                  </button>
-                  {projectPageCount > 1 ? (
-                    <>
-                      <button type="button" onClick={() => changeProjectPage(projectPage - 1)} disabled={projectPage === 0}>
-                        ← 上一组项目
-                      </button>
-                      <span>{projectPage + 1} / {projectPageCount} · 共 {projectCount} 个项目</span>
-                      <button type="button" onClick={() => changeProjectPage(projectPage + 1)} disabled={projectPage >= projectPageCount - 1}>
-                        下一组项目 →
-                      </button>
-                    </>
-                  ) : null}
-                </>
+                <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
+                  二层展区 · 直接进入
+                </button>
               ) : null}
             </>
           )}
@@ -1985,47 +1964,51 @@ export function RoomStudio() {
         </aside>
 
         <aside
-          className={`memory-panel picture-config-panel ${selectedId === PICTURE_CONFIG_ID ? "is-open" : ""}`}
-          aria-hidden={selectedId !== PICTURE_CONFIG_ID}
+          className={`memory-panel gramophone-panel ${selectedId === GRAMOPHONE_ID ? "is-open" : ""}`}
+          aria-hidden={selectedId !== GRAMOPHONE_ID}
         >
-          {selectedId === PICTURE_CONFIG_ID ? (
+          {selectedId === GRAMOPHONE_ID ? (
             <>
-              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭图片位配置">×</button>
-              <p>GLB PICTURE SLOTS</p>
-              <h2>替换小家原生图片</h2>
+              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭留声机设置">×</button>
+              <p>MUSEUM GRAMOPHONE</p>
+              <h2>展厅音乐</h2>
               <div className="memory-description">
-                Picture_1 是重叠占位网格，始终保留但默认隐藏；其余两个图片位可独立使用 URL 或本地图片替换。
+                默认不设置音乐。你可以从本机选择一段音频，仅在当前页面播放，不会上传或保存。
               </div>
-              <div className="picture-config-grid">
-                {EDITABLE_PICTURE_SLOTS.map((slot) => (
-                  <section key={slot} className="picture-config-card">
-                    <header>
-                      <strong>{slot}</strong>
-                      <span>{pictureOverrides[slot] ? "自定义图片" : "GLB 默认贴图"}</span>
-                    </header>
-                    <label htmlFor={`picture-url-${slot}`}>图片 URL</label>
-                    <input
-                      id={`picture-url-${slot}`}
-                      type="url"
-                      value={pictureUrlDrafts[slot] || ""}
-                      onChange={(event) => setPictureUrlDrafts((current) => ({ ...current, [slot]: event.target.value }))}
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    <div className="picture-config-actions">
-                      <button type="button" onClick={() => applyPictureUrl(slot)}>应用 URL</button>
-                      <button type="button" onClick={() => resetPictureSlot(slot)}>恢复默认</button>
-                    </div>
-                    <label className="picture-file-button" htmlFor={`picture-file-${slot}`}>选择本地图片</label>
-                    <input
-                      id={`picture-file-${slot}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => void readPictureSlotImage(slot, event)}
-                    />
-                  </section>
-                ))}
-              </div>
-              <div className="memory-error" aria-live="polite">{pictureConfigMessage}</div>
+              <section className="gramophone-controls">
+                <div className="gramophone-track">
+                  <span>当前曲目</span>
+                  <strong>{gramophoneMusicName || "未设置音乐"}</strong>
+                </div>
+                <label className="picture-file-button" htmlFor="gramophone-file">选择本地音频</label>
+                <input
+                  ref={gramophoneFileInput}
+                  id="gramophone-file"
+                  type="file"
+                  accept="audio/*"
+                  onChange={selectGramophoneMusic}
+                />
+                <label className="gramophone-volume" htmlFor="gramophone-volume">
+                  <span>音量</span>
+                  <strong>{Math.round(gramophoneVolume * 100)}%</strong>
+                </label>
+                <input
+                  id="gramophone-volume"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={gramophoneVolume}
+                  onChange={(event) => setGramophoneVolume(Number(event.target.value))}
+                />
+                <div className="gramophone-actions">
+                  <button type="button" onClick={() => void toggleGramophoneMusic()} disabled={!gramophoneMusicUrl}>
+                    {gramophonePlaying ? "暂停" : "播放"}
+                  </button>
+                  <button type="button" onClick={clearGramophoneMusic} disabled={!gramophoneMusicUrl}>清空</button>
+                </div>
+              </section>
+              <div className="memory-error" aria-live="polite">{gramophoneMessage}</div>
             </>
           ) : null}
         </aside>
@@ -2129,12 +2112,12 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "WASD 移动 · Q / E 左右转身 180° · 按住鼠标拖动 360° 环视 · 点击展品或楼梯"
+                : "WASD 移动 · Q / E 单击 10°、长按持续旋转 · R 广角后退 · 移动鼠标环视 · 右键锁定/解除视角 · 点击展品或楼梯"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "WASD 移动 · Q / E 左右转身 180° · 按住鼠标拖动 360° 环视 · 点击桌上的日记本"}
+                : "WASD 移动 · Q / E 单击 10°、长按持续旋转 · R 广角后退 · 移动鼠标环视 · 右键锁定/解除视角 · 点击桌上的日记本"}
         </div>
       </section>
     </main>

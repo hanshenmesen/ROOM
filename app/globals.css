@@ -1585,11 +1585,28 @@ button:disabled { cursor: not-allowed; }
 .private-frame-tabs { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
 .private-frame-tabs button { border: 1px solid var(--black); padding: 8px 5px; background: transparent; font-size: 9px; cursor: pointer; }
 .private-frame-tabs button + button { border-left: 0; }
+.private-frame-tabs button:nth-child(4) { border-left: 1px solid var(--black); }
+.private-frame-tabs button:nth-child(n+4) { border-top: 0; }
 .private-frame-tabs button.is-active { background: var(--black); color: var(--white); }
 .private-frame-config-card img,
-.private-frame-empty-preview { width: 100%; aspect-ratio: 3 / 2; border: 1px solid rgba(25, 23, 27, .28); object-fit: cover; }
+.private-frame-empty-preview { width: min(64%, 220px); margin-inline: auto; aspect-ratio: .59; border: 1px solid rgba(25, 23, 27, .28); object-fit: cover; }
 .private-frame-empty-preview { display: grid; place-items: center; background: #efe7db; color: #8a8178; font: 700 10px var(--font-geist-mono), monospace; letter-spacing: .12em; }
 .private-frame-reset { border: 1px solid var(--black); padding: 9px 10px; background: transparent; font-size: 9px; cursor: pointer; }
+
+.gramophone-controls { display: grid; gap: 10px; margin-top: 18px; }
+.gramophone-controls input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.gramophone-track { display: grid; gap: 5px; padding: 12px; border: 1px solid rgba(25, 23, 27, .24); background: #fffdf8; }
+.gramophone-track span,
+.gramophone-volume span { color: var(--gray); font: 9px var(--font-geist-mono), monospace; }
+.gramophone-track strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.gramophone-volume { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.gramophone-volume strong { font: 700 9px var(--font-geist-mono), monospace; }
+.gramophone-controls input[type="range"] { width: 100%; accent-color: var(--black); }
+.gramophone-actions { display: grid; grid-template-columns: 1fr 1fr; }
+.gramophone-actions button { border: 1px solid var(--black); padding: 10px; background: transparent; font-size: 9px; cursor: pointer; }
+.gramophone-actions button + button { border-left: 0; }
+.gramophone-actions button:first-child { background: var(--black); color: var(--white); }
+.gramophone-actions button:disabled { cursor: not-allowed; opacity: .38; }
 
 .private-gate {
   position: absolute;
