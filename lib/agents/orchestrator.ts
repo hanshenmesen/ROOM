@@ -188,6 +188,7 @@ export function orchestrateWorld(profile: ParsedProfile, brief: CreativeBrief): 
 
   const portals = [
     { id: "portal-1", fromRoomId: "room-lobby", toRoomId: "room-private", position: [2.5, 3.53, -15] as Vec3, label: "Private Upper Gallery" },
+    { id: "portal-entrance", fromRoomId: "exterior", toRoomId: "room-lobby", position: [2, 1.5, 8] as Vec3, label: "Museum Entrance" },
   ];
   const rooms: RoomPlan[] = roomSpecs.map((room) => ({
     ...room,

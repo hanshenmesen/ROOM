@@ -257,7 +257,7 @@ export function RoomStudio() {
   const [sceneReady, setSceneReady] = useState(false);
   const [sceneLoadState, setSceneLoadState] = useState<SceneLoadingSnapshot | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [activeRoom, setActiveRoom] = useState("exterior");
+  const [activeRoom, setActiveRoom] = useState("room-lobby");
   const [projectPage, setProjectPage] = useState(0);
   const [selectedId, setSelectedId] = useState("");
   const [privateGateOpen, setPrivateGateOpen] = useState(false);
@@ -434,7 +434,7 @@ export function RoomStudio() {
     setSceneLoadState(null);
     setResult(next);
     setSelectedId("");
-    setActiveRoom("exterior");
+    setActiveRoom("room-lobby");
     setProjectPage(0);
     resetPrivateAccess();
     setMessage("");
@@ -753,6 +753,7 @@ export function RoomStudio() {
         <WorldCanvas
           world={result.world}
           activeRoom={activeRoom}
+          sceneReady={sceneReady}
           projectPage={projectPage}
           selectedExhibit={selectedId}
           guestbookMessages={guestbookEntries.map((entry) => entry.message)}
@@ -883,17 +884,17 @@ export function RoomStudio() {
         <aside className={`memory-panel ${selectedId === "showroom-guestbook" ? "is-open" : ""}`} aria-hidden={selectedId !== "showroom-guestbook"}>
           {selectedId === "showroom-guestbook" ? (
             <>
-              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭访客留言板">×</button>
+              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭访客签到台">×</button>
               <p>VISITOR CORNER</p>
               <h2>在展厅留句话</h2>
-              <div className="memory-description">留言会保存在这台浏览器中，并立即出现在 3D 留言板上。</div>
+              <div className="memory-description">留言会保存在这台浏览器中，并立即变成 3D 签到簿旁的便签。</div>
               <form className="memory-form" onSubmit={saveGuestbookEntry}>
                 <label htmlFor="guest-name">名字</label>
                 <input id="guest-name" value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="匿名访客" maxLength={32} />
                 <label htmlFor="guest-message">留言</label>
                 <textarea id="guest-message" value={guestMessage} onChange={(event) => { setGuestMessage(event.target.value); setGuestbookError(""); }} placeholder="这座展馆让你想到什么？" maxLength={160} rows={4} />
                 <div className="memory-error" aria-live="polite">{guestbookError}</div>
-                <button type="submit">保存到留言板</button>
+                <button type="submit">写入签到簿</button>
               </form>
               <div className="memory-entries" aria-label="最近留言">
                 {guestbookEntries.length ? guestbookEntries.slice(-4).reverse().map((entry) => (
@@ -954,7 +955,7 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "移动鼠标环视 · 点击墙面资料、中央项目展架或角落留言板"
+                : "移动鼠标环视 · 点击资料物件、圆形项目展岛或访客签到台"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"

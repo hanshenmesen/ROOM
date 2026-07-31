@@ -34,6 +34,7 @@ import {
   MARDOU_EXTERIOR_FOCUS,
   MARDOU_GUESTBOOK_PLACEMENT,
   MARDOU_LOBBY_FOCUS,
+  MARDOU_LOBBY_INTRO_ROUTE,
   MARDOU_PRIVATE_FOCUS,
   MARDOU_PRIVATE_ROUTE,
   MARDOU_PROJECT_PLACEMENTS,
@@ -64,7 +65,6 @@ const INK = "#19171b";
 const DARK_WOOD = "#34231f";
 const TEAL = "#65d7c3";
 const CORAL = "#ff8b61";
-const EMPTY_INFORMATION_DETAILS: string[] = [];
 const PROJECTS_PER_PAGE = 4;
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
   publication: "论文",
@@ -80,10 +80,9 @@ function sceneMediaUrl(url: string) {
     : url;
 }
 
-const PROJECT_STAND_BASE_SIZE = [1.88, 0.26, 1.56] as const;
-const PROJECT_STAND_TOP_SIZE = [1.54, 0.16, 1.28] as const;
 const PROJECT_CARD_SIZE = [1.68, 1.12, 0.09] as const;
 const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
+const PROJECT_ISLAND_RADIUS = 0.92;
 
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
   "showroom-guestbook": MARDOU_GUESTBOOK_PLACEMENT.focus,
@@ -91,30 +90,33 @@ const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov
 };
 
 type CameraRoute = {
-  position: THREE.CatmullRomCurve3;
-  target: THREE.CatmullRomCurve3;
+  position: THREE.Curve<THREE.Vector3>;
+  target: THREE.Curve<THREE.Vector3>;
   duration: number;
   elapsed: number;
   fromFov: number;
   toFov: number;
 };
 
-function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string; selectedExhibit?: string; world: WorldPlan }) {
+function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan }) {
   const { camera, pointer } = useThree();
-  const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.target), []);
-  const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.target), []);
-  const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.target), []);
-  const destination = useMemo(() => new THREE.Vector3(...MARDOU_EXTERIOR_FOCUS.camera), []);
+  const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
+  const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
+  const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
+  const destination = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.spawn), []);
   const frameDestination = useMemo(() => new THREE.Vector3(), []);
   const viewDirection = useMemo(() => new THREE.Vector3(), []);
   const viewRight = useMemo(() => new THREE.Vector3(), []);
   const viewUp = useMemo(() => new THREE.Vector3(), []);
-  const desiredFov = useRef(MARDOU_EXTERIOR_FOCUS.fov);
+  const desiredFov = useRef(activeRoom === "room-lobby" ? MARDOU_LOBBY_FOCUS.fov : MARDOU_EXTERIOR_FOCUS.fov);
   const previousRoom = useRef(activeRoom);
   const previousExhibit = useRef(selectedExhibit);
+  const lobbyIntroPending = useRef(activeRoom === "room-lobby");
   const route = useRef<CameraRoute | null>(null);
 
   useEffect(() => {
+    if (lobbyIntroPending.current && activeRoom === "room-lobby" && !selectedExhibit && !sceneReady) return;
+
     const room = world.rooms.find((item) => item.id === activeRoom);
     const exhibit = world.exhibits.find((item) => item.id === selectedExhibit);
     const exhibitRoom = exhibit ? world.rooms.find((item) => item.id === exhibit.roomId) : undefined;
@@ -166,16 +168,39 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
 
     const roomChanged = previousRoom.current !== activeRoom;
     const exhibitChanged = previousExhibit.current !== selectedExhibit;
-    if (!roomChanged && !exhibitChanged) return;
+    const shouldPlayLobbyIntro = lobbyIntroPending.current && activeRoom === "room-lobby" && !selectedExhibit;
+    if (!roomChanged && !exhibitChanged && !shouldPlayLobbyIntro) return;
 
     const startPosition = camera.position.clone();
     const startTarget = lookAt.clone();
     const fromFov = camera instanceof THREE.PerspectiveCamera ? camera.fov : desiredFov.current;
     let positionPoints = [startPosition, destination.clone()];
     let targetPoints = [startTarget, lookAtTarget.clone()];
+    let positionCurve: THREE.Curve<THREE.Vector3> | undefined;
     let duration = exhibit || authoredFocus ? 1.7 : 2.2;
 
-    if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
+    if (shouldPlayLobbyIntro) {
+      positionPoints = [
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.spawn),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.waypoint),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryTurn),
+        destination.clone(),
+      ];
+      targetPoints = [
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.waypoint),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryTurn),
+        new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.galleryLook),
+        lookAtTarget.clone(),
+      ];
+      const introPath = new THREE.CurvePath<THREE.Vector3>();
+      introPath.add(new THREE.CatmullRomCurve3(positionPoints.slice(0, 3), false, "centripetal"));
+      introPath.add(new THREE.CatmullRomCurve3(positionPoints.slice(2), false, "centripetal"));
+      positionCurve = introPath;
+      duration = MARDOU_LOBBY_INTRO_ROUTE.duration;
+      lobbyIntroPending.current = false;
+    } else if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
       positionPoints = [
         startPosition,
         new THREE.Vector3(...MARDOU_ENTRANCE_ROUTE.outside),
@@ -194,6 +219,7 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
     } else if (previousRoom.current === "room-lobby" && activeRoom === "room-private") {
       positionPoints = [
         startPosition,
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.lobbyApproach),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.ground),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.stairs),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.landing),
@@ -213,6 +239,7 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.landing),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.stairs),
         new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.ground),
+        new THREE.Vector3(...MARDOU_PRIVATE_ROUTE.lobbyApproach),
         destination.clone(),
       ];
       targetPoints = [
@@ -242,7 +269,7 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
     }
 
     route.current = {
-      position: new THREE.CatmullRomCurve3(positionPoints, false, "centripetal"),
+      position: positionCurve || new THREE.CatmullRomCurve3(positionPoints, false, "centripetal"),
       target: new THREE.CatmullRomCurve3(targetPoints, false, "centripetal"),
       duration,
       elapsed: 0,
@@ -251,9 +278,16 @@ function CameraRig({ activeRoom, selectedExhibit, world }: { activeRoom: string;
     };
     previousRoom.current = activeRoom;
     previousExhibit.current = selectedExhibit;
-  }, [activeRoom, camera, destination, lookAt, lookAtTarget, selectedExhibit, world]);
+  }, [activeRoom, camera, destination, lookAt, lookAtTarget, sceneReady, selectedExhibit, world]);
 
   useFrame((_, delta) => {
+    if (lobbyIntroPending.current) {
+      camera.position.set(...MARDOU_LOBBY_INTRO_ROUTE.spawn);
+      lookAt.set(...MARDOU_LOBBY_INTRO_ROUTE.turn);
+      camera.lookAt(lookAt);
+      return;
+    }
+
     if (route.current) {
       route.current.elapsed = Math.min(route.current.duration, route.current.elapsed + delta);
       const progress = route.current.elapsed / route.current.duration;
@@ -378,15 +412,6 @@ function drawWrappedText(
   return y;
 }
 
-function capacityAwareItems(items: string[], capacity: number) {
-  if (items.length <= capacity) return items;
-  const visibleCount = Math.max(0, capacity - 1);
-  return [
-    ...items.slice(0, visibleCount),
-    `+${items.length - visibleCount} 项 · 点击查看全部`,
-  ];
-}
-
 type InformationFrameVariant = "text" | "profile" | "timeline" | "skills" | "project";
 
 function projectAccent(title: string) {
@@ -482,22 +507,223 @@ function drawProjectArtwork(context: CanvasRenderingContext2D, title: string, ac
   }
 }
 
+function MuseumObjectLabel({ texture, accent, position, width = 1.2, height = 0.58 }: {
+  texture: THREE.Texture;
+  accent: string;
+  position: Vec3;
+  width?: number;
+  height?: number;
+}) {
+  return (
+    <group position={position}>
+      <mesh castShadow>
+        <boxGeometry args={[width + 0.08, height + 0.08, 0.07]} />
+        <meshStandardMaterial color={DARK_WOOD} roughness={0.58} metalness={0.1} />
+      </mesh>
+      <mesh position={[0, 0, 0.041]}>
+        <planeGeometry args={[width, height]} />
+        <meshBasicMaterial map={texture} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -height / 2 + 0.025, 0.078]}>
+        <boxGeometry args={[width, 0.05, 0.035]} />
+        <meshBasicMaterial color={accent} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function InformationObjectGeometry({
+  semanticRole,
+  texture,
+  accent,
+  portraitUrl,
+}: {
+  semanticRole?: DisplaySurfacePlan["semanticRole"];
+  texture: THREE.Texture;
+  accent: string;
+  portraitUrl?: string;
+}) {
+  const role = semanticRole || "experience";
+  const roundBase = (
+    <mesh castShadow receiveShadow position={[0, -1.31, 0]} scale={[1, 1, 0.62]}>
+      <cylinderGeometry args={[0.58, 0.66, 0.18, 18]} />
+      <meshStandardMaterial color={DARK_WOOD} roughness={0.68} metalness={0.12} />
+    </mesh>
+  );
+
+  if (role === "profile") {
+    return (
+      <group>
+        {roundBase}
+        <mesh castShadow position={[0, -0.88, 0]}>
+          <cylinderGeometry args={[0.18, 0.24, 0.76, 14]} />
+          <meshStandardMaterial color="#d3aa54" roughness={0.52} metalness={0.42} />
+        </mesh>
+        {portraitUrl ? (
+          <TextureAssetBoundary fallback={null} resetKey={portraitUrl}>
+            <Suspense fallback={null}>
+              <LoadedProfilePortrait url={portraitUrl} position={[0, -0.14, 0.05]} stylized />
+            </Suspense>
+          </TextureAssetBoundary>
+        ) : (
+          <group>
+            <mesh castShadow position={[0, -0.18, 0]}>
+              <capsuleGeometry args={[0.3, 0.38, 5, 10]} />
+              <meshStandardMaterial color={accent} roughness={0.7} />
+            </mesh>
+            <mesh castShadow position={[0, 0.38, 0]}>
+              <icosahedronGeometry args={[0.32, 1]} />
+              <meshStandardMaterial color="#d4a07e" roughness={0.78} />
+            </mesh>
+          </group>
+        )}
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, -0.82, 0.38]} width={1.08} height={0.34} />
+      </group>
+    );
+  }
+
+  if (role === "education") {
+    return (
+      <group>
+        {roundBase}
+        {[0, 1, 2, 3].map((index) => (
+          <mesh key={index} castShadow position={[index % 2 ? 0.05 : -0.04, -1.12 + index * 0.16, 0]} rotation={[0, index % 2 ? 0.08 : -0.08, 0]}>
+            <boxGeometry args={[1.05 - index * 0.06, 0.13, 0.56]} />
+            <meshStandardMaterial color={index % 2 ? accent : "#e6d5bd"} roughness={0.78} />
+          </mesh>
+        ))}
+        <mesh castShadow position={[0, -0.22, 0]}>
+          <cylinderGeometry args={[0.1, 0.13, 1.25, 10]} />
+          <meshStandardMaterial color="#b98a4c" roughness={0.44} metalness={0.5} />
+        </mesh>
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0.34, 0.12]} width={1.18} height={0.58} />
+      </group>
+    );
+  }
+
+  if (role === "skills") {
+    return (
+      <group>
+        {roundBase}
+        <mesh castShadow receiveShadow position={[0, -0.48, 0]}>
+          <boxGeometry args={[1.18, 1.55, 0.56]} />
+          <meshStandardMaterial color="#736255" roughness={0.76} />
+        </mesh>
+        {[-0.92, -0.56, -0.2, 0.16].map((y, index) => (
+          <group key={y}>
+            <mesh castShadow position={[0, y, 0.3]}>
+              <boxGeometry args={[1.03, 0.27, 0.08]} />
+              <meshStandardMaterial color={index % 2 ? "#c9b89f" : "#ddcfbb"} roughness={0.72} />
+            </mesh>
+            <mesh position={[0, y, 0.355]}>
+              <sphereGeometry args={[0.045, 10, 8]} />
+              <meshStandardMaterial color="#b98a4c" metalness={0.62} roughness={0.34} />
+            </mesh>
+          </group>
+        ))}
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0.46, 0.08]} width={1.12} height={0.48} />
+      </group>
+    );
+  }
+
+  if (role === "achievement") {
+    return (
+      <group>
+        {roundBase}
+        <mesh castShadow position={[0, -0.88, 0]}>
+          <boxGeometry args={[1.12, 0.72, 0.7]} />
+          <meshStandardMaterial color="#6d5547" roughness={0.7} />
+        </mesh>
+        <mesh castShadow position={[0, -0.16, 0]}>
+          <boxGeometry args={[1.02, 0.74, 0.62]} />
+          <GlassMaterial />
+        </mesh>
+        {[-0.28, 0, 0.28].map((x, index) => (
+          <mesh key={x} castShadow position={[x, -0.16 + (index % 2) * 0.12, 0.33]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.13, 0.13, 0.035, 18]} />
+            <meshStandardMaterial color={index === 1 ? accent : "#d3aa54"} roughness={0.36} metalness={0.58} />
+          </mesh>
+        ))}
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, -0.82, 0.39]} width={1.02} height={0.34} />
+      </group>
+    );
+  }
+
+  if (role === "contact") {
+    return (
+      <group>
+        {roundBase}
+        <mesh castShadow position={[0, -0.72, 0]}>
+          <cylinderGeometry args={[0.12, 0.16, 1.08, 12]} />
+          <meshStandardMaterial color="#b98a4c" roughness={0.46} metalness={0.5} />
+        </mesh>
+        <mesh castShadow position={[0, 0, 0]}>
+          <boxGeometry args={[1.18, 0.64, 0.58]} />
+          <meshStandardMaterial color={accent} roughness={0.62} />
+        </mesh>
+        <mesh position={[0, 0.04, 0.305]}>
+          <boxGeometry args={[0.78, 0.08, 0.025]} />
+          <meshStandardMaterial color={DARK_WOOD} roughness={0.6} />
+        </mesh>
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0, 0.34]} width={1.02} height={0.5} />
+      </group>
+    );
+  }
+
+  if (role === "works") {
+    return (
+      <group>
+        {roundBase}
+        <mesh castShadow position={[0, -0.55, 0]}>
+          <cylinderGeometry args={[0.11, 0.14, 1.45, 12]} />
+          <meshStandardMaterial color="#b98a4c" roughness={0.42} metalness={0.52} />
+        </mesh>
+        {[-0.62, -0.17, 0.28].map((y, index) => (
+          <mesh key={y} castShadow position={[index % 2 ? 0.18 : -0.16, y, 0]} rotation={[0, index * 0.48 - 0.35, index % 2 ? 0.08 : -0.08]}>
+            <boxGeometry args={[1.02, 0.24, 0.62]} />
+            <meshStandardMaterial color={index === 1 ? accent : index ? "#d7c3a8" : "#8d77bf"} roughness={0.72} />
+          </mesh>
+        ))}
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0.58, 0.04]} width={1.14} height={0.48} />
+      </group>
+    );
+  }
+
+  return (
+    <group>
+      {roundBase}
+      <mesh castShadow position={[0, -0.47, 0]}>
+        <cylinderGeometry args={[0.1, 0.14, 1.58, 10]} />
+        <meshStandardMaterial color="#b98a4c" roughness={0.42} metalness={0.52} />
+      </mesh>
+      {[-0.78, -0.25, 0.28].map((y, index) => (
+        <group key={y} position={[0, y, 0]}>
+          <mesh position={[0, 0, 0]}>
+            <sphereGeometry args={[0.1, 12, 8]} />
+            <meshStandardMaterial color={accent} roughness={0.42} metalness={0.28} />
+          </mesh>
+          <mesh castShadow position={[index % 2 ? -0.34 : 0.34, 0, 0]}>
+            <boxGeometry args={[0.52, 0.14, 0.34]} />
+            <meshStandardMaterial color={index % 2 ? "#d7c3a8" : "#877061"} roughness={0.72} />
+          </mesh>
+        </group>
+      ))}
+      <MuseumObjectLabel texture={texture} accent={accent} position={[0, 0.56, 0]} width={1.14} height={0.5} />
+    </group>
+  );
+}
+
 function InformationFrame({
   kicker,
   title,
-  body,
   position,
   rotation = [0, 0, 0],
-  width = 2.65,
-  height = 1.78,
   accent = TEAL,
-  footer = "FROM THE ORIGINAL RESUME",
-  variant = "text",
-  details = EMPTY_INFORMATION_DETAILS,
   interactive = false,
   selected = false,
   onSelect,
   portraitUrl,
+  semanticRole,
 }: {
   kicker: string;
   title: string;
@@ -514,102 +740,39 @@ function InformationFrame({
   selected?: boolean;
   onSelect?: () => void;
   portraitUrl?: string;
+  semanticRole?: DisplaySurfacePlan["semanticRole"];
 }) {
   const [hovered, setHovered] = useState(false);
   const group = useRef<THREE.Group>(null);
-  const detailsKey = details.join("\u001f");
   const texture = useMemo(() => {
-    const stableDetails = detailsKey ? detailsKey.split("\u001f") : EMPTY_INFORMATION_DETAILS;
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 680;
+    canvas.width = 768;
+    canvas.height = 384;
     const context = canvas.getContext("2d")!;
     context.fillStyle = "#f4eadb";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    if (variant === "project") {
-      drawProjectArtwork(context, title, accent);
-      context.fillStyle = "rgba(244,234,219,0.9)";
-      context.font = "700 28px Arial";
-      context.fillText(kicker.toUpperCase(), 56, 56, 880);
-      context.fillStyle = INK;
-      context.font = "700 58px Arial";
-      context.fillText(title, 56, 435, 900);
-      context.fillStyle = "#5a5049";
-      context.font = "28px Arial";
-      const projectSummary = stableDetails.filter(Boolean).join(" · ") || body;
-      drawWrappedText(context, projectSummary, 56, 492, 900, 38, 3);
-    } else {
-      context.fillStyle = accent;
-      context.fillRect(0, 0, 28, canvas.height);
-      context.fillStyle = "#6e5c51";
-      context.font = "700 30px Arial";
-      context.fillText(kicker.toUpperCase(), 72, 78, 860);
-      context.fillStyle = INK;
-      context.font = "700 58px Arial";
-      const titleBottom = drawWrappedText(context, title, 72, 160, 860, 65, 2);
-
-      if (variant === "profile") {
-        context.fillStyle = accent;
-        context.beginPath();
-        context.arc(190, 355, 108, 0, Math.PI * 2);
-        context.fill();
-        context.fillStyle = "#f4eadb";
-        context.font = "700 88px Arial";
-        context.textAlign = "center";
-        context.fillText(Array.from(title).at(-1) || title.slice(0, 1), 190, 387, 160);
-        context.textAlign = "start";
-        context.fillStyle = "#514640";
-        context.font = "29px Arial";
-        drawWrappedText(context, body, 340, titleBottom + 78, 610, 40, 6);
-      } else if (variant === "timeline") {
-        context.strokeStyle = accent;
-        context.lineWidth = 7;
-        context.beginPath();
-        context.moveTo(105, titleBottom + 74);
-        context.lineTo(105, 555);
-        context.stroke();
-        context.font = "26px Arial";
-        capacityAwareItems(stableDetails, 5).forEach((detail, index) => {
-          const y = titleBottom + 83 + index * 78;
-          context.fillStyle = accent;
-          context.beginPath();
-          context.arc(105, y - 8, 13, 0, Math.PI * 2);
-          context.fill();
-          context.fillStyle = "#514640";
-          context.fillText(detail, 145, y, 790);
-        });
-      } else if (variant === "skills") {
-        context.font = "700 25px Arial";
-        capacityAwareItems(stableDetails, 10).forEach((detail, index) => {
-          const column = index % 2;
-          const row = Math.floor(index / 2);
-          const x = 72 + column * 445;
-          const y = titleBottom + 68 + row * 76;
-          context.fillStyle = index % 3 === 0 ? accent : "#ded1bf";
-          context.fillRect(x, y, 405, 52);
-          context.fillStyle = INK;
-          context.fillText(detail, x + 20, y + 35, 365);
-        });
-      } else {
-        context.fillStyle = "#514640";
-        context.font = "31px Arial";
-        drawWrappedText(context, body, 72, titleBottom + 74, 860, 43, 5);
-      }
-    }
+    context.fillStyle = accent;
+    context.fillRect(0, 0, 22, canvas.height);
+    context.fillStyle = "#6e5c51";
+    context.font = "700 25px Arial";
+    context.fillText(kicker.toUpperCase(), 56, 62, 660);
+    context.fillStyle = INK;
+    context.font = "700 50px Arial";
+    drawWrappedText(context, title, 56, 138, 660, 56, 2);
     context.strokeStyle = "#c9b9a4";
     context.lineWidth = 3;
     context.beginPath();
-    context.moveTo(56, 596);
-    context.lineTo(952, 596);
+    context.moveTo(56, 300);
+    context.lineTo(712, 300);
     context.stroke();
     context.fillStyle = "#75685f";
-    context.font = "700 23px Arial";
-    context.fillText(footer.toUpperCase(), 56, 640, 880);
+    context.font = "700 20px Arial";
+    context.fillText("CLICK TO EXPLORE", 56, 344, 660);
     const result = new THREE.CanvasTexture(canvas);
     result.colorSpace = THREE.SRGBColorSpace;
     result.anisotropy = 8;
     return result;
-  }, [accent, body, detailsKey, footer, kicker, title, variant]);
+  }, [accent, kicker, title]);
 
   useEffect(() => () => texture.dispose(), [texture]);
   useFrame(() => {
@@ -628,24 +791,10 @@ function InformationFrame({
       onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
     >
-      <mesh castShadow>
-        <boxGeometry args={[width + 0.16, height + 0.16, 0.1]} />
-        <meshStandardMaterial color={DARK_WOOD} emissive={selected ? accent : INK} emissiveIntensity={selected ? 0.22 : hovered ? 0.1 : 0} metalness={0.12} roughness={0.52} />
-      </mesh>
-      <mesh position={[0, 0, 0.061]}>
-        <planeGeometry args={[width, height]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
-      </mesh>
-      {variant === "profile" && portraitUrl ? (
-        <TextureAssetBoundary fallback={null} resetKey={portraitUrl}>
-          <Suspense fallback={null}>
-            <LoadedProfilePortrait url={portraitUrl} position={[-width * 0.314, -height * 0.02, 0.074]} />
-          </Suspense>
-        </TextureAssetBoundary>
-      ) : null}
-      <mesh position={[0, -height / 2 + 0.035, 0.095]}>
-        <boxGeometry args={[width, 0.07, 0.045]} />
-        <meshBasicMaterial color={accent} toneMapped={false} />
+      <InformationObjectGeometry semanticRole={semanticRole} texture={texture} accent={accent} portraitUrl={portraitUrl} />
+      <mesh position={[0, -0.35, 0]}>
+        <cylinderGeometry args={[0.82, 0.82, 2.15, 18]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
     </group>
   );
@@ -701,19 +850,18 @@ function LoadedProfilePortrait({ url, position, stylized = false }: { url: strin
 }
 
 function CreativePersonFigure({ subject }: { subject: CreativeSubject }) {
-  const photoUrl = subject.source.kind === "profile-photo"
-    ? subject.source.media?.url
-    : undefined;
-  const disclosure = buildCreativeSubjectSceneDisclosure(subject);
+  const accent = subject.source.kind === "profile-photo" ? TEAL : "#8d77bf";
   return (
     <group>
-      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[0.62, 0.72, 0.24, 20]} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.62} metalness={0.14} />
-      </mesh>
+      {[-0.18, 0.18].map((x) => (
+        <mesh key={x} castShadow position={[x, 0.38, 0]}>
+          <capsuleGeometry args={[0.12, 0.5, 4, 8]} />
+          <meshStandardMaterial color="#4d4039" roughness={0.78} />
+        </mesh>
+      ))}
       <mesh castShadow position={[0, 1.08, 0]}>
         <capsuleGeometry args={[0.38, 0.88, 5, 10]} />
-        <meshStandardMaterial color={TEAL} roughness={0.74} metalness={0.02} />
+        <meshStandardMaterial color={accent} roughness={0.74} metalness={0.02} />
       </mesh>
       {[-1, 1].map((side) => (
         <mesh key={side} castShadow position={[side * 0.5, 1.08, 0]} rotation={[0, 0, side * -0.2]}>
@@ -721,38 +869,19 @@ function CreativePersonFigure({ subject }: { subject: CreativeSubject }) {
           <meshStandardMaterial color="#d4a07e" roughness={0.78} />
         </mesh>
       ))}
-      {photoUrl ? (
-        <TextureAssetBoundary fallback={null} resetKey={photoUrl}>
-          <Suspense fallback={null}>
-            <LoadedProfilePortrait url={photoUrl} position={[0, 2.05, 0]} stylized />
-          </Suspense>
-        </TextureAssetBoundary>
-      ) : (
-        <mesh castShadow position={[0, 1.96, 0]}>
-          <icosahedronGeometry args={[0.43, 1]} />
-          <meshStandardMaterial color="#d4a07e" roughness={0.78} />
-        </mesh>
-      )}
-      <TextPanel
-        title={disclosure.title}
-        subtitle={disclosure.subtitle}
-        position={[0, 0.54, 0.62]}
-        rotation={[0, 0.35, 0]}
-        width={2.28}
-        height={0.54}
-      />
+      <mesh castShadow position={[0, 1.96, 0]}>
+        <icosahedronGeometry args={[0.43, 1]} />
+        <meshStandardMaterial color="#d4a07e" roughness={0.78} />
+      </mesh>
+      <mesh position={[-0.14, 2.03, 0.39]}><sphereGeometry args={[0.035, 8, 6]} /><meshBasicMaterial color={INK} /></mesh>
+      <mesh position={[0.14, 2.03, 0.39]}><sphereGeometry args={[0.035, 8, 6]} /><meshBasicMaterial color={INK} /></mesh>
     </group>
   );
 }
 
 function CreativePetFigure({ subject }: { subject: CreativeSubject }) {
-  const disclosure = buildCreativeSubjectSceneDisclosure(subject);
   return (
     <group position={[1.2, 0, 0.25]} scale={0.62}>
-      <mesh castShadow receiveShadow position={[0, 0.14, 0]}>
-        <cylinderGeometry args={[0.48, 0.55, 0.22, 16]} />
-        <meshStandardMaterial color={DARK_WOOD} roughness={0.66} />
-      </mesh>
       <mesh castShadow position={[0, 0.66, 0]}>
         <sphereGeometry args={[0.43, 12, 9]} />
         <meshStandardMaterial color="#c98757" roughness={0.82} />
@@ -767,14 +896,6 @@ function CreativePetFigure({ subject }: { subject: CreativeSubject }) {
           <meshStandardMaterial color="#d89a68" roughness={0.82} />
         </mesh>
       )) : null}
-      <TextPanel
-        title={disclosure.title}
-        subtitle={disclosure.subtitle}
-        position={[0.15, 0.28, 0.65]}
-        rotation={[0, 0.24, 0]}
-        width={2.18}
-        height={0.52}
-      />
     </group>
   );
 }
@@ -840,11 +961,19 @@ function fallbackSurfaceLayout(surface: DisplaySurfacePlan, index: number) {
 function CreativeSubjectCorner({ subjects }: { subjects: CreativeSubject[] }) {
   const person = findRenderableCreativeSubject(subjects, "person");
   const pet = findRenderableCreativeSubject(subjects, "pet");
+  const rug = useRugTextures(undefined, 1.35);
   if (!person) return null;
+  const disclosure = buildCreativeSubjectSceneDisclosure(person);
   return (
     <group position={MARDOU_CREATIVE_CORNER_POSITION} rotation={[0, -0.35, 0]}>
-      <CreativePersonFigure subject={person} />
+      <mesh receiveShadow position={[0.15, 0.015, 0.05]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.25, 0.88, 1]}>
+        <circleGeometry args={[1.55, 32]} />
+        <meshStandardMaterial map={rug.map} bumpMap={rug.bumpMap} bumpScale={0.035} color="#a88978" roughness={0.96} />
+      </mesh>
+      <group position={[-0.35, 0, 0]}><CreativePersonFigure subject={person} /></group>
       {pet ? <CreativePetFigure subject={pet} /> : null}
+      <LowPolyPlant position={[-1.25, 0, 0.35]} scale={0.58} />
+      <TextPanel title="人物角" subtitle={disclosure.title} position={[0.15, 0.16, 1.12]} rotation={[-0.92, 0, 0]} width={1.42} height={0.3} />
     </group>
   );
 }
@@ -870,6 +999,7 @@ function LivingInformationWall({ world, interactive, selectedId, onSelect }: { w
             variant={layout.variant}
             details={details}
             portraitUrl={surface.semanticRole === "profile" ? portraitUrl : undefined}
+            semanticRole={surface.semanticRole}
             position={layout.position}
             rotation={layout.rotation}
             width={layout.width}
@@ -895,24 +1025,63 @@ function ShowroomDetails({ lit }: { lit: boolean }) {
 }
 
 function GuestbookBoard({ messages, interactive, selected, onSelect }: { messages: string[]; interactive: boolean; selected: boolean; onSelect: () => void }) {
-  const body = messages.length
-    ? messages.slice(-3).map((message) => `“${message}”`).join("  ·  ")
-    : "还没有留言。成为第一个在这栋房子里留下文字的人。";
+  const [hovered, setHovered] = useState(false);
+  const recentMessages = messages.slice(-3);
   return (
-    <InformationFrame
-      kicker="VISITOR CORNER"
-      title="访客留言板"
-      body={body}
+    <group
       position={MARDOU_GUESTBOOK_PLACEMENT.position}
       rotation={MARDOU_GUESTBOOK_PLACEMENT.rotation}
-      width={2.45}
-      height={1.52}
-      accent="#7088d4"
-      footer="CLICK TO LEAVE A MESSAGE"
-      interactive={interactive}
-      selected={selected}
-      onSelect={onSelect}
-    />
+      onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
+      onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
+      onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
+    >
+      <mesh castShadow receiveShadow position={[0, -1.03, 0]}>
+        <cylinderGeometry args={[0.5, 0.58, 0.18, 18]} />
+        <meshStandardMaterial color={DARK_WOOD} roughness={0.68} metalness={0.1} />
+      </mesh>
+      <mesh castShadow position={[0, -0.58, 0]}>
+        <cylinderGeometry args={[0.17, 0.23, 0.78, 14]} />
+        <meshStandardMaterial color="#b98a4c" roughness={0.46} metalness={0.48} />
+      </mesh>
+      <group position={[0, -0.06, 0]} rotation={[-0.3, 0, 0]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[1.38, 0.1, 0.78]} />
+          <meshStandardMaterial color={DARK_WOOD} emissive={selected ? "#7088d4" : INK} emissiveIntensity={selected ? 0.22 : hovered ? 0.08 : 0} roughness={0.62} />
+        </mesh>
+        <mesh castShadow position={[-0.29, 0.1, 0]} rotation={[0, 0, 0.07]}>
+          <boxGeometry args={[0.56, 0.055, 0.58]} />
+          <meshStandardMaterial color="#f4eadb" roughness={0.88} />
+        </mesh>
+        <mesh castShadow position={[0.29, 0.1, 0]} rotation={[0, 0, -0.07]}>
+          <boxGeometry args={[0.56, 0.055, 0.58]} />
+          <meshStandardMaterial color="#f4eadb" roughness={0.88} />
+        </mesh>
+        <mesh position={[0, 0.135, 0]}>
+          <boxGeometry args={[0.04, 0.035, 0.58]} />
+          <meshStandardMaterial color="#7088d4" roughness={0.5} />
+        </mesh>
+        <mesh position={[0.5, 0.17, 0.12]} rotation={[0, 0, 0.38]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.52, 10]} />
+          <meshStandardMaterial color="#d3aa54" roughness={0.35} metalness={0.58} />
+        </mesh>
+        {recentMessages.map((message, index) => (
+          <mesh key={`${message}-${index}`} castShadow position={[-0.42 + index * 0.42, 0.17, -0.43]} rotation={[-0.08, 0, (index - 1) * 0.08]}>
+            <boxGeometry args={[0.3, 0.018, 0.24]} />
+            <meshStandardMaterial color={["#f1c36f", "#8fd1bf", "#caa8df"][index]} roughness={0.86} />
+          </mesh>
+        ))}
+      </group>
+      <TextPanel title="VISITOR LOG" subtitle={messages.length ? `${messages.length} MESSAGES · CLICK TO SIGN` : "OPEN BOOK · CLICK TO SIGN"} position={[0, -0.4, 0.48]} width={1.18} height={0.28} />
+      {interactive ? (
+        <>
+          <mesh position={[0, -0.42, 0]}>
+            <cylinderGeometry args={[0.78, 0.78, 1.45, 18]} />
+            <meshBasicMaterial color="#7088d4" transparent opacity={0.001} depthWrite={false} toneMapped={false} />
+          </mesh>
+          <pointLight position={[0.65, 0.55, 0.2]} intensity={selected ? 4.5 : hovered ? 3 : 1.2} distance={3} color="#b6c4ff" />
+        </>
+      ) : null}
+    </group>
   );
 }
 
@@ -927,21 +1096,31 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
       onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
     >
-      <mesh receiveShadow position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[4.6, 3.2]} />
+      <mesh receiveShadow position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.25, 0.85, 1]}>
+        <circleGeometry args={[1.55, 32]} />
         <meshStandardMaterial map={rug.map} bumpMap={rug.bumpMap} bumpScale={0.045} color="#c6a790" roughness={0.95} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.78, 0]}>
-        <boxGeometry args={[2.85, 0.16, 1.38]} />
+      <mesh castShadow receiveShadow position={[0, 0.1, 0]}>
+        <cylinderGeometry args={[0.48, 0.56, 0.18, 20]} />
         <meshStandardMaterial color={DARK_WOOD} roughness={0.68} metalness={0.08} />
       </mesh>
-      {[[-1.12, -0.48], [-1.12, 0.48], [1.12, -0.48], [1.12, 0.48]].map(([x, z]) => (
-        <mesh key={`${x}-${z}`} castShadow position={[x, 0.38, z]}>
-          <boxGeometry args={[0.14, 0.78, 0.14]} />
-          <meshStandardMaterial color={DARK_WOOD} roughness={0.72} />
-        </mesh>
-      ))}
-      <group position={[0, 1, 0.08]} rotation={[0.24, -0.08, 0]}>
+      <mesh castShadow position={[0, 0.42, 0]}>
+        <cylinderGeometry args={[0.18, 0.24, 0.62, 16]} />
+        <meshStandardMaterial color="#b98a4c" roughness={0.44} metalness={0.52} />
+      </mesh>
+      <mesh castShadow receiveShadow position={[0, 0.76, 0]}>
+        <cylinderGeometry args={[0.88, 0.82, 0.14, 24]} />
+        <meshStandardMaterial color={DARK_WOOD} emissive={selected ? CORAL : hovered ? TEAL : INK} emissiveIntensity={selected ? 0.22 : hovered ? 0.08 : 0} roughness={0.64} metalness={0.08} />
+      </mesh>
+      <mesh castShadow position={[0, 0.68, 0.67]}>
+        <boxGeometry args={[0.72, 0.2, 0.22]} />
+        <meshStandardMaterial color="#6f5041" roughness={0.72} />
+      </mesh>
+      <mesh position={[0, 0.68, 0.79]}>
+        <sphereGeometry args={[0.045, 10, 8]} />
+        <meshStandardMaterial color="#d3aa54" roughness={0.34} metalness={0.6} />
+      </mesh>
+      <group position={[0, 0.9, 0.04]} rotation={[0.18, -0.08, 0]}>
         <mesh castShadow position={[-0.39, 0.04, 0]} rotation={[0, 0, 0.08]}>
           <boxGeometry args={[0.76, 0.07, 0.92]} />
           <meshStandardMaterial color="#f4eadb" roughness={0.86} />
@@ -955,12 +1134,12 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
           <mesh key={x} position={[x, 0.085, 0]}><boxGeometry args={[0.025, 0.012, 0.7]} /><meshBasicMaterial color="#c7bba9" toneMapped={false} /></mesh>
         ))}
       </group>
-      <mesh position={[0, 0.78, 0]}>
-        <boxGeometry args={[3.05, 1.48, 1.58]} />
-        <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={selected ? 0.14 : hovered ? 0.08 : 0.01} toneMapped={false} />
+      <mesh position={[0, 0.55, 0]}>
+        <cylinderGeometry args={[1.05, 1.05, 1.1, 22]} />
+        <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
-      <TextPanel title="PRIVATE DIARY" subtitle="CLICK THE OPEN BOOK" position={[0, 1.62, -0.55]} width={1.82} />
-      {interactive ? <pointLight position={[0.85, 1.7, 0.3]} intensity={selected ? 5 : 2.8} distance={3.5} color="#ffcc91" /> : null}
+      <TextPanel title="PRIVATE DIARY" subtitle="CLICK THE OPEN BOOK" position={[0, 0.5, 0.9]} width={1.34} height={0.3} />
+      {interactive ? <pointLight position={[0.8, 1.45, 0.3]} intensity={selected ? 5 : 2.8} distance={3.5} color="#ffcc91" /> : null}
     </group>
   );
 }
@@ -1117,7 +1296,7 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
     const idleYaw = baseYaw + Math.sin(state.clock.elapsedTime * 0.75 + index * 1.1) * 0.045;
     const targetYaw = selected ? 0 : idleYaw;
     artwork.current.rotation.y = THREE.MathUtils.damp(artwork.current.rotation.y, targetYaw, 7.5, delta);
-    artwork.current.position.y = 1.02 + Math.sin(state.clock.elapsedTime * 1.05 + index) * 0.025;
+    artwork.current.position.y = 0.72 + Math.sin(state.clock.elapsedTime * 1.05 + index) * 0.018;
   });
   const accent = projectAccent(exhibit.title);
   const texture = useMemo(() => {
@@ -1149,13 +1328,7 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
   const placeholderFaces = <ProjectTextureFaces texture={texture} />;
 
   return (
-    <group ref={artwork} position={[0, 1.02, 0]}>
-      {[-0.62, 0.62].map((x) => (
-        <mesh key={`project-display-rear-support-${x}`} castShadow position={[x * 1.18, -0.43, -0.38]}>
-          <boxGeometry args={[0.055, 0.82, 0.055]} />
-          <meshStandardMaterial color={DARK_WOOD} roughness={0.64} metalness={0.08} />
-        </mesh>
-      ))}
+    <group ref={artwork} position={[0, 0.72, 0]} rotation={[-1.12, 0, 0]}>
       <mesh castShadow>
         <boxGeometry args={PROJECT_CARD_SIZE} />
         <meshStandardMaterial color={DARK_WOOD} roughness={0.54} metalness={0.12} />
@@ -1190,23 +1363,35 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
       onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
       onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
     >
-      <mesh castShadow receiveShadow position={[0, 0.13, 0]}>
-        <boxGeometry args={PROJECT_STAND_BASE_SIZE} />
+      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[PROJECT_ISLAND_RADIUS, PROJECT_ISLAND_RADIUS + 0.08, 0.24, 24]} />
         <meshStandardMaterial color={DARK_WOOD} emissive={selected ? projectAccent(exhibit.title) : INK} emissiveIntensity={selected ? 0.24 : hovered ? 0.1 : 0} roughness={0.62} metalness={0.08} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.34, 0]}>
-        <boxGeometry args={PROJECT_STAND_TOP_SIZE} />
+      <mesh castShadow receiveShadow position={[0, 0.3, 0]}>
+        <cylinderGeometry args={[0.76, 0.82, 0.14, 24]} />
         <meshStandardMaterial color="#e6d5bd" roughness={0.76} />
+      </mesh>
+      <mesh position={[0, 0.38, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.73, 0.025, 8, 32]} />
+        <meshStandardMaterial color={projectAccent(exhibit.title)} emissive={projectAccent(exhibit.title)} emissiveIntensity={selected ? 0.8 : 0.22} roughness={0.45} />
       </mesh>
       <ProjectImageCard exhibit={exhibit} index={displayIndex - 1} selected={selected} />
       <TextPanel
         title={`PROJECT ${String(displayIndex).padStart(2, "0")}`}
         subtitle={exhibit.title}
-        position={[0, 0.44, 0.77]}
-        width={1.36}
-        height={0.32}
+        position={[0, 0.43, 0.74]}
+        width={1.12}
+        height={0.26}
       />
-      {interactive ? <pointLight position={[0, 1.45, 0.35]} intensity={selected ? 3.2 : hovered ? 2 : 0.65} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} /> : null}
+      {interactive ? (
+        <>
+          <mesh position={[0, 0.55, 0]}>
+            <cylinderGeometry args={[1.02, 1.02, 1.1, 20]} />
+            <meshBasicMaterial color={projectAccent(exhibit.title)} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
+          </mesh>
+          <pointLight position={[0, 1.15, 0.35]} intensity={selected ? 3.2 : hovered ? 2 : 0.65} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} />
+        </>
+      ) : null}
     </group>
   );
 }
@@ -1245,7 +1430,7 @@ function EmptySlotCard({ slot }: { slot: number }) {
   useEffect(() => () => texture.dispose(), [texture]);
 
   return (
-    <group position={[0, 1.02, 0]}>
+    <group position={[0, 0.72, 0]} rotation={[-1.12, 0, 0]}>
       <mesh castShadow>
         <boxGeometry args={PROJECT_CARD_SIZE} />
         <meshStandardMaterial color="#8c8278" roughness={0.86} metalness={0.02} transparent opacity={0.62} />
@@ -1262,25 +1447,25 @@ function EmptySlotCard({ slot }: { slot: number }) {
 function EmptyProjectPedestal({ position, slot }: { position: Vec3; slot: number }) {
   return (
     <group position={position}>
-      <mesh castShadow receiveShadow position={[0, 0.13, 0]}>
-        <boxGeometry args={PROJECT_STAND_BASE_SIZE} />
+      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
+        <cylinderGeometry args={[PROJECT_ISLAND_RADIUS, PROJECT_ISLAND_RADIUS + 0.08, 0.24, 24]} />
         <meshStandardMaterial color="#443d38" roughness={0.84} metalness={0.02} />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.34, 0]}>
-        <boxGeometry args={PROJECT_STAND_TOP_SIZE} />
+      <mesh castShadow receiveShadow position={[0, 0.3, 0]}>
+        <cylinderGeometry args={[0.76, 0.82, 0.14, 24]} />
         <meshStandardMaterial color="#b8afa4" roughness={0.92} />
       </mesh>
-      <mesh position={[0, 0.445, 0]}>
-        <boxGeometry args={[1.66, 0.025, 1.38]} />
-        <meshBasicMaterial color="#ece5d8" transparent opacity={0.22} wireframe toneMapped={false} />
+      <mesh position={[0, 0.38, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.73, 0.025, 8, 32]} />
+        <meshBasicMaterial color="#8a8178" transparent opacity={0.55} toneMapped={false} />
       </mesh>
       <EmptySlotCard slot={slot} />
       <TextPanel
         title="COMING SOON"
         subtitle={`EMPTY SLOT ${String(slot + 1).padStart(2, "0")} · NOT A SOURCED IMAGE`}
-        position={[0, 0.44, 0.77]}
-        width={1.48}
-        height={0.36}
+        position={[0, 0.43, 0.74]}
+        width={1.18}
+        height={0.28}
       />
     </group>
   );
@@ -1363,6 +1548,7 @@ function SceneLoadingReporter({ onLoadProgress, onLoadState }: {
 type WorldCanvasProps = {
   world: WorldPlan;
   activeRoom: string;
+  sceneReady: boolean;
   projectPage?: number;
   selectedExhibit?: string;
   guestbookMessages?: string[];
@@ -1373,7 +1559,7 @@ type WorldCanvasProps = {
   onReady: () => void;
 };
 
-function sameStringItems(left: string[] = EMPTY_INFORMATION_DETAILS, right: string[] = EMPTY_INFORMATION_DETAILS) {
+function sameStringItems(left: string[] = [], right: string[] = []) {
   return left.length === right.length && left.every((item, index) => item === right[index]);
 }
 
@@ -1381,6 +1567,7 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
   return (
     previous.world === next.world &&
     previous.activeRoom === next.activeRoom &&
+    previous.sceneReady === next.sceneReady &&
     (previous.projectPage ?? 0) === (next.projectPage ?? 0) &&
     previous.selectedExhibit === next.selectedExhibit &&
     sameStringItems(previous.guestbookMessages, next.guestbookMessages) &&
@@ -1392,7 +1579,7 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
   );
 }
 
-function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, guestbookMessages = [], onSelect, onRoomChange, onLoadProgress, onLoadState, onReady }: WorldCanvasProps) {
+function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selectedExhibit, guestbookMessages = [], onSelect, onRoomChange, onLoadProgress, onLoadState, onReady }: WorldCanvasProps) {
   const projectExhibits = world.exhibits.filter((exhibit) => exhibit.eyebrow === "PROJECT");
   const maxProjectPage = Math.max(0, Math.ceil(projectExhibits.length / PROJECTS_PER_PAGE) - 1);
   const visibleProjectPage = Math.min(projectPage, maxProjectPage);
@@ -1410,7 +1597,7 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
   return (
     <>
       <SceneLoadingReporter onLoadProgress={onLoadProgress} onLoadState={onLoadState} />
-      <Canvas dpr={[1, 1.35]} shadows={{ type: THREE.PCFShadowMap }} camera={{ position: MARDOU_EXTERIOR_FOCUS.camera, fov: MARDOU_EXTERIOR_FOCUS.fov, near: 0.08, far: 120 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => onSelect("")}>
+      <Canvas dpr={[1, 1.35]} shadows={{ type: THREE.PCFShadowMap }} camera={{ position: activeRoom === "room-lobby" ? MARDOU_LOBBY_INTRO_ROUTE.spawn : MARDOU_EXTERIOR_FOCUS.camera, fov: activeRoom === "room-lobby" ? MARDOU_LOBBY_FOCUS.fov : MARDOU_EXTERIOR_FOCUS.fov, near: 0.08, far: 120 }} gl={{ antialias: true, powerPreference: "high-performance" }} onPointerMissed={() => onSelect("")}>
         <color attach="background" args={["#91adbd"]} />
         <fog attach="fog" args={["#91adbd", 32, 74]} />
         <ambientLight intensity={0.5} color="#ead9c4" />
@@ -1419,7 +1606,7 @@ function WorldCanvasImpl({ world, activeRoom, projectPage = 0, selectedExhibit, 
         {activeRoom !== "room-private" ? <pointLight position={[-7, 5, 5]} intensity={12} distance={12} decay={2} color={CORAL} /> : null}
         {activeRoom !== "room-private" ? <pointLight position={[6, 4, -3]} intensity={3.8} distance={9} decay={2} color="#9fc6b8" /> : null}
         <RendererLook />
-        <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} world={world} />
+        <CameraRig activeRoom={activeRoom} selectedExhibit={selectedExhibit} sceneReady={sceneReady} world={world} />
         <Suspense fallback={null}>
           <MardouMuseumScene
             activeRoom={activeRoom}

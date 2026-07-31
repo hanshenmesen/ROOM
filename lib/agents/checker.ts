@@ -1,5 +1,7 @@
 import type { CheckIssue, CheckReport, ExhibitPlan, WorldPlan } from "../types.ts";
 
+const WORLD_ENTRY_NODE_ID = "exterior";
+
 function issue(
   category: CheckIssue["category"],
   severity: CheckIssue["severity"],
@@ -25,9 +27,8 @@ function overlaps(a: ExhibitPlan, b: ExhibitPlan) {
 }
 
 function connectedRooms(world: WorldPlan) {
-  if (!world.rooms.length) return new Set<string>();
-  const seen = new Set([world.rooms[0].id]);
-  const queue = [world.rooms[0].id];
+  const seen = new Set([WORLD_ENTRY_NODE_ID]);
+  const queue = [WORLD_ENTRY_NODE_ID];
   while (queue.length) {
     const current = queue.shift()!;
     for (const portal of world.portals) {
@@ -131,6 +132,7 @@ export function checkWorld(world: WorldPlan): CheckReport {
   }
 
   const connected = connectedRooms(world);
+  const connectedRoomCount = world.rooms.filter((room) => connected.has(room.id)).length;
   const disconnected = world.rooms.filter((room) => !connected.has(room.id));
   if (disconnected.length) {
     issues.push(
@@ -169,7 +171,7 @@ export function checkWorld(world: WorldPlan): CheckReport {
     { name: "Content parity", passed: !issues.some((item) => item.category === "content"), detail: `${mapped.size}/${expected.length} 来源条目已映射` },
     { name: "Spatial collisions", passed: !issues.some((item) => item.category === "overlap"), detail: `${world.exhibits.length} 个展品已做 AABB 检查` },
     { name: "Click targets", passed: !issues.some((item) => item.category === "interaction"), detail: `${world.exhibits.length - inactive.length}/${world.exhibits.length} 可交互` },
-    { name: "Room graph", passed: disconnected.length === 0, detail: `${connected.size}/${world.rooms.length} 房间连通` },
+    { name: "Room graph", passed: disconnected.length === 0, detail: `${connectedRoomCount}/${world.rooms.length} 房间从入口连通` },
     { name: "Mobile budget", passed: perfProblems.length === 0, detail: `${world.metrics.estimatedDrawCalls} calls · ${world.metrics.estimatedTriangles} tris · ${world.metrics.realtimeLights} lights` },
   ];
 

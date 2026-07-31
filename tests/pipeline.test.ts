@@ -57,11 +57,18 @@ test("orchestrator maps every résumé item into the public showroom and keeps r
   const result = runPipeline(sampleResume);
   const expected = result.profile.items.length + result.profile.skills.length;
   assert.equal(result.world.rooms.length, 2);
-  assert.equal(result.world.portals.length, 1);
+  assert.equal(result.world.portals.length, 2);
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-lobby")?.size, [21.6, 0.3, 28]);
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.size, [10, 0.3, 12]);
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.center, [0, 3.53, -20]);
-  assert.deepEqual(result.world.portals[0]?.position, [2.5, 3.53, -15]);
+  assert.deepEqual(result.world.portals.find((portal) => portal.id === "portal-1")?.position, [2.5, 3.53, -15]);
+  assert.deepEqual(result.world.portals.find((portal) => portal.id === "portal-entrance"), {
+    id: "portal-entrance",
+    fromRoomId: "exterior",
+    toRoomId: "room-lobby",
+    position: [2, 1.5, 8],
+    label: "Museum Entrance",
+  });
   assert.ok(result.world.exhibits.every((item) => item.roomId === "room-lobby"));
   assert.equal(result.world.rooms.find((room) => room.id === "room-private")?.kind, "bedroom");
   assert.deepEqual(result.world.rooms.find((room) => room.id === "room-private")?.exhibitIds, []);
@@ -124,6 +131,12 @@ test("default world passes the deterministic checker", () => {
   assert.equal(result.report.passed, true);
   assert.equal(result.report.score, 100);
   assert.equal(validateReport(result.report).length, 0);
+
+  const worldWithoutEntrance = structuredClone(result.world);
+  worldWithoutEntrance.portals = worldWithoutEntrance.portals.filter((portal) => portal.id !== "portal-entrance");
+  const disconnectedReport = checkWorld(worldWithoutEntrance);
+  assert.equal(disconnectedReport.checks.find((item) => item.name === "Room graph")?.passed, false);
+  assert.ok(disconnectedReport.issues.some((item) => item.category === "navigation"));
 });
 
 test("checker catches overlap, dead interaction, omissions, and mobile budget", () => {

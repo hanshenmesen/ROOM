@@ -29,6 +29,54 @@ export const MARDOU_POSITION: Vec3 = [
   -7 - MARDOU_SOURCE_BOUNDS.centerZ * MARDOU_SCALE,
 ];
 
+function mardouSourcePointToWorld([x, y, z]: Vec3): Vec3 {
+  return [
+    x * MARDOU_SCALE + MARDOU_POSITION[0],
+    y * MARDOU_SCALE + MARDOU_POSITION[1],
+    z * MARDOU_SCALE + MARDOU_POSITION[2],
+  ];
+}
+
+const LOBBY_INTRO_SOURCE_POINTS = {
+  spawnFloor: [-32.244, -16.2896, -452.0684] as Vec3,
+  turnFloor: [-36.32435, -16.2896, -475.783767] as Vec3,
+  waypointFloor: [-38.745973, -16.2896, -497.578377] as Vec3,
+  galleryTurnFloor: [-33.902727, -16.2896, -512.108117] as Vec3,
+};
+const LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR = 1.5 - mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.spawnFloor)[1];
+const lobbyIntroSpawnFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.spawnFloor);
+const lobbyIntroTurnFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.turnFloor);
+const lobbyIntroWaypointFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.waypointFloor);
+const lobbyIntroGalleryTurnFloor = mardouSourcePointToWorld(LOBBY_INTRO_SOURCE_POINTS.galleryTurnFloor);
+
+// The three anchors were ray-picked from the supplied GLB in source space.
+// All three sit on the Floor mesh along the long west corridor and receive
+// the same eye-height lift before the camera follows 1 -> 2 -> 3.
+export const MARDOU_LOBBY_INTRO_ROUTE = {
+  spawn: [
+    lobbyIntroSpawnFloor[0],
+    lobbyIntroSpawnFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
+    lobbyIntroSpawnFloor[2],
+  ] as Vec3,
+  turn: [
+    lobbyIntroTurnFloor[0],
+    lobbyIntroTurnFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
+    lobbyIntroTurnFloor[2],
+  ] as Vec3,
+  waypoint: [
+    lobbyIntroWaypointFloor[0],
+    lobbyIntroWaypointFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
+    lobbyIntroWaypointFloor[2],
+  ] as Vec3,
+  galleryTurn: [
+    lobbyIntroGalleryTurnFloor[0],
+    lobbyIntroGalleryTurnFloor[1] + LOBBY_CAMERA_HEIGHT_ABOVE_FLOOR,
+    lobbyIntroGalleryTurnFloor[2],
+  ] as Vec3,
+  galleryLook: [-2, 1.5, -10] as Vec3,
+  duration: 7,
+};
+
 // Points below were ray-picked against the supplied GLB and checked by
 // scripts/audit-mardou-layout.mjs. Ground-floor surfaces are y ~= 0.246 and
 // the upper gallery surface is y ~= 3.527 in application coordinates.
@@ -47,9 +95,9 @@ export const MARDOU_EXTERIOR_FOCUS: MuseumFocus = {
 // At eye height x=2 is the only clear front-to-back opening in the facade.
 // The old x=0 route intersected the curved wall at z~=12.7.
 export const MARDOU_ENTRANCE_ROUTE = {
-  outside: [2, 1.5, 13.8] as Vec3,
+  outside: [2.5, 1.5, 13.8] as Vec3,
   threshold: [2, 1.5, 8] as Vec3,
-  gallery: [0, 1.5, -8] as Vec3,
+  gallery: [-1.5, 1.5, -8] as Vec3,
 };
 
 export const MARDOU_PRIVATE_FOCUS: MuseumFocus = {
@@ -59,6 +107,7 @@ export const MARDOU_PRIVATE_FOCUS: MuseumFocus = {
 };
 
 export const MARDOU_PRIVATE_ROUTE = {
+  lobbyApproach: [-1.5, 1.5, -10] as Vec3,
   ground: [0, 1.5, -10] as Vec3,
   stairs: [2.5, 2.5, -12] as Vec3,
   landing: [2.5, 4.8, -15] as Vec3,
