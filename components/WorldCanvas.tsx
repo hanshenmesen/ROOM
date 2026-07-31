@@ -27,6 +27,7 @@ import {
   RendererLook,
 } from "./OpenSourceRoomDressing";
 import {
+  MARDOU_AUTO_DOOR,
   MARDOU_CREATIVE_CORNER_POSITION,
   MARDOU_DIARY_FOCUS,
   MARDOU_DIARY_POSITION,
@@ -36,12 +37,20 @@ import {
   MARDOU_LOBBY_FOCUS,
   MARDOU_LOBBY_INTRO_ROUTE,
   MARDOU_PRIVATE_FOCUS,
+  MARDOU_PRIVATE_PICTURE_FRAMES,
   MARDOU_PRIVATE_ROUTE,
-  MARDOU_PROJECT_PLACEMENTS,
+  MARDOU_PRIVATE_SURFACE_PLACEMENTS,
+  MARDOU_PROFILE_PLACEMENT,
+  MARDOU_EDUCATION_PLACEMENT,
+  MARDOU_SKILLS_PLACEMENT,
   MARDOU_SOURCE_ARCHIVE_PLACEMENT,
-  MARDOU_SURFACE_PLACEMENTS,
+  MARDOU_STAIR_CLICK_TARGETS,
+  mardouProjectPlacementsForCount,
+  type MardouPrivateFrameSlot,
+  type MardouPictureSlotName,
 } from "./MardouMuseumLayout";
 import { MardouMuseumScene } from "./MardouMuseumScene";
+import { resolvePlanarMovement, sceneMovementBlocked } from "./FirstPersonCollision";
 import {
   SceneTextureLoader,
 } from "./SceneAssetLoaders";
@@ -66,7 +75,7 @@ const INK = "#19171b";
 const DARK_WOOD = "#34231f";
 const TEAL = "#65d7c3";
 const CORAL = "#ff8b61";
-const PROJECTS_PER_PAGE = 4;
+const PROJECTS_PER_PAGE = 3;
 const CONTENT_FAMILY_LABELS: Record<ContentFamily, string> = {
   publication: "论文",
   talk: "演讲",
@@ -86,16 +95,34 @@ const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
 const PROJECT_ISLAND_RADIUS = 0.92;
 const FIRST_PERSON_SPEED = 2.7;
 const FIRST_PERSON_COLLISION_RADIUS = 0.42;
+const FIRST_PERSON_LOOK_SENSITIVITY = 0.004;
+const FIRST_PERSON_MAX_PITCH = THREE.MathUtils.degToRad(75);
 const FIRST_PERSON_BOUNDS = {
   "room-lobby": { minX: -9.2, maxX: 7, minZ: -25.5, maxZ: 4 },
-  "room-private": { minX: -5.5, maxX: 5.5, minZ: -25.5, maxZ: -14.5 },
+  "room-private": { minX: -10.4, maxX: 9.2, minZ: -26.5, maxZ: -8.5 },
 } as const;
 
 const localFeatureFocusTargets: Record<string, { target: Vec3; camera: Vec3; fov: number }> = {
   "showroom-guestbook": MARDOU_GUESTBOOK_PLACEMENT.focus,
   "showroom-source-browser": MARDOU_SOURCE_ARCHIVE_PLACEMENT.focus,
   "bedroom-diary": MARDOU_DIARY_FOCUS,
+  ...Object.fromEntries(MARDOU_PRIVATE_PICTURE_FRAMES.map((frame) => [frame.slot, frame.focus])),
 };
+
+function isLobbySurface(surface: DisplaySurfacePlan) {
+  return surface.semanticRole === "profile"
+    || surface.semanticRole === "education"
+    || surface.semanticRole === "skills";
+}
+
+function surfacePlacementFor(world: WorldPlan, surface: DisplaySurfacePlan) {
+  if (surface.semanticRole === "profile") return MARDOU_PROFILE_PLACEMENT;
+  if (surface.semanticRole === "education") return MARDOU_EDUCATION_PLACEMENT;
+  if (surface.semanticRole === "skills") return MARDOU_SKILLS_PLACEMENT;
+  const privateSurfaces = world.displaySurfaces.filter((candidate) => !isLobbySurface(candidate));
+  const privateIndex = privateSurfaces.findIndex((candidate) => candidate.id === surface.id);
+  return MARDOU_PRIVATE_SURFACE_PLACEMENTS[privateIndex];
+}
 
 type CameraRoute = {
   position: THREE.Curve<THREE.Vector3>;
@@ -107,7 +134,7 @@ type CameraRoute = {
 };
 
 function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan }) {
-  const { camera, pointer, scene } = useThree();
+  const { camera, gl, scene } = useThree();
   const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
   const lookAtTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
   const mouseLookTarget = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.turn), []);
@@ -115,17 +142,20 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
   const frameDestination = useMemo(() => new THREE.Vector3(), []);
   const viewDirection = useMemo(() => new THREE.Vector3(), []);
   const viewRight = useMemo(() => new THREE.Vector3(), []);
-  const viewUp = useMemo(() => new THREE.Vector3(), []);
   const movement = useMemo(() => new THREE.Vector3(), []);
   const movementForward = useMemo(() => new THREE.Vector3(), []);
   const movementRight = useMemo(() => new THREE.Vector3(), []);
-  const movementProbe = useMemo(() => new THREE.Vector3(), []);
+  const safeMovement = useMemo(() => new THREE.Vector3(), []);
   const movementRaycaster = useMemo(() => new THREE.Raycaster(), []);
   const desiredFov = useRef(activeRoom === "room-lobby" ? MARDOU_LOBBY_FOCUS.fov : MARDOU_EXTERIOR_FOCUS.fov);
   const previousRoom = useRef(activeRoom);
   const previousExhibit = useRef(selectedExhibit);
   const lobbyIntroPending = useRef(activeRoom === "room-lobby");
   const pressedMovementKeys = useRef(new Set<string>());
+  const firstPersonYaw = useRef(0);
+  const firstPersonPitch = useRef(0);
+  const draggingLook = useRef(false);
+  const previousLookPointer = useRef({ x: 0, y: 0 });
   const route = useRef<CameraRoute | null>(null);
 
   useEffect(() => {
@@ -161,23 +191,75 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
   }, [activeRoom]);
 
   useEffect(() => {
+    const canvas = gl.domElement;
+    const canLookAround = Boolean(FIRST_PERSON_BOUNDS[activeRoom as keyof typeof FIRST_PERSON_BOUNDS]) && !selectedExhibit;
+
+    function stopDragging() {
+      draggingLook.current = false;
+      canvas.style.removeProperty("cursor");
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!canLookAround || route.current || event.button !== 0) return;
+      draggingLook.current = true;
+      previousLookPointer.current = { x: event.clientX, y: event.clientY };
+      canvas.style.cursor = "grabbing";
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      if (!draggingLook.current) return;
+      if ((event.buttons & 1) === 0) {
+        stopDragging();
+        return;
+      }
+      const movementX = event.clientX - previousLookPointer.current.x;
+      const movementY = event.clientY - previousLookPointer.current.y;
+      previousLookPointer.current = { x: event.clientX, y: event.clientY };
+      firstPersonYaw.current = THREE.MathUtils.euclideanModulo(
+        firstPersonYaw.current - movementX * FIRST_PERSON_LOOK_SENSITIVITY + Math.PI,
+        Math.PI * 2,
+      ) - Math.PI;
+      firstPersonPitch.current = THREE.MathUtils.clamp(
+        firstPersonPitch.current - movementY * FIRST_PERSON_LOOK_SENSITIVITY,
+        -FIRST_PERSON_MAX_PITCH,
+        FIRST_PERSON_MAX_PITCH,
+      );
+    }
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopDragging);
+    window.addEventListener("blur", stopDragging);
+    return () => {
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopDragging);
+      window.removeEventListener("blur", stopDragging);
+      stopDragging();
+    };
+  }, [activeRoom, gl, selectedExhibit]);
+
+  useEffect(() => {
     if (lobbyIntroPending.current && activeRoom === "room-lobby" && !selectedExhibit && !sceneReady) return;
 
     const room = world.rooms.find((item) => item.id === activeRoom);
     const exhibit = world.exhibits.find((item) => item.id === selectedExhibit);
     const exhibitRoom = exhibit ? world.rooms.find((item) => item.id === exhibit.roomId) : undefined;
-    const surfaceIndex = selectedExhibit
-      ? world.displaySurfaces.findIndex((surface) => surface.id === selectedExhibit)
-      : -1;
+    const selectedSurface = selectedExhibit
+      ? world.displaySurfaces.find((surface) => surface.id === selectedExhibit)
+      : undefined;
     const authoredFocus = selectedExhibit
-      ? (surfaceIndex >= 0 ? MARDOU_SURFACE_PLACEMENTS[surfaceIndex]?.focus : undefined)
+      ? (selectedSurface ? surfacePlacementFor(world, selectedSurface)?.focus : undefined)
         || localFeatureFocusTargets[selectedExhibit]
       : undefined;
     const projectIndex = exhibit?.eyebrow === "PROJECT"
       ? world.exhibits.filter((item) => item.eyebrow === "PROJECT").findIndex((item) => item.id === exhibit.id)
       : -1;
+    const projectExhibits = world.exhibits.filter((item) => item.eyebrow === "PROJECT");
+    const projectPageStart = Math.floor(Math.max(0, projectIndex) / PROJECTS_PER_PAGE) * PROJECTS_PER_PAGE;
+    const projectPageCount = Math.min(PROJECTS_PER_PAGE, projectExhibits.length - projectPageStart);
     const displayedProjectPlacement = projectIndex >= 0
-      ? MARDOU_PROJECT_PLACEMENTS[projectIndex % PROJECTS_PER_PAGE]
+      ? mardouProjectPlacementsForCount(projectPageCount)[projectIndex % PROJECTS_PER_PAGE]
       : undefined;
     if (authoredFocus) {
       lookAtTarget.set(...authoredFocus.target);
@@ -216,6 +298,10 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
     const exhibitChanged = previousExhibit.current !== selectedExhibit;
     const shouldPlayLobbyIntro = lobbyIntroPending.current && activeRoom === "room-lobby" && !selectedExhibit;
     if (!roomChanged && !exhibitChanged && !shouldPlayLobbyIntro) return;
+
+    firstPersonYaw.current = 0;
+    firstPersonPitch.current = 0;
+    draggingLook.current = false;
 
     const startPosition = camera.position.clone();
     const startTarget = lookAt.clone();
@@ -364,27 +450,29 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
 
       if (movement.lengthSq() > 0) {
         movement.normalize().multiplyScalar(FIRST_PERSON_SPEED * Math.min(delta, 0.05));
-        const nextX = destination.x + movement.x;
-        const nextZ = destination.z + movement.z;
+        safeMovement.copy(resolvePlanarMovement(
+          destination,
+          movement,
+          (probeOrigin, probeMovement) => sceneMovementBlocked(
+            scene,
+            probeOrigin,
+            probeMovement,
+            FIRST_PERSON_COLLISION_RADIUS,
+            movementRaycaster,
+          ),
+        ));
+        const nextX = destination.x + safeMovement.x;
+        const nextZ = destination.z + safeMovement.z;
         const insideFloorBounds = nextX >= walkBounds.minX
           && nextX <= walkBounds.maxX
           && nextZ >= walkBounds.minZ
           && nextZ <= walkBounds.maxZ;
-        movementProbe.copy(movement).normalize();
-        movementRaycaster.set(camera.position, movementProbe);
-        movementRaycaster.near = 0;
-        movementRaycaster.far = movement.length() + FIRST_PERSON_COLLISION_RADIUS;
-        const blocked = movementRaycaster.intersectObjects(scene.children, true).some((hit) => {
-          if (!(hit.object instanceof THREE.Mesh) || hit.object.userData.ignoreCameraCollision) return false;
-          const materials = Array.isArray(hit.object.material) ? hit.object.material : [hit.object.material];
-          return materials.some((material) => material.visible && (!material.transparent || material.opacity >= 0.05));
-        });
 
-        if (insideFloorBounds && !blocked) {
-          destination.add(movement);
-          lookAtTarget.add(movement);
-          mouseLookTarget.add(movement);
-          lookAt.add(movement);
+        if (insideFloorBounds && safeMovement.lengthSq() > 0) {
+          destination.add(safeMovement);
+          lookAtTarget.add(safeMovement);
+          mouseLookTarget.add(safeMovement);
+          lookAt.add(safeMovement);
         }
       }
     }
@@ -397,20 +485,11 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
     viewDirection.copy(lookAtTarget).sub(camera.position);
     const lookDistance = Math.max(1, viewDirection.length());
     viewDirection.normalize();
-    viewRight.crossVectors(viewDirection, camera.up).normalize();
-    viewUp.crossVectors(viewRight, viewDirection).normalize();
 
-    const focused = Boolean(selectedExhibit);
-    const maxYaw = THREE.MathUtils.degToRad(
-      focused ? 5 : activeRoom === "room-lobby" ? 32 : activeRoom === "room-private" ? 28 : 7,
-    );
-    const maxPitch = THREE.MathUtils.degToRad(
-      focused ? 3 : activeRoom === "room-lobby" ? 14 : activeRoom === "room-private" ? 12 : 4,
-    );
-    mouseLookTarget
-      .copy(lookAtTarget)
-      .addScaledVector(viewRight, Math.tan(maxYaw) * lookDistance * pointer.x)
-      .addScaledVector(viewUp, Math.tan(maxPitch) * lookDistance * pointer.y);
+    viewDirection.applyAxisAngle(camera.up, firstPersonYaw.current);
+    viewRight.crossVectors(viewDirection, camera.up).normalize();
+    viewDirection.applyAxisAngle(viewRight, firstPersonPitch.current).normalize();
+    mouseLookTarget.copy(camera.position).addScaledVector(viewDirection, lookDistance);
 
     lookAt.lerp(mouseLookTarget, targetAlpha);
     camera.lookAt(lookAt);
@@ -422,32 +501,157 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world }: { activeR
   return null;
 }
 
-function StairwayClickTarget({ interactive, onGoUpstairs }: { interactive: boolean; onGoUpstairs: () => void }) {
+function AutoOpeningMuseumDoor({ interactive }: { interactive: boolean }) {
+  const { camera } = useThree();
+  const leftLeaf = useRef<THREE.Group>(null);
+  const rightLeaf = useRef<THREE.Group>(null);
+  const proximityOpen = useRef(false);
+  const [nearby, setNearby] = useState(false);
+  const [latchedOpen, setLatchedOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
-  if (!interactive) return null;
+  const sensor = useMemo(
+    () => new THREE.Vector3(
+      MARDOU_AUTO_DOOR.position[0],
+      MARDOU_AUTO_DOOR.position[1] + MARDOU_AUTO_DOOR.height * 0.5,
+      MARDOU_AUTO_DOOR.position[2],
+    ),
+    [],
+  );
+  const open = interactive && (nearby || latchedOpen);
+  const leafWidth = (MARDOU_AUTO_DOOR.width - 0.06) / 2;
+
+  useFrame((_, delta) => {
+    const distance = camera.position.distanceTo(sensor);
+    const shouldOpenForProximity = interactive && (
+      proximityOpen.current
+        ? distance < MARDOU_AUTO_DOOR.releaseRadius
+        : distance < MARDOU_AUTO_DOOR.sensorRadius
+    );
+    if (shouldOpenForProximity !== proximityOpen.current) {
+      proximityOpen.current = shouldOpenForProximity;
+      setNearby(shouldOpenForProximity);
+    }
+    if (leftLeaf.current) {
+      leftLeaf.current.rotation.y = THREE.MathUtils.damp(leftLeaf.current.rotation.y, open ? 1.48 : 0, 7, delta);
+    }
+    if (rightLeaf.current) {
+      rightLeaf.current.rotation.y = THREE.MathUtils.damp(rightLeaf.current.rotation.y, open ? -1.48 : 0, 7, delta);
+    }
+  });
+
+  function toggleDoor(event: THREE.Event & { stopPropagation: () => void }) {
+    event.stopPropagation();
+    setLatchedOpen((value) => !value);
+  }
+
+  const leafMaterial = (
+    <meshStandardMaterial
+      color={hovered ? "#bfe4eb" : "#d5e8ea"}
+      emissive={hovered ? TEAL : INK}
+      emissiveIntensity={hovered ? 0.16 : 0}
+      metalness={0.2}
+      roughness={0.24}
+      transparent
+      opacity={0.62}
+    />
+  );
+
   return (
-    <group position={[2.5, 2.5, -12]}>
+    <group
+      position={[
+        MARDOU_AUTO_DOOR.position[0],
+        MARDOU_AUTO_DOOR.position[1],
+        MARDOU_AUTO_DOOR.position[2] + 0.06,
+      ]}
+      onClick={toggleDoor}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        document.body.style.cursor = "default";
+      }}
+    >
+      <mesh castShadow position={[-MARDOU_AUTO_DOOR.width / 2 - 0.045, MARDOU_AUTO_DOOR.height / 2, 0]}>
+        <boxGeometry args={[0.09, MARDOU_AUTO_DOOR.height + 0.14, 0.11]} />
+        <meshStandardMaterial color="#25282a" metalness={0.55} roughness={0.38} />
+      </mesh>
+      <mesh castShadow position={[MARDOU_AUTO_DOOR.width / 2 + 0.045, MARDOU_AUTO_DOOR.height / 2, 0]}>
+        <boxGeometry args={[0.09, MARDOU_AUTO_DOOR.height + 0.14, 0.11]} />
+        <meshStandardMaterial color="#25282a" metalness={0.55} roughness={0.38} />
+      </mesh>
+      <mesh castShadow position={[0, MARDOU_AUTO_DOOR.height + 0.045, 0]}>
+        <boxGeometry args={[MARDOU_AUTO_DOOR.width + 0.18, 0.09, 0.11]} />
+        <meshStandardMaterial color="#25282a" metalness={0.55} roughness={0.38} />
+      </mesh>
+
+      <group ref={leftLeaf} position={[-MARDOU_AUTO_DOOR.width / 2, 0, 0.015]}>
+        <group position={[leafWidth / 2, MARDOU_AUTO_DOOR.height / 2, 0]}>
+          <mesh castShadow userData={{ ignoreCameraCollision: open }}>
+            <boxGeometry args={[leafWidth, MARDOU_AUTO_DOOR.height, 0.055]} />
+            {leafMaterial}
+          </mesh>
+          <mesh position={[0, 0, 0.035]} userData={{ ignoreCameraCollision: true }}>
+            <boxGeometry args={[0.035, MARDOU_AUTO_DOOR.height, 0.025]} />
+            <meshStandardMaterial color="#303537" metalness={0.6} roughness={0.32} />
+          </mesh>
+          <mesh position={[leafWidth * 0.38, 0, 0.052]} userData={{ ignoreCameraCollision: true }}>
+            <boxGeometry args={[0.035, 0.34, 0.035]} />
+            <meshStandardMaterial color="#ba9b62" metalness={0.75} roughness={0.25} />
+          </mesh>
+        </group>
+      </group>
+
+      <group ref={rightLeaf} position={[MARDOU_AUTO_DOOR.width / 2, 0, 0.015]}>
+        <group position={[-leafWidth / 2, MARDOU_AUTO_DOOR.height / 2, 0]}>
+          <mesh castShadow userData={{ ignoreCameraCollision: open }}>
+            <boxGeometry args={[leafWidth, MARDOU_AUTO_DOOR.height, 0.055]} />
+            {leafMaterial}
+          </mesh>
+          <mesh position={[0, 0, 0.035]} userData={{ ignoreCameraCollision: true }}>
+            <boxGeometry args={[0.035, MARDOU_AUTO_DOOR.height, 0.025]} />
+            <meshStandardMaterial color="#303537" metalness={0.6} roughness={0.32} />
+          </mesh>
+          <mesh position={[-leafWidth * 0.38, 0, 0.052]} userData={{ ignoreCameraCollision: true }}>
+            <boxGeometry args={[0.035, 0.34, 0.035]} />
+            <meshStandardMaterial color="#ba9b62" metalness={0.75} roughness={0.25} />
+          </mesh>
+        </group>
+      </group>
+    </group>
+  );
+}
+
+function StairwayClickTarget({ interactive, onGoUpstairs }: { interactive: boolean; onGoUpstairs: () => void }) {
+  const [hoveredStep, setHoveredStep] = useState<number | null>(null);
+  if (!interactive) return null;
+  return <group name="stairway-click-surfaces">
+    {MARDOU_STAIR_CLICK_TARGETS.map((target, index) => (
       <mesh
-        userData={{ ignoreCameraCollision: true }}
+        key={index}
+        position={target.position}
+        userData={{ ignoreCameraCollision: true, stairClickSurface: true }}
         onClick={(event) => {
           event.stopPropagation();
           onGoUpstairs();
         }}
         onPointerOver={(event) => {
           event.stopPropagation();
-          setHovered(true);
+          setHoveredStep(index);
           document.body.style.cursor = "pointer";
         }}
         onPointerOut={() => {
-          setHovered(false);
+          setHoveredStep(null);
           document.body.style.cursor = "default";
         }}
       >
-        <boxGeometry args={[3, 4, 6]} />
-        <meshBasicMaterial color="#65d7c3" transparent opacity={hovered ? 0.035 : 0.001} depthWrite={false} toneMapped={false} />
+        <boxGeometry args={target.size} />
+        <meshBasicMaterial color="#65d7c3" transparent opacity={hoveredStep === index ? 0.14 : 0} depthWrite={false} toneMapped={false} />
       </mesh>
-    </group>
-  );
+    ))}
+  </group>;
 }
 
 function TextPanel({ title, subtitle, position, width = 4.4, height = 1.08, rotation = [0, 0, 0] }: {
@@ -668,30 +872,29 @@ function InformationObjectGeometry({
   if (role === "profile") {
     return (
       <group>
-        {roundBase}
-        <mesh castShadow position={[0, -0.88, 0]}>
-          <cylinderGeometry args={[0.18, 0.24, 0.76, 14]} />
-          <meshStandardMaterial color="#d3aa54" roughness={0.52} metalness={0.42} />
+        <mesh castShadow position={[0, 0, 0.055]}>
+          <boxGeometry args={[1.26, 1.58, 0.1]} />
+          <meshStandardMaterial color={DARK_WOOD} roughness={0.54} metalness={0.12} />
         </mesh>
         {portraitUrl ? (
           <TextureAssetBoundary fallback={null} resetKey={portraitUrl}>
             <Suspense fallback={null}>
-              <LoadedProfilePortrait url={portraitUrl} position={[0, -0.14, 0.05]} stylized />
+              <LoadedProfilePortrait url={portraitUrl} position={[0, 0.2, 0.115]} stylized />
             </Suspense>
           </TextureAssetBoundary>
         ) : (
           <group>
-            <mesh castShadow position={[0, -0.18, 0]}>
-              <capsuleGeometry args={[0.3, 0.38, 5, 10]} />
+            <mesh castShadow position={[0, 0.02, 0.12]}>
+              <capsuleGeometry args={[0.27, 0.32, 5, 10]} />
               <meshStandardMaterial color={accent} roughness={0.7} />
             </mesh>
-            <mesh castShadow position={[0, 0.38, 0]}>
-              <icosahedronGeometry args={[0.32, 1]} />
+            <mesh castShadow position={[0, 0.48, 0.12]}>
+              <icosahedronGeometry args={[0.28, 1]} />
               <meshStandardMaterial color="#d4a07e" roughness={0.78} />
             </mesh>
           </group>
         )}
-        <MuseumObjectLabel texture={texture} accent={accent} position={[0, -0.82, 0.38]} width={1.08} height={0.34} />
+        <MuseumObjectLabel texture={texture} accent={accent} position={[0, -0.56, 0.13]} width={1.08} height={0.32} />
       </group>
     );
   }
@@ -906,8 +1109,10 @@ function InformationFrame({
       onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
     >
       <InformationObjectGeometry semanticRole={semanticRole} texture={texture} accent={accent} portraitUrl={portraitUrl} />
-      <mesh position={[0, -0.35, 0]}>
-        <cylinderGeometry args={[0.82, 0.82, 2.15, 18]} />
+      <mesh position={semanticRole === "profile" ? [0, 0, 0.14] : [0, -0.35, 0]}>
+        {semanticRole === "profile"
+          ? <boxGeometry args={[1.42, 1.78, 0.34]} />
+          : <cylinderGeometry args={[0.82, 0.82, 2.15, 18]} />}
         <meshBasicMaterial color={accent} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
     </group>
@@ -961,6 +1166,118 @@ function LoadedProfilePortrait({ url, position, stylized = false }: { url: strin
       </mesh>
     </group>
   );
+}
+
+function LoadedPrivateFrameImage({ url }: { url: string }) {
+  const mediaUrl = sceneMediaUrl(url);
+  const sourceTexture = useLoader(SceneTextureLoader, mediaUrl);
+  const displayTexture = useMemo(() => {
+    const texture = sourceTexture.clone();
+    const image = sourceTexture.image as { width?: number; height?: number } | undefined;
+    const sourceAspect = image?.width && image?.height ? image.width / image.height : 1.5;
+    const frameAspect = 1.5;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    if (sourceAspect > frameAspect) {
+      texture.repeat.x = frameAspect / sourceAspect;
+      texture.offset.x = (1 - texture.repeat.x) / 2;
+    } else if (sourceAspect < frameAspect) {
+      texture.repeat.y = sourceAspect / frameAspect;
+      texture.offset.y = (1 - texture.repeat.y) / 2;
+    }
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    return texture;
+  }, [sourceTexture]);
+
+  useEffect(() => retainSceneMediaTexture(mediaUrl, sourceTexture, (cacheKey) => {
+    useLoader.clear(SceneTextureLoader, cacheKey);
+  }), [mediaUrl, sourceTexture]);
+  useEffect(() => () => displayTexture.dispose(), [displayTexture]);
+  return <mesh position={[0, 0, 0.061]}>
+    <planeGeometry args={[1.5, 1]} />
+    <meshBasicMaterial map={displayTexture} toneMapped={false} />
+  </mesh>;
+}
+
+function PrivatePictureFrame({
+  slot,
+  position,
+  rotation,
+  imageUrl,
+  interactive,
+  selected,
+  onSelect,
+}: {
+  slot: MardouPrivateFrameSlot;
+  position: Vec3;
+  rotation: Vec3;
+  imageUrl?: string;
+  interactive: boolean;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const group = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!group.current) return;
+    const target = selected ? 1.035 : hovered ? 1.018 : 1;
+    group.current.scale.setScalar(THREE.MathUtils.lerp(group.current.scale.x, target, 0.14));
+  });
+  return <group
+    ref={group}
+    name={slot}
+    position={position}
+    rotation={rotation}
+    onClick={interactive ? (event) => { event.stopPropagation(); onSelect(); } : undefined}
+    onPointerOver={interactive ? (event) => { event.stopPropagation(); setHovered(true); document.body.style.cursor = "pointer"; } : undefined}
+    onPointerOut={interactive ? () => { setHovered(false); document.body.style.cursor = "default"; } : undefined}
+  >
+    <mesh castShadow>
+      <boxGeometry args={[1.76, 1.26, 0.1]} />
+      <meshStandardMaterial color={hovered || selected ? "#d3aa54" : DARK_WOOD} roughness={0.48} metalness={0.18} />
+    </mesh>
+    <mesh position={[0, 0, 0.056]}>
+      <planeGeometry args={[1.52, 1.02]} />
+      <meshStandardMaterial color="#efe7db" roughness={0.92} />
+    </mesh>
+    {imageUrl ? (
+      <TextureAssetBoundary fallback={null} resetKey={imageUrl}>
+        <Suspense fallback={null}><LoadedPrivateFrameImage url={imageUrl} /></Suspense>
+      </TextureAssetBoundary>
+    ) : null}
+    <mesh position={[0, -0.72, 0.04]}>
+      <boxGeometry args={[0.78, 0.18, 0.055]} />
+      <meshStandardMaterial color="#e5d8c4" roughness={0.8} />
+    </mesh>
+  </group>;
+}
+
+function PrivatePictureFrames({
+  images,
+  activeRoom,
+  selectedId,
+  onSelect,
+}: {
+  images: Partial<Record<MardouPrivateFrameSlot, string>>;
+  activeRoom: string;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+}) {
+  return <group name="private-upload-picture-frames">
+    {MARDOU_PRIVATE_PICTURE_FRAMES.map((frame) => (
+      <PrivatePictureFrame
+        key={frame.slot}
+        slot={frame.slot}
+        position={frame.position}
+        rotation={frame.rotation}
+        imageUrl={images[frame.slot]}
+        interactive={activeRoom === "room-private"}
+        selected={selectedId === frame.slot}
+        onSelect={() => onSelect(frame.slot)}
+      />
+    ))}
+  </group>;
 }
 
 function CreativePersonFigure({ subject }: { subject: CreativeSubject }) {
@@ -1092,17 +1409,18 @@ function CreativeSubjectCorner({ subjects }: { subjects: CreativeSubject[] }) {
   );
 }
 
-function LivingInformationWall({ world, interactive, selectedId, onSelect }: { world: WorldPlan; interactive: boolean; selectedId?: string; onSelect: (id: string) => void }) {
+function LivingInformationWall({ world, activeRoom, selectedId, onSelect }: { world: WorldPlan; activeRoom: string; selectedId?: string; onSelect: (id: string) => void }) {
   const portraitUrl = world.profile.media.find((media) => media.category === "profile-photo")?.url;
   return (
     <group>
       {world.displaySurfaces.map((surface, index) => {
         const authoredLayout = surface.layout || fallbackSurfaceLayout(surface, index);
-        const pickedPlacement = MARDOU_SURFACE_PLACEMENTS[index];
+        const pickedPlacement = surfacePlacementFor(world, surface);
         const layout = pickedPlacement
           ? { ...authoredLayout, position: pickedPlacement.position, rotation: pickedPlacement.rotation }
           : authoredLayout;
         const details = detailLinesForSurface(world, surface);
+        const surfaceRoom = isLobbySurface(surface) ? "room-lobby" : "room-private";
         return (
           <InformationFrame
             key={surface.id}
@@ -1119,13 +1437,13 @@ function LivingInformationWall({ world, interactive, selectedId, onSelect }: { w
             width={layout.width}
             height={layout.height}
             footer={surface.presentationMode === "paged" ? `显示 ${surface.pageSize || details.length} / ${surface.sourceItemIds.length} · 点击查看全部` : "RESUME-SOURCED INFORMATION"}
-            interactive={interactive}
+            interactive={activeRoom === surfaceRoom}
             selected={selectedId === surface.id}
             onSelect={() => onSelect(surface.id)}
           />
         );
       })}
-      {interactive ? <pointLight position={[0, 3, -19.4]} intensity={14} distance={13} decay={2} color="#ffe3bd" /> : null}
+      {activeRoom === "room-lobby" ? <pointLight position={[0, 3, -19.4]} intensity={14} distance={13} decay={2} color="#ffe3bd" /> : null}
     </group>
   );
 }
@@ -1604,81 +1922,6 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
   );
 }
 
-function EmptySlotCard({ slot }: { slot: number }) {
-  const texture = useMemo(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 680;
-    const context = canvas.getContext("2d")!;
-    context.fillStyle = "#ece5d8";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#d9d0c2";
-    context.fillRect(38, 38, 948, 604);
-    context.strokeStyle = "#8a8178";
-    context.lineWidth = 12;
-    context.setLineDash([34, 24]);
-    context.strokeRect(64, 64, 896, 552);
-    context.setLineDash([]);
-    context.fillStyle = "#8a8178";
-    context.font = "700 32px Arial";
-    context.fillText(`EMPTY SLOT ${String(slot + 1).padStart(2, "0")}`, 112, 160, 800);
-    context.fillStyle = "#514b46";
-    context.font = "700 82px Arial";
-    context.fillText("COMING", 112, 322, 800);
-    context.fillText("SOON", 112, 420, 800);
-    context.fillStyle = "#7f766e";
-    context.font = "30px Arial";
-    drawWrappedText(context, "No sourced project is available for this page position.", 112, 505, 800, 40, 2);
-    const result = new THREE.CanvasTexture(canvas);
-    result.colorSpace = THREE.SRGBColorSpace;
-    result.anisotropy = 4;
-    return result;
-  }, [slot]);
-
-  useEffect(() => () => texture.dispose(), [texture]);
-
-  return (
-    <group position={[0, 0.72, 0]} rotation={[-1.12, 0, 0]}>
-      <mesh castShadow>
-        <boxGeometry args={PROJECT_CARD_SIZE} />
-        <meshStandardMaterial color="#8c8278" roughness={0.86} metalness={0.02} transparent opacity={0.62} />
-      </mesh>
-      <ProjectTextureFaces texture={texture} />
-      <mesh position={[0, 0, 0.07]}>
-        <planeGeometry args={[1.72, 1.16]} />
-        <meshBasicMaterial color="#f5eee2" transparent opacity={0.16} toneMapped={false} wireframe />
-      </mesh>
-    </group>
-  );
-}
-
-function EmptyProjectPedestal({ position, slot }: { position: Vec3; slot: number }) {
-  return (
-    <group position={position}>
-      <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
-        <cylinderGeometry args={[PROJECT_ISLAND_RADIUS, PROJECT_ISLAND_RADIUS + 0.08, 0.24, 24]} />
-        <meshStandardMaterial color="#443d38" roughness={0.84} metalness={0.02} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, 0.3, 0]}>
-        <cylinderGeometry args={[0.76, 0.82, 0.14, 24]} />
-        <meshStandardMaterial color="#b8afa4" roughness={0.92} />
-      </mesh>
-      <mesh position={[0, 0.38, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.73, 0.025, 8, 32]} />
-        <meshBasicMaterial color="#8a8178" transparent opacity={0.55} toneMapped={false} />
-      </mesh>
-      <EmptySlotCard slot={slot} />
-      <TextPanel
-        title="COMING SOON"
-        subtitle={`EMPTY SLOT ${String(slot + 1).padStart(2, "0")} · NOT A SOURCED IMAGE`}
-        position={[0, 0.43, 0.74]}
-        width={1.18}
-        height={0.28}
-      />
-    </group>
-  );
-}
-
 class OptionalAssetBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
@@ -1760,6 +2003,8 @@ type WorldCanvasProps = {
   projectPage?: number;
   selectedExhibit?: string;
   guestbookMessages?: string[];
+  pictureOverrides?: Partial<Record<MardouPictureSlotName, string>>;
+  privateFrameImages?: Partial<Record<MardouPrivateFrameSlot, string>>;
   onSelect: (id: string) => void;
   onRoomChange: (roomId: string) => void;
   onLoadProgress: (progress: number) => void;
@@ -1779,6 +2024,8 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
     (previous.projectPage ?? 0) === (next.projectPage ?? 0) &&
     previous.selectedExhibit === next.selectedExhibit &&
     sameStringItems(previous.guestbookMessages, next.guestbookMessages) &&
+    previous.pictureOverrides === next.pictureOverrides &&
+    previous.privateFrameImages === next.privateFrameImages &&
     previous.onSelect === next.onSelect &&
     previous.onRoomChange === next.onRoomChange &&
     previous.onLoadProgress === next.onLoadProgress &&
@@ -1787,12 +2034,13 @@ function areWorldCanvasPropsEqual(previous: WorldCanvasProps, next: WorldCanvasP
   );
 }
 
-function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selectedExhibit, guestbookMessages = [], onSelect, onRoomChange, onLoadProgress, onLoadState, onReady }: WorldCanvasProps) {
+function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selectedExhibit, guestbookMessages = [], pictureOverrides = {}, privateFrameImages = {}, onSelect, onRoomChange, onLoadProgress, onLoadState, onReady }: WorldCanvasProps) {
   const projectExhibits = world.exhibits.filter((exhibit) => exhibit.eyebrow === "PROJECT");
   const maxProjectPage = Math.max(0, Math.ceil(projectExhibits.length / PROJECTS_PER_PAGE) - 1);
   const visibleProjectPage = Math.min(projectPage, maxProjectPage);
   const projectStart = visibleProjectPage * PROJECTS_PER_PAGE;
   const visibleProjectExhibits = projectExhibits.slice(projectStart, projectStart + PROJECTS_PER_PAGE);
+  const visibleProjectPlacements = mardouProjectPlacementsForCount(visibleProjectExhibits.length);
   const creativeSubjects = useMemo(() => planCreativeSubjects(world.profile), [world.profile]);
 
   useEffect(() => {
@@ -1819,13 +2067,14 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
           <MardouMuseumScene
             activeRoom={activeRoom}
             onEnter={() => onRoomChange("room-lobby")}
-            onGoUpstairs={() => onRoomChange("room-private")}
             onBackgroundClick={() => onSelect("")}
+            pictureOverrides={pictureOverrides}
           />
           <StairwayClickTarget
             interactive={activeRoom === "room-lobby" && !selectedExhibit}
             onGoUpstairs={() => onRoomChange("room-private")}
           />
+          <AutoOpeningMuseumDoor interactive={activeRoom === "room-lobby" && !selectedExhibit} />
           <OptionalAssetBoundary key={world.id}>
             <Suspense fallback={null}>
               <PortfolioEnvironment />
@@ -1833,7 +2082,13 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
           </OptionalAssetBoundary>
           <LivingInformationWall
             world={world}
-            interactive={activeRoom === "room-lobby"}
+            activeRoom={activeRoom}
+            selectedId={selectedExhibit}
+            onSelect={onSelect}
+          />
+          <PrivatePictureFrames
+            images={privateFrameImages}
+            activeRoom={activeRoom}
             selectedId={selectedExhibit}
             onSelect={onSelect}
           />
@@ -1855,9 +2110,9 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
             selected={selectedExhibit === "bedroom-diary"}
             onSelect={() => onSelect("bedroom-diary")}
           />
-          {MARDOU_PROJECT_PLACEMENTS.map((placement, slot) => {
-            const exhibit = visibleProjectExhibits[slot];
-            return exhibit ? (
+          {visibleProjectExhibits.map((exhibit, slot) => {
+            const placement = visibleProjectPlacements[slot];
+            return placement ? (
               <ProjectPedestal
                 key={exhibit.id}
                 exhibit={exhibit}
@@ -1867,9 +2122,7 @@ function WorldCanvasImpl({ world, activeRoom, sceneReady, projectPage = 0, selec
                 interactive={activeRoom === "room-lobby"}
                 onSelect={onSelect}
               />
-            ) : (
-              <EmptyProjectPedestal key={`empty-project-${slot}`} position={placement.position} slot={slot} />
-            );
+            ) : null;
           })}
           <mesh position={[0, -1.13, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><planeGeometry args={[90, 90]} /><meshStandardMaterial color="#596b52" roughness={1} /></mesh>
           <SceneReadyNotifier onReady={onReady} />

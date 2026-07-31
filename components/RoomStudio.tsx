@@ -36,6 +36,7 @@ import {
   type SceneLoadingSnapshot,
 } from "./SceneLoadingStore";
 import { AgentSetupDialog } from "./AgentSetupDialog";
+import type { MardouPictureSlotName, MardouPrivateFrameSlot } from "./MardouMuseumLayout";
 
 const WorldCanvas = dynamic(
   () => import("./WorldCanvas").then((module) => module.WorldCanvas),
@@ -43,12 +44,17 @@ const WorldCanvas = dynamic(
 );
 
 const PRIVATE_ROOM_ID = "room-private";
-const PROJECTS_PER_PAGE = 4;
+const PROJECTS_PER_PAGE = 3;
 const OWNER_PRIVATE_PASSWORD = "owner2026";
 const VISITOR_PRIVATE_PASSWORD = "visit2026";
 const GUESTBOOK_STORAGE_KEY = "room:guestbook:v1";
 const DIARY_STORAGE_KEY = "room:diary:v1";
 const SOURCE_BROWSER_ID = "showroom-source-browser";
+const PICTURE_CONFIG_ID = "museum-picture-config";
+const MUSEUM_PICTURE_STORAGE_KEY = "room:mardou-picture-overrides:v1";
+const PRIVATE_FRAME_STORAGE_KEY = "room:mardou-private-frame-images:v1";
+const EDITABLE_PICTURE_SLOTS = ["Picture", "Picture_2"] as const satisfies ReadonlyArray<MardouPictureSlotName>;
+const PRIVATE_FRAME_SLOTS = ["private-frame-11", "private-frame-12", "private-frame-13"] as const satisfies ReadonlyArray<MardouPrivateFrameSlot>;
 const PROJECT_EDITS_STORAGE_PREFIX = "room:project-edits:v1:";
 const EMPTY_PROJECT_EDIT: ProjectEdit = { title: "", summary: "" };
 const hanchenDemoStats = {
@@ -80,6 +86,8 @@ type DiaryEntry = {
 };
 
 type BedroomAccessMode = "owner" | "visitor";
+type PictureOverrides = Partial<Record<(typeof EDITABLE_PICTURE_SLOTS)[number], string>>;
+type PrivateFrameImages = Partial<Record<MardouPrivateFrameSlot, string>>;
 
 export const BEDROOM_ACCESS_COPY: Record<BedroomAccessMode, { label: string; password: string; canEditDiary: boolean; description: string }> = {
   owner: {
@@ -206,6 +214,44 @@ function readStoredProjectEdits(profileId: string): ProjectEdits {
 
 function writeStoredProjectEdits(profileId: string, edits: ProjectEdits) {
   window.localStorage.setItem(`${PROJECT_EDITS_STORAGE_PREFIX}${profileId}`, JSON.stringify(edits));
+}
+
+export function normalizePictureOverrides(value: unknown): PictureOverrides {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    EDITABLE_PICTURE_SLOTS
+      .map((slot) => [slot, (value as Record<string, unknown>)[slot]] as const)
+      .filter((entry): entry is readonly [(typeof EDITABLE_PICTURE_SLOTS)[number], string] => typeof entry[1] === "string" && Boolean(entry[1])),
+  );
+}
+
+function readStoredPictureOverrides() {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.localStorage.getItem(MUSEUM_PICTURE_STORAGE_KEY);
+    return stored ? normalizePictureOverrides(JSON.parse(stored)) : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizePrivateFrameImages(value: unknown): PrivateFrameImages {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    PRIVATE_FRAME_SLOTS
+      .map((slot) => [slot, (value as Record<string, unknown>)[slot]] as const)
+      .filter((entry): entry is readonly [MardouPrivateFrameSlot, string] => typeof entry[1] === "string" && entry[1].startsWith("data:image/")),
+  );
+}
+
+function readStoredPrivateFrameImages() {
+  if (typeof window === "undefined") return {};
+  try {
+    const stored = window.localStorage.getItem(PRIVATE_FRAME_STORAGE_KEY);
+    return stored ? normalizePrivateFrameImages(JSON.parse(stored)) : {};
+  } catch {
+    return {};
+  }
 }
 
 function readBrowserAgentConfig() {
@@ -397,12 +443,20 @@ export function RoomStudio() {
   const [projectEditDraft, setProjectEditDraft] = useState<ProjectEdit>(EMPTY_PROJECT_EDIT);
   const [projectEditMessage, setProjectEditMessage] = useState("");
   const [sourceBrowserProjectId, setSourceBrowserProjectId] = useState("");
+  const [pictureOverrides, setPictureOverrides] = useState<PictureOverrides>({});
+  const [pictureUrlDrafts, setPictureUrlDrafts] = useState<PictureOverrides>({});
+  const [pictureConfigMessage, setPictureConfigMessage] = useState("");
+  const [privateFrameImages, setPrivateFrameImages] = useState<PrivateFrameImages>({});
+  const [privateFrameMessage, setPrivateFrameMessage] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const diaryImageInput = useRef<HTMLInputElement>(null);
   const projectImageInput = useRef<HTMLInputElement>(null);
   const sceneReadyTimer = useRef<number | null>(null);
   const projectCount = result?.world.exhibits.filter((item) => item.eyebrow === "PROJECT").length || 0;
   const projectPageCount = Math.max(1, Math.ceil(projectCount / PROJECTS_PER_PAGE));
+  const selectedPrivateFrameSlot = PRIVATE_FRAME_SLOTS.includes(selectedId as MardouPrivateFrameSlot)
+    ? selectedId as MardouPrivateFrameSlot
+    : undefined;
   const diaryWritable = canEditPrivateDiary(privateUnlockedMode);
   const agentReady = Boolean(
     browserAgentConfig?.maas.apiKey || browserAgentConfig?.website.apiKey || agentConfig?.ready,
@@ -540,6 +594,10 @@ export function RoomStudio() {
     const hydrationTimer = window.setTimeout(() => {
       setGuestbookEntries(readStoredEntries<GuestbookEntry>(GUESTBOOK_STORAGE_KEY));
       setDiaryEntries(readStoredEntries<DiaryEntry>(DIARY_STORAGE_KEY));
+      const storedPictures = readStoredPictureOverrides();
+      setPictureOverrides(storedPictures);
+      setPictureUrlDrafts(storedPictures);
+      setPrivateFrameImages(readStoredPrivateFrameImages());
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
   }, []);
@@ -765,6 +823,78 @@ export function RoomStudio() {
     setAgentSetupOpen(false);
   }
 
+  function persistPictureOverrides(next: PictureOverrides) {
+    setPictureOverrides(next);
+    try {
+      window.localStorage.setItem(MUSEUM_PICTURE_STORAGE_KEY, JSON.stringify(next));
+      setPictureConfigMessage("图片位已更新并保存到当前浏览器。");
+    } catch {
+      setPictureConfigMessage("图片已更新，但浏览器存储空间不足，本次只在当前会话保留。");
+    }
+  }
+
+  function applyPictureUrl(slot: (typeof EDITABLE_PICTURE_SLOTS)[number]) {
+    const value = pictureUrlDrafts[slot]?.trim() || "";
+    if (value && !safeExternalHref(value) && !value.startsWith("data:image/")) {
+      setPictureConfigMessage("请输入完整的 http:// 或 https:// 图片地址。");
+      return;
+    }
+    const next = { ...pictureOverrides, [slot]: value || undefined };
+    if (!value) delete next[slot];
+    persistPictureOverrides(next);
+  }
+
+  async function readPictureSlotImage(slot: (typeof EDITABLE_PICTURE_SLOTS)[number], event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPictureConfigMessage(`正在优化 ${slot} 图片…`);
+    try {
+      const imageUrl = await resizeProjectCover(file);
+      const next = { ...pictureOverrides, [slot]: imageUrl };
+      setPictureUrlDrafts((current) => ({ ...current, [slot]: imageUrl }));
+      persistPictureOverrides(next);
+    } catch (error) {
+      setPictureConfigMessage(error instanceof Error ? error.message : "这张图片无法处理，请换一张再试。");
+      event.target.value = "";
+    }
+  }
+
+  function resetPictureSlot(slot: (typeof EDITABLE_PICTURE_SLOTS)[number]) {
+    const next = { ...pictureOverrides };
+    delete next[slot];
+    setPictureUrlDrafts((current) => ({ ...current, [slot]: undefined }));
+    persistPictureOverrides(next);
+  }
+
+  function persistPrivateFrameImages(next: PrivateFrameImages) {
+    setPrivateFrameImages(next);
+    try {
+      window.localStorage.setItem(PRIVATE_FRAME_STORAGE_KEY, JSON.stringify(next));
+      setPrivateFrameMessage("相框图片已保存到当前浏览器。");
+    } catch {
+      setPrivateFrameMessage("相框已更新，但浏览器存储空间不足，本次只在当前会话保留。");
+    }
+  }
+
+  async function readPrivateFrameImage(slot: MardouPrivateFrameSlot, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPrivateFrameMessage("正在优化相框图片…");
+    try {
+      const imageUrl = await resizeProjectCover(file);
+      persistPrivateFrameImages({ ...privateFrameImages, [slot]: imageUrl });
+    } catch (error) {
+      setPrivateFrameMessage(error instanceof Error ? error.message : "这张图片无法处理，请换一张再试。");
+      event.target.value = "";
+    }
+  }
+
+  function resetPrivateFrame(slot: MardouPrivateFrameSlot) {
+    const next = { ...privateFrameImages };
+    delete next[slot];
+    persistPrivateFrameImages(next);
+  }
+
   function clearBrowserAgentConfig() {
     window.sessionStorage.removeItem(BROWSER_AGENT_SESSION_KEY);
     setBrowserAgentConfig(null);
@@ -785,6 +915,7 @@ export function RoomStudio() {
       : undefined;
     setProjectEditDraft(selectedProject ? projectEditFromItem(selectedProject) : EMPTY_PROJECT_EDIT);
     setProjectEditMessage("");
+    if (PRIVATE_FRAME_SLOTS.includes(id as MardouPrivateFrameSlot)) setPrivateFrameMessage("");
     if (projectImageInput.current) projectImageInput.current.value = "";
     setSelectedId(id);
     setSourceBrowserProjectId(
@@ -1076,6 +1207,8 @@ export function RoomStudio() {
           projectPage={projectPage}
           selectedExhibit={selectedId}
           guestbookMessages={guestbookEntries.map((entry) => entry.message)}
+          pictureOverrides={pictureOverrides}
+          privateFrameImages={privateFrameImages}
           onSelect={selectWorldObject}
           onRoomChange={requestRoomChange}
           onLoadProgress={handleSceneProgress}
@@ -1148,10 +1281,18 @@ export function RoomStudio() {
               >
                 ← {activeRoom === "room-lobby" ? "回到展馆外" : "返回主展厅"}
               </button>
+              {activeRoom === PRIVATE_ROOM_ID ? (
+                <button type="button" onClick={() => { setSelectedId(PRIVATE_FRAME_SLOTS[0]); setPrivateFrameMessage(""); }}>
+                  管理二楼自由相框
+                </button>
+              ) : null}
               {activeRoom === "room-lobby" ? (
                 <>
                   <button type="button" onClick={() => requestRoomChange(PRIVATE_ROOM_ID)}>
                     二层私密展区 · 选择身份
+                  </button>
+                  <button type="button" onClick={() => { setSelectedId(PICTURE_CONFIG_ID); setPictureConfigMessage(""); }}>
+                    配置 GLB 图片位
                   </button>
                   {projectPageCount > 1 ? (
                     <>
@@ -1301,6 +1442,104 @@ export function RoomStudio() {
           ) : null}
         </aside>
 
+        <aside
+          className={`memory-panel picture-config-panel ${selectedId === PICTURE_CONFIG_ID ? "is-open" : ""}`}
+          aria-hidden={selectedId !== PICTURE_CONFIG_ID}
+        >
+          {selectedId === PICTURE_CONFIG_ID ? (
+            <>
+              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭图片位配置">×</button>
+              <p>GLB PICTURE SLOTS</p>
+              <h2>替换展馆原生图片</h2>
+              <div className="memory-description">
+                Picture_1 是重叠占位网格，始终保留但默认隐藏；其余两个图片位可独立使用 URL 或本地图片替换。
+              </div>
+              <div className="picture-config-grid">
+                {EDITABLE_PICTURE_SLOTS.map((slot) => (
+                  <section key={slot} className="picture-config-card">
+                    <header>
+                      <strong>{slot}</strong>
+                      <span>{pictureOverrides[slot] ? "自定义图片" : "GLB 默认贴图"}</span>
+                    </header>
+                    <label htmlFor={`picture-url-${slot}`}>图片 URL</label>
+                    <input
+                      id={`picture-url-${slot}`}
+                      type="url"
+                      value={pictureUrlDrafts[slot] || ""}
+                      onChange={(event) => setPictureUrlDrafts((current) => ({ ...current, [slot]: event.target.value }))}
+                      placeholder="https://example.com/image.jpg"
+                    />
+                    <div className="picture-config-actions">
+                      <button type="button" onClick={() => applyPictureUrl(slot)}>应用 URL</button>
+                      <button type="button" onClick={() => resetPictureSlot(slot)}>恢复默认</button>
+                    </div>
+                    <label className="picture-file-button" htmlFor={`picture-file-${slot}`}>选择本地图片</label>
+                    <input
+                      id={`picture-file-${slot}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => void readPictureSlotImage(slot, event)}
+                    />
+                  </section>
+                ))}
+              </div>
+              <div className="memory-error" aria-live="polite">{pictureConfigMessage}</div>
+            </>
+          ) : null}
+        </aside>
+
+        <aside
+          className={`memory-panel picture-config-panel ${selectedPrivateFrameSlot ? "is-open" : ""}`}
+          aria-hidden={!selectedPrivateFrameSlot}
+        >
+          {selectedPrivateFrameSlot ? (
+            <>
+              <button className="detail-close" type="button" onClick={() => setSelectedId("")} aria-label="关闭自由相框设置">×</button>
+              <p>PRIVATE GALLERY FRAME</p>
+              <h2>二楼自由相框</h2>
+              <div className="memory-description">
+                这个墙面相框默认为空。选择一张本地图片后会即时显示，图片只保存在当前浏览器。
+              </div>
+              <div className="private-frame-tabs" role="group" aria-label="选择二楼相框">
+                {PRIVATE_FRAME_SLOTS.map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    className={selectedPrivateFrameSlot === slot ? "is-active" : ""}
+                    onClick={() => { setSelectedId(slot); setPrivateFrameMessage(""); }}
+                  >
+                    {slot.replace("private-frame-", "相框 ")}
+                  </button>
+                ))}
+              </div>
+              <section className="picture-config-card private-frame-config-card">
+                <header>
+                  <strong>{selectedPrivateFrameSlot.replace("private-frame-", "FRAME ")}</strong>
+                  <span>{privateFrameImages[selectedPrivateFrameSlot] ? "已上传图片" : "空相框"}</span>
+                </header>
+                {privateFrameImages[selectedPrivateFrameSlot] ? (
+                  <Image
+                    src={privateFrameImages[selectedPrivateFrameSlot]}
+                    alt="当前相框图片预览"
+                    width={480}
+                    height={320}
+                    unoptimized
+                  />
+                ) : <div className="private-frame-empty-preview">EMPTY FRAME</div>}
+                <label className="picture-file-button" htmlFor={`private-frame-file-${selectedPrivateFrameSlot}`}>选择本地图片</label>
+                <input
+                  id={`private-frame-file-${selectedPrivateFrameSlot}`}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => void readPrivateFrameImage(selectedPrivateFrameSlot, event)}
+                />
+                <button type="button" className="private-frame-reset" onClick={() => resetPrivateFrame(selectedPrivateFrameSlot)}>恢复为空相框</button>
+              </section>
+              <div className="memory-error" aria-live="polite">{privateFrameMessage}</div>
+            </>
+          ) : null}
+        </aside>
+
         <aside className={`memory-panel diary-panel ${selectedId === "bedroom-diary" ? "is-open" : ""}`} aria-hidden={selectedId !== "bedroom-diary"}>
           {selectedId === "bedroom-diary" ? (
             <>
@@ -1348,12 +1587,12 @@ export function RoomStudio() {
             : activeRoom === "room-lobby"
               ? selectedId
                 ? "视角已跟随到这件展品 · 按 Esc 或点击空白退出聚焦"
-                : "WASD 第一人称移动 · 点击项目展岛查看或编辑详情 · 点击楼梯上二楼"
+                : "WASD 第一人称移动 · 按住鼠标拖动 360° 环视 · 点击展品或楼梯"
               : selectedId === "bedroom-diary"
                 ? diaryWritable
                   ? "本人日记已打开 · 可写入本机浏览器"
                   : "参观日记已打开 · 只读浏览"
-                : "WASD 第一人称移动 · 点击桌上的日记本 · 返回主展厅继续浏览"}
+                : "WASD 第一人称移动 · 按住鼠标拖动 360° 环视 · 点击桌上的日记本"}
         </div>
       </section>
     </main>

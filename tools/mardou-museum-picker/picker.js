@@ -1,10 +1,26 @@
 /* ============================================================
-   The Mardou Museum — Coordinate Picker
+   The Mardou Museum — Coordinate Picker (first-person / WASD)
    ------------------------------------------------------------
-   Free-look OrbitControls over MardouMuseumResult.glb. Left-click any
-   surface to drop a marker and read off its local (model-space)
-   XYZ coordinate. Points are listed in a side panel, individually
-   copyable, and exportable as one JSON blob.
+   First-person free-fly navigation over MardouMuseumResult.glb: WASD (or
+   arrow keys) to walk, mouse to look around a full 360°/180°
+   (yaw/pitch) via the browser Pointer Lock API — no mouse button
+   needs to be held down — Space/Shift to rise/descend, and a left
+   click drops a marker at whatever the center crosshair is aimed
+   at, reading off its local (model-space) XYZ coordinate. Points
+   are listed in a side panel, individually copyable, and
+   exportable as one JSON blob.
+
+   WHY POINTER LOCK INSTEAD OF ORBITCONTROLS
+   -------------------------------------------
+   OrbitControls (drag to orbit a fixed target, right-drag to pan)
+   is natural for inspecting an object from outside, but wrong for
+   walking through an interior: there's no "orbit target" to circle
+   — you want to walk freely and look in any direction independent
+   of movement. Pointer Lock hides and re-centers the OS cursor so
+   raw mouse deltas (`movementX`/`movementY`) can drive yaw/pitch
+   without ever hitting the edge of the browser window, which is
+   what makes 360°-look-while-walking possible at all, with no
+   mouse button held.
 
    GENERIC / SELF-CALIBRATING
    ---------------------------
@@ -12,26 +28,25 @@
    or units. After the glb loads, it computes a world-space
    THREE.Box3 from the loaded scene graph (which already accounts
    for every node's transform — TRS or baked matrix, nested any
-   number of levels deep, whatever the exporter produced). Camera
-   start position, orbit target, near/far planes, fog density,
-   marker size, and the room-containment box are all derived from
-   that box and its diagonal length. This means the same file
-   works unmodified on a building-scale museum (hundreds of units)
-   or a room-scale, meter-unit interior — no manual coordinate
-   surgery required per model.
+   number of levels deep, whatever the exporter produced). Starting
+   camera position/look direction, near/far planes, fog density,
+   walk speed, marker size, and the room-containment box are all
+   derived from that box and its diagonal length. This means the
+   same file works unmodified on a building-scale museum (hundreds
+   of arbitrary units) or a room-scale, meter-unit interior — no
+   manual coordinate surgery required per model.
 
    ROOM CONTAINMENT
    -----------------
-   ROOM_MIN/ROOM_MAX (set once the model finishes loading) define
-   an inset safety box derived from the real bounding box. Every
-   frame, both the orbit target and the resulting camera position
-   are clamped into that box — so dragging, panning, or scrolling
-   can never push the camera through a wall or out into the void.
+   ROOM_MIN/ROOM_MAX provide the outer safety box, while a radius-
+   aware 3×3 ray sweep checks the model's visible structural meshes
+   before every move. Blocked diagonal motion is retried per axis,
+   which keeps the camera out of interior walls while allowing it
+   to slide naturally along them.
    ============================================================ */
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 const MODEL_URL = "model/MardouMuseumResult.glb";
 
@@ -49,18 +64,12 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 host.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x111417);
+scene.background = new THREE.Color(0x0d0f10);
 
 // placeholder camera; real near/far/position are set once the
 // model's bounding box is known (see calibrateToBoundingBox)
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 1.6, 5);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.screenSpacePanning = true;
-controls.update();
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -68,33 +77,183 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* ---------------- lighting ---------------- */
+/* ---------------- first-person look (pointer lock) ---------------- */
 
-scene.add(new THREE.HemisphereLight(0xcfe0ea, 0x2a231c, 0.7));
+let yaw = Math.PI;
+let pitch = 0;
+const PITCH_LIMIT = Math.PI / 2 - 0.02;
+const LOOK_SENSITIVITY = 0.0022;
 
-const keyLight = new THREE.DirectionalLight(0xfff4e0, 1.2);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(2048, 2048);
-scene.add(keyLight);
+function applyLook() {
+  const euler = new THREE.Euler(pitch, yaw, 0, "YXZ");
+  camera.quaternion.setFromEuler(euler);
+}
+applyLook();
 
-const fillLight = new THREE.PointLight(0xfff0d8, 1, 0, 2);
-scene.add(fillLight);
+const canvas = renderer.domElement;
+let isLocked = false;
+
+const lockOverlay = document.getElementById("lockOverlay");
+const lockEyebrow = document.getElementById("lockEyebrow");
+
+function requestLock() {
+  canvas.requestPointerLock =
+    canvas.requestPointerLock || canvas.mozRequestPointerLock;
+  canvas.requestPointerLock();
+}
+
+document.addEventListener("pointerlockchange", () => {
+  isLocked = document.pointerLockElement === canvas;
+  lockOverlay.classList.toggle("hidden", isLocked);
+  if (isLocked) resetMovementKeys();
+});
+document.addEventListener("pointerlockerror", () => {
+  showToast("无法锁定鼠标指针，请重试点击");
+});
+
+// The overlay sits visually on top of the canvas (so its "click to
+// enter" hint is readable), which means it also intercepts the
+// click event before it would reach the canvas beneath. Both need
+// their own listener so the very first click — whichever element
+// happens to receive it — engages pointer lock.
+canvas.addEventListener("click", () => {
+  if (!isLocked && modelReady) requestLock();
+});
+lockOverlay.addEventListener("click", () => {
+  if (!isLocked && modelReady) requestLock();
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isLocked) return;
+  yaw -= e.movementX * LOOK_SENSITIVITY;
+  pitch -= e.movementY * LOOK_SENSITIVITY;
+  pitch = THREE.MathUtils.clamp(pitch, -PITCH_LIMIT, PITCH_LIMIT);
+  applyLook();
+});
+
+/* ---------------- WASD + Space/Shift movement ---------------- */
+
+const keys = { forward: false, back: false, left: false, right: false, up: false, down: false };
+
+function resetMovementKeys() {
+  for (const k in keys) keys[k] = false;
+}
+
+const KEYMAP = {
+  KeyW: "forward",
+  ArrowUp: "forward",
+  KeyS: "back",
+  ArrowDown: "back",
+  KeyA: "left",
+  ArrowLeft: "left",
+  KeyD: "right",
+  ArrowRight: "right",
+  Space: "up",
+  ShiftLeft: "down",
+  ShiftRight: "down",
+};
+
+window.addEventListener("keydown", (e) => {
+  const bind = KEYMAP[e.code];
+  if (bind) {
+    if (isLocked) e.preventDefault(); // stop Space from scrolling the page, etc.
+    keys[bind] = true;
+  }
+  if ((e.key === "Delete" || e.key === "Backspace") && points.length && !isTypingTarget(e.target)) {
+    e.preventDefault();
+    removePoint(points[points.length - 1].id);
+  }
+});
+window.addEventListener("keyup", (e) => {
+  const bind = KEYMAP[e.code];
+  if (bind) keys[bind] = false;
+});
+function isTypingTarget(el) {
+  return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+}
+// if the user alt-tabs or the browser force-releases the lock,
+// stuck-key movement would otherwise continue forever
+window.addEventListener("blur", resetMovementKeys);
+
+let moveSpeed = 2; // overwritten once the model's scale is known
+let cameraRadius = 0.35;
+const forwardVec = new THREE.Vector3();
+const rightVec = new THREE.Vector3();
+const moveVec = new THREE.Vector3();
+const safeMoveVec = new THREE.Vector3();
+const collisionRaycaster = new THREE.Raycaster();
+const collisionOrigin = new THREE.Vector3();
+const collisionLateral = new THREE.Vector3();
+let colliders = [];
+
+function movementBlocked(origin, movement) {
+  const distance = movement.length();
+  if (!colliders.length || distance < 0.000001) return false;
+  const direction = movement.clone().normalize();
+  collisionLateral.set(-direction.z, 0, direction.x);
+  for (const height of [-cameraRadius * 1.4, 0, cameraRadius * 1.1]) {
+    for (const lateralFactor of [-1, 0, 1]) {
+      collisionOrigin
+        .copy(origin)
+        .addScaledVector(collisionLateral, cameraRadius * lateralFactor)
+        .addScaledVector(THREE.Object3D.DEFAULT_UP, height);
+      collisionRaycaster.set(collisionOrigin, direction);
+      collisionRaycaster.near = 0;
+      collisionRaycaster.far = distance + cameraRadius;
+      if (collisionRaycaster.intersectObjects(colliders, false).length) return true;
+    }
+  }
+  return false;
+}
+
+function resolveMovement(origin, movement, out) {
+  if (!movementBlocked(origin, movement)) return out.copy(movement);
+  out.set(0, 0, 0);
+  const axes = [
+    new THREE.Vector3(movement.x, 0, 0),
+    new THREE.Vector3(0, 0, movement.z),
+    new THREE.Vector3(0, movement.y, 0),
+  ].sort((left, right) => right.lengthSq() - left.lengthSq());
+  for (const axis of axes) {
+    if (axis.lengthSq() < 0.000001) continue;
+    collisionOrigin.copy(origin).add(out);
+    if (!movementBlocked(collisionOrigin, axis)) out.add(axis);
+  }
+  return out;
+}
+
+function applyMovement(dt) {
+  if (!isLocked) return;
+  // horizontal-only forward/right (classic FPS walk: looking up/down
+  // doesn't make W fly you into the ceiling/floor); Space/Shift give
+  // dedicated vertical control for reaching upper areas.
+  forwardVec.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+  rightVec.set(Math.cos(yaw), 0, -Math.sin(yaw));
+
+  moveVec.set(0, 0, 0);
+  if (keys.forward) moveVec.add(forwardVec);
+  if (keys.back) moveVec.sub(forwardVec);
+  if (keys.right) moveVec.add(rightVec);
+  if (keys.left) moveVec.sub(rightVec);
+  if (moveVec.lengthSq() > 0) moveVec.normalize();
+  if (keys.up) moveVec.y += 1;
+  if (keys.down) moveVec.y -= 1;
+
+  if (moveVec.lengthSq() > 0) {
+    moveVec.multiplyScalar(moveSpeed * dt);
+    resolveMovement(camera.position, moveVec, safeMoveVec);
+    camera.position.add(safeMoveVec);
+  }
+}
 
 /* ---------------- room containment (filled in after load) ---------------- */
 
 let ROOM_MIN = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
 let ROOM_MAX = new THREE.Vector3(Infinity, Infinity, Infinity);
 
-/* Clamp both the orbit target and the resulting camera position into
-   the room box, every frame, AFTER controls.update() has already
-   applied this frame's rotate/pan/zoom deltas. OrbitControls
-   recomputes its internal spherical offset from camera.position /
-   target fresh on every update() call (it keeps no separate
-   persistent state), so clamping here is safe: next frame simply
-   treats the clamped position as the new baseline instead of
-   fighting the controls' internal state. */
+/* keep the camera inside the model's volume, every frame, after
+   movement is applied — see ROOM CONTAINMENT above */
 function keepCameraIndoors() {
-  controls.target.clamp(ROOM_MIN, ROOM_MAX);
   const before = camera.position.clone();
   camera.position.clamp(ROOM_MIN, ROOM_MAX);
   return !camera.position.equals(before); // true if we just hit a boundary
@@ -110,33 +269,36 @@ function calibrateToBoundingBox(root) {
   box.getCenter(center);
   const diagonal = size.length();
 
-  // inset the containment box ~4% of the diagonal so the camera
-  // settles just short of the walls rather than clipping into them
   const margin = Math.max(diagonal * 0.04, 0.05);
   ROOM_MIN = box.min.clone().addScalar(margin);
   ROOM_MAX = box.max.clone().subScalar(margin);
-  // guard against inverted bounds on a very thin/flat model
-  ROOM_MIN.min(ROOM_MAX.clone().subScalar(0.01));
+  ROOM_MIN.min(ROOM_MAX.clone().subScalar(0.01)); // guard degenerate/flat models
 
   camera.near = Math.max(diagonal * 0.001, 0.01);
   camera.far = diagonal * 8;
   camera.updateProjectionMatrix();
 
-  scene.fog = new THREE.FogExp2(0x111417, 1.4 / diagonal);
+  scene.fog = new THREE.FogExp2(0x0d0f10, 1.2 / diagonal);
 
-  controls.minDistance = diagonal * 0.01;
-  controls.maxDistance = diagonal * 0.9;
+  // walking speed: cross the room's diagonal in ~9 seconds by default
+  moveSpeed = diagonal / 9;
+  cameraRadius = Math.max(diagonal * 0.006, 0.05);
 
-  // start roughly at "eye height" inside the room: near one side,
-  // a third of the way up from the floor, looking toward the center
+  // start roughly at "eye height" inside the volume: near one side,
+  // a third of the way up from the floor, facing toward the center
   const eyeY = box.min.y + size.y * 0.35;
-  camera.position.set(
+  const startPos = new THREE.Vector3(
     center.x - size.x * 0.28,
     eyeY,
     center.z - size.z * 0.28
   );
-  controls.target.set(center.x, eyeY, center.z);
-  controls.update();
+  camera.position.copy(startPos);
+
+  const lookTarget = new THREE.Vector3(center.x, eyeY, center.z);
+  const dir = lookTarget.clone().sub(startPos).normalize();
+  yaw = Math.atan2(-dir.x, -dir.z);
+  pitch = Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1));
+  applyLook();
 
   keyLight.position.set(center.x - size.x * 0.6, box.max.y + size.y * 0.6, center.z - size.z * 0.3);
   keyLight.shadow.camera.near = diagonal * 0.01;
@@ -155,6 +317,18 @@ function calibrateToBoundingBox(root) {
   return { size, center, diagonal };
 }
 
+/* ---------------- lighting ---------------- */
+
+scene.add(new THREE.HemisphereLight(0x8fb3c9, 0x1a1712, 0.6));
+
+const keyLight = new THREE.DirectionalLight(0xfff2df, 1.15);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+scene.add(keyLight);
+
+const fillLight = new THREE.PointLight(0xffd8a8, 1, 0, 2);
+scene.add(fillLight);
+
 /* ---------------- load model ---------------- */
 
 const loadWrap = document.getElementById("loadWrap");
@@ -162,6 +336,7 @@ const loadFill = document.getElementById("loadFill");
 const loadLabel = document.getElementById("loadLabel");
 
 let pickables = []; // meshes we allow raycasting against
+let modelReady = false;
 let modelScale = 1; // used to size markers proportionally to the model
 
 const loader = new GLTFLoader();
@@ -171,10 +346,15 @@ loader.load(
     const root = gltf.scene;
     root.traverse((obj) => {
       if (obj.isMesh) {
+        if (obj.name === "Picture_1") {
+          obj.visible = false;
+          return;
+        }
         obj.castShadow = true;
         obj.receiveShadow = true;
         if (obj.material) obj.material.side = THREE.DoubleSide;
         pickables.push(obj);
+        if (!/^(Floor|Ceiling|Picture)/.test(obj.name)) colliders.push(obj);
       }
     });
     scene.add(root);
@@ -182,9 +362,12 @@ loader.load(
     const { diagonal } = calibrateToBoundingBox(root);
     modelScale = diagonal;
 
-    loadLabel.textContent = "模型已就绪 · Ready";
+    modelReady = true;
+    loadLabel.textContent = "模型已就绪 · 点击画面进入";
     loadFill.style.width = "100%";
     setTimeout(() => loadWrap.classList.add("hidden"), 700);
+    lockOverlay.classList.add("ready");
+    lockEyebrow.textContent = "点击进入";
   },
   (xhr) => {
     if (xhr.total) {
@@ -199,81 +382,48 @@ loader.load(
   }
 );
 
-/* ---------------- picking ---------------- */
+/* ---------------- picking (always from the center crosshair) ---------------- */
 
 const raycaster = new THREE.Raycaster();
-const pointerNDC = new THREE.Vector2();
+const CENTER_NDC = new THREE.Vector2(0, 0);
 const hoverBadge = document.getElementById("hoverBadge");
 
-let lastClientX = 0,
-  lastClientY = 0;
-let hoverPoint = null;
-
-// distinguish a click (drop a point) from a drag (orbit/pan)
-let downX = 0,
-  downY = 0,
-  isDragSuspect = false;
-const DRAG_THRESHOLD = 5;
-
-renderer.domElement.addEventListener("pointerdown", (e) => {
-  downX = e.clientX;
-  downY = e.clientY;
-  isDragSuspect = false;
-});
-
-renderer.domElement.addEventListener("pointermove", (e) => {
-  lastClientX = e.clientX;
-  lastClientY = e.clientY;
-  if (
-    Math.abs(e.clientX - downX) > DRAG_THRESHOLD ||
-    Math.abs(e.clientY - downY) > DRAG_THRESHOLD
-  ) {
-    isDragSuspect = true;
-  }
-  updateHover(e.clientX, e.clientY);
-});
-
-renderer.domElement.addEventListener("pointerup", (e) => {
-  if (isDragSuspect) return; // was an orbit/pan drag, not a pick
-  if (e.button !== 0) return; // left click only
-  tryPick(e.clientX, e.clientY);
-});
-
-function toNDC(clientX, clientY, out) {
-  const rect = renderer.domElement.getBoundingClientRect();
-  out.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-  out.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-  return out;
-}
-
-function updateHover(clientX, clientY) {
-  if (!pickables.length) {
-    hoverBadge.style.transform = "translate(-9999px,-9999px)";
+function updateHover() {
+  if (!pickables.length || !isLocked) {
+    hoverBadge.classList.remove("show");
     return;
   }
-  toNDC(clientX, clientY, pointerNDC);
-  raycaster.setFromCamera(pointerNDC, camera);
+  raycaster.setFromCamera(CENTER_NDC, camera);
   const hits = raycaster.intersectObjects(pickables, false);
   if (hits.length) {
     const p = hits[0].point;
-    hoverPoint = p;
     hoverBadge.textContent = `X ${p.x.toFixed(2)}  Y ${p.y.toFixed(2)}  Z ${p.z.toFixed(2)}`;
-    hoverBadge.style.transform = `translate(${clientX + 16}px, ${clientY + 16}px)`;
+    hoverBadge.classList.add("show");
   } else {
-    hoverPoint = null;
-    hoverBadge.style.transform = "translate(-9999px,-9999px)";
+    hoverBadge.classList.remove("show");
   }
 }
 
-function tryPick(clientX, clientY) {
+function tryPickCenter() {
   if (!pickables.length) return;
-  toNDC(clientX, clientY, pointerNDC);
-  raycaster.setFromCamera(pointerNDC, camera);
+  raycaster.setFromCamera(CENTER_NDC, camera);
   const hits = raycaster.intersectObjects(pickables, false);
   if (!hits.length) return;
   const hit = hits[0];
-  addPoint(hit.point.clone(), hit.face ? hit.face.normal.clone() : null, hit.object.name || "Mesh");
+  const worldNormal = hit.face
+    ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld)
+    : null;
+  addPoint(hit.point.clone(), worldNormal, hit.object.name || "Mesh");
 }
+
+// left-click while locked = take a point at the crosshair. The very
+// first click (while unlocked) is consumed by the canvas/overlay
+// "click" listeners above to engage pointer lock instead, so there's
+// no double-fire on the click that locks the pointer: mousedown fires
+// before pointer lock is granted, so isLocked is still false then.
+document.addEventListener("mousedown", (e) => {
+  if (isLocked && e.button === 0) tryPickCenter();
+});
 
 /* ---------------- markers in 3D ---------------- */
 
@@ -339,7 +489,7 @@ let wallHintShownOnce = false;
 function showWallHint() {
   if (wallHintShownOnce) return;
   wallHintShownOnce = true;
-  showToast("已到边界 — 视角保持在模型内部");
+  showToast("已到边界 — 无法再往前走");
 }
 
 function addPoint(position, normal, meshName) {
@@ -427,14 +577,18 @@ function renderList() {
 
     const copyBtn = document.createElement("button");
     copyBtn.textContent = "复制";
-    copyBtn.addEventListener("click", async () => {
+    copyBtn.addEventListener("click", async (evt) => {
+      evt.stopPropagation();
       const ok = await copyText(formatCoord(p.position));
       showToast(ok ? `已复制点 #${i + 1} 坐标` : "复制失败，请手动选择文本");
     });
 
     const delBtn = document.createElement("button");
     delBtn.textContent = "删除";
-    delBtn.addEventListener("click", () => removePoint(p.id));
+    delBtn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      removePoint(p.id);
+    });
 
     rowBtns.appendChild(copyBtn);
     rowBtns.appendChild(delBtn);
@@ -472,16 +626,6 @@ clearBtn.addEventListener("click", () => {
   showToast("已清空全部采样点");
 });
 
-window.addEventListener("keydown", (e) => {
-  if ((e.key === "Delete" || e.key === "Backspace") && points.length && !isTypingTarget(e.target)) {
-    e.preventDefault();
-    removePoint(points[points.length - 1].id);
-  }
-});
-function isTypingTarget(el) {
-  return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-}
-
 /* ---------------- render loop ---------------- */
 
 const clock = new THREE.Clock();
@@ -489,20 +633,22 @@ let wallFlashTimer = 0;
 
 function animate() {
   requestAnimationFrame(animate);
-  const dt = clock.getDelta();
-  controls.update();
+  const dt = Math.min(clock.getDelta(), 0.1); // clamp so an alt-tab pause doesn't teleport you
 
+  applyMovement(dt);
   const hitWall = keepCameraIndoors();
   if (hitWall) {
-    wallFlashTimer = 0.35;
+    wallFlashTimer = 0.3;
     showWallHint();
   }
   if (wallFlashTimer > 0) {
     wallFlashTimer -= dt;
-    wallVignette.style.opacity = Math.max(0, wallFlashTimer / 0.35) * 0.55;
+    wallVignette.style.opacity = Math.max(0, wallFlashTimer / 0.3) * 0.5;
   } else {
     wallVignette.style.opacity = 0;
   }
+
+  updateHover();
 
   const t = performance.now() * 0.002;
   markerGroup.children.forEach((group, i) => {
@@ -516,8 +662,6 @@ function animate() {
     const s = THREE.MathUtils.clamp(dist / Math.max(modelScale * 0.09, 0.3), 0.6, 4);
     group.scale.setScalar(s);
   });
-
-  if (hoverPoint) updateHover(lastClientX, lastClientY);
 
   renderer.render(scene, camera);
 }

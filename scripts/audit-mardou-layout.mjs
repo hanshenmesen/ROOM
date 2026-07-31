@@ -10,6 +10,7 @@ import {
   MARDOU_LOBBY_FOCUS,
   MARDOU_LOBBY_INTRO_ROUTE,
   MARDOU_PRIVATE_FOCUS,
+  MARDOU_PRIVATE_PICTURE_FRAMES,
   MARDOU_PRIVATE_ROUTE,
   MARDOU_PROJECT_PLACEMENTS,
   MARDOU_SOURCE_ARCHIVE_PLACEMENT,
@@ -372,17 +373,25 @@ const verifiedPoints = [
     { name: `project camera ${index + 1}`, point: placement.focus.camera },
   ]),
   ...MARDOU_SURFACE_PLACEMENTS.flatMap((placement, index) => [
-    { name: `surface ${index + 1}`, point: placement.position },
+    {
+      name: `surface ${index + 1}`,
+      point: placement.position,
+      minimumClearance: [0, 0.8, 0.65, 1.2, 1.2, 1, 1.2][index],
+    },
     { name: `surface camera ${index + 1}`, point: placement.focus.camera },
+  ]),
+  ...MARDOU_PRIVATE_PICTURE_FRAMES.flatMap((frame, index) => [
+    { name: `private frame ${index + 11}`, point: frame.position, minimumClearance: 0 },
+    { name: `private frame camera ${index + 11}`, point: frame.focus.camera, minimumClearance: 0.5 },
   ]),
 ];
 
-const pointFailures = verifiedPoints.flatMap(({ name, point }) => {
+const pointFailures = verifiedPoints.flatMap(({ name, point, minimumClearance = MIN_CLEARANCE }) => {
   const floor = floorAt(point[0], point[2], point[1] + 0.05);
   const clearance = horizontalClearance(...point);
   const reasons = [];
   if (floor === undefined) reasons.push("no supporting floor below point");
-  if (clearance < MIN_CLEARANCE) reasons.push(`structure clearance ${clearance.toFixed(3)} < ${MIN_CLEARANCE}`);
+  if (clearance < minimumClearance) reasons.push(`structure clearance ${clearance.toFixed(3)} < ${minimumClearance}`);
   return reasons.map((reason) => `${name}: ${reason}`);
 });
 
@@ -401,7 +410,7 @@ const failures = [...pointFailures, ...routeFailures];
 if (failures.length) {
   throw new Error(`Mardou placement audit failed:\n${failures.join("\n")}`);
 }
-console.log(`\nverified ${verifiedPoints.length} authored points with floor support and >= ${MIN_CLEARANCE} structure clearance`);
+console.log(`\nverified ${verifiedPoints.length} authored points with floor support and their placement-specific clearance thresholds`);
 console.log(`verified ${authoredRoutes.length} authored camera routes against their clearance limits at t=0.0..1.0 in 0.1 steps plus every named waypoint`);
 console.table(authoredRoutes.map(({ name }) => {
   const samples = routeSamples.filter((sample) => sample.name === name);

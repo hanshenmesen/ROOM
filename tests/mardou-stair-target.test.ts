@@ -1,0 +1,31 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { MARDOU_STAIR_CLICK_TARGETS } from "../components/MardouMuseumLayout.ts";
+
+const sceneSource = await readFile(new URL("../components/MardouMuseumScene.tsx", import.meta.url), "utf8");
+
+test("stair targets follow every real tread and the intermediate landing", () => {
+  assert.equal(MARDOU_STAIR_CLICK_TARGETS.length, 21);
+  assert.deepEqual(
+    MARDOU_STAIR_CLICK_TARGETS.map((target) => Number(target.position[2].toFixed(3))),
+    Array(21).fill(-8.753),
+  );
+
+  for (const target of MARDOU_STAIR_CLICK_TARGETS) {
+    assert.ok(target.position[0] >= -0.98 && target.position[0] <= 3.64);
+    assert.ok(target.position[1] >= 0.39 && target.position[1] <= 3.42);
+    assert.ok(target.size[0] <= 0.96);
+    assert.ok(target.size[1] <= 0.04);
+    assert.ok(target.size[2] >= 1.45 && target.size[2] <= 1.56);
+  }
+
+  for (let index = 1; index < MARDOU_STAIR_CLICK_TARGETS.length; index += 1) {
+    assert.ok(MARDOU_STAIR_CLICK_TARGETS[index].position[1] > MARDOU_STAIR_CLICK_TARGETS[index - 1].position[1]);
+  }
+});
+
+test("museum background no longer promotes a broad coordinate region to stairs", () => {
+  assert.doesNotMatch(sceneSource, /isStairwayPoint/);
+  assert.doesNotMatch(sceneSource, /point\.x >= 3\.5/);
+});

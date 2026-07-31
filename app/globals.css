@@ -700,6 +700,31 @@ button:disabled { cursor: not-allowed; }
   line-height: 1.5;
 }
 
+.picture-config-grid { display: grid; gap: 12px; margin-top: 18px; }
+.picture-config-card { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(25, 23, 27, .24); background: #fffdf8; }
+.picture-config-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.picture-config-card header strong { font: 700 10px var(--font-geist-mono), monospace; }
+.picture-config-card header span { color: var(--gray); font-size: 9px; }
+.picture-config-card > label { font: 9px var(--font-geist-mono), monospace; }
+.picture-config-card input[type="url"] { width: 100%; border: 1px solid var(--black); padding: 9px 10px; background: #fff; outline: none; font-size: 10px; }
+.picture-config-card input[type="url"]:focus { box-shadow: 0 0 0 3px #65d7c3; }
+.picture-config-actions { display: grid; grid-template-columns: 1fr 1fr; }
+.picture-config-actions button,
+.picture-file-button { border: 1px solid var(--black); padding: 9px 10px; background: transparent; text-align: center; font-size: 9px; cursor: pointer; }
+.picture-config-actions button + button { border-left: 0; }
+.picture-config-actions button:first-child,
+.picture-file-button { background: var(--black); color: var(--white); }
+.picture-config-card input[type="file"] { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.private-frame-config-card { margin-top: 18px; }
+.private-frame-tabs { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
+.private-frame-tabs button { border: 1px solid var(--black); padding: 8px 5px; background: transparent; font-size: 9px; cursor: pointer; }
+.private-frame-tabs button + button { border-left: 0; }
+.private-frame-tabs button.is-active { background: var(--black); color: var(--white); }
+.private-frame-config-card img,
+.private-frame-empty-preview { width: 100%; aspect-ratio: 3 / 2; border: 1px solid rgba(25, 23, 27, .28); object-fit: cover; }
+.private-frame-empty-preview { display: grid; place-items: center; background: #efe7db; color: #8a8178; font: 700 10px var(--font-geist-mono), monospace; letter-spacing: .12em; }
+.private-frame-reset { border: 1px solid var(--black); padding: 9px 10px; background: transparent; font-size: 9px; cursor: pointer; }
+
 .private-gate {
   position: absolute;
   z-index: 7;
