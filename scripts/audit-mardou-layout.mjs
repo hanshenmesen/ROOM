@@ -4,7 +4,6 @@ import * as THREE from "three";
 import {
   MARDOU_AUTO_DOOR,
   MARDOU_COMPANION_SAFE_ZONE,
-  MARDOU_COMPANION_SPEED,
   MARDOU_CREATIVE_CORNER_POSITION,
   MARDOU_DIARY_FOCUS,
   MARDOU_ENTRANCE_ROUTE,
@@ -799,12 +798,12 @@ const fillerSeparationFailures = Object.entries(MARDOU_LIFE_FILLER_PLACEMENTS).f
 const companionWelcomeStart = new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceSpawn);
 const companionWelcomeEnd = new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome);
 const companionWelcomeDistance = companionWelcomeStart.distanceTo(companionWelcomeEnd);
-const companionWelcomeArrivalSeconds = companionWelcomeDistance / (MARDOU_COMPANION_SPEED * 1.35);
-// The camera now explicitly releases the pet only after its two-door entrance
-// route and final 90-degree turn complete. Audit the post-release walk itself:
-// it should be visible but brief, and must never exceed the guarded 5m cap.
-const companionTimingFailures = companionWelcomeDistance > 5 || companionWelcomeArrivalSeconds > 4
-  ? [`companion post-intro greeting moves ${companionWelcomeDistance.toFixed(2)}m in ${companionWelcomeArrivalSeconds.toFixed(2)}s`]
+const companionWelcomeArrivalSeconds = MARDOU_COMPANION_SAFE_ZONE.entranceWalkSeconds;
+// The pet starts at the first doorway and its arrival is locked to the camera's
+// second-door turn, so both authored durations must remain identical.
+const companionTimingFailures = companionWelcomeDistance > 5
+  || companionWelcomeArrivalSeconds !== MARDOU_LOBBY_INTRO_ROUTE.duration
+  ? [`companion entrance greeting moves ${companionWelcomeDistance.toFixed(2)}m in ${companionWelcomeArrivalSeconds.toFixed(2)}s`]
   : [];
 const companionWelcomePathFailures = Array.from({ length: 101 }, (_, index) => index / 100).flatMap((progress) => {
   const point = companionWelcomeStart.clone().lerp(companionWelcomeEnd, progress);
@@ -1143,7 +1142,7 @@ if (failures.length) {
 }
 console.log(`\nverified ${verifiedPoints.length} authored points with floor support and their placement-specific clearance thresholds`);
 console.log(`verified life fillers remain at least 2.6m from every ground-floor content stand`);
-console.log(`verified companion reaches the entrance welcome point ${companionWelcomeArrivalSeconds.toFixed(2)}s after the intro release with a clear path`);
+console.log(`verified companion greeting spans the full ${companionWelcomeArrivalSeconds.toFixed(2)}s two-door intro and arrives on the final turn`);
 console.log("verified sports and refreshment display centers remain visible in the desktop establishing view");
 console.log(`verified all project-island centers remain visible in the ${portraitAspect.toFixed(2)} portrait establishing view`);
 console.log(`verified all project-island centers remain visible after R-key reframing at ${portraitAspect.toFixed(2)} portrait aspect`);

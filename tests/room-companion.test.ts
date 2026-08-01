@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   MARDOU_COMPANION_SAFE_ZONE,
+  MARDOU_LOBBY_INTRO_ROUTE,
   mardouSourcePointToWorld,
 } from "../components/MardouMuseumLayout.ts";
 
@@ -53,7 +54,7 @@ test("room companion patrol points stay on the lobby floor and away from blocked
   assert.match(companionSource, /chooseNextWaypoint\(blockedTarget\)/);
 });
 
-test("room companion waits for the finished entrance turn, reaches point 19, and returns to the safe route", () => {
+test("room companion starts at door one, reaches point 19 on the final turn, and returns to the safe route", () => {
   assert.deepEqual(
     MARDOU_COMPANION_SAFE_ZONE.entranceSpawn,
     mardouSourcePointToWorld([-10.018, -16.2896, -510.6123]),
@@ -71,17 +72,20 @@ test("room companion waits for the finished entrance turn, reaches point 19, and
     MARDOU_COMPANION_SAFE_ZONE.entranceSpawn[2] - MARDOU_COMPANION_SAFE_ZONE.entranceWelcome[2],
   );
   assert.ok(welcomeDistance > 2 && welcomeDistance < 3, "the pet must stop at the closer point 19 greeting position");
-  assert.match(companionSource, /MARDOU_COMPANION_SPEED \* stepDelta/);
+  assert.equal(MARDOU_COMPANION_SAFE_ZONE.entranceWalkSeconds, MARDOU_LOBBY_INTRO_ROUTE.duration);
   assert.match(companionSource, /welcoming\.current = true/);
   assert.match(companionSource, /const startIndex = 0/);
   assert.match(companionSource, /target\.set\(\.\.\.MARDOU_COMPANION_SAFE_ZONE\.entranceWelcome\)/);
-  assert.match(companionSource, /entranceGreetingReady/);
-  assert.match(companionSource, /welcoming\.current && !entranceGreetingReady/);
+  assert.match(companionSource, /entranceGreetingStarted/);
+  assert.match(companionSource, /entranceGreetingArrived/);
+  assert.match(companionSource, /welcoming\.current && !entranceGreetingStarted/);
+  assert.match(companionSource, /entranceWalkElapsed\.current \/ MARDOU_COMPANION_SAFE_ZONE\.entranceWalkSeconds/);
   assert.match(worldCanvasSource, /onLobbyIntroComplete/);
+  assert.match(worldCanvasSource, /onLobbyIntroStart\(\)/);
   assert.match(worldCanvasSource, /lobbyIntro: shouldPlayLobbyIntro/);
   assert.match(worldCanvasSource, /if \(completedLobbyIntro\) onLobbyIntroComplete\(\)/);
-  assert.match(worldCanvasSource, /entranceGreetingReady=\{entranceGreetingReady\}/);
-  assert.match(companionSource, /ENTRANCE_APPROACH_DISTANCE/);
+  assert.match(worldCanvasSource, /entranceGreetingStarted=\{entranceGreetingStarted\}/);
+  assert.match(worldCanvasSource, /entranceGreetingArrived=\{entranceGreetingArrived\}/);
   assert.match(companionSource, /direction\.copy\(entranceApproaching \? target : state\.camera\.position\)/);
   assert.match(companionSource, /root\.current\.position\.x = target\.x/);
   assert.match(companionSource, /entrancePettingStartedAt\.current = clock\.current/);

@@ -35,3 +35,13 @@ test("leaving the upper gallery locks the diary before the next visit", () => {
   assert.match(roomStudioSource, /setPrivateUnlockedMode\(""\);/);
   assert.match(roomStudioSource, /if \(activeRoom === PRIVATE_ROOM_ID\) resetPrivateAccess\(\);/);
 });
+
+test("interior navigation never sends the camera back outside", () => {
+  assert.doesNotMatch(roomStudioSource, /回到展馆外/);
+  assert.doesNotMatch(roomStudioSource, /leavePrivateRoom\("exterior"\)/);
+  assert.match(
+    roomStudioSource,
+    /if \(roomId !== "room-lobby" && roomId !== PRIVATE_ROOM_ID\) return;/,
+  );
+  assert.match(roomStudioSource, /function leavePrivateRoom\(\) \{[\s\S]*setActiveRoom\("room-lobby"\);/);
+});

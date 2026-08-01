@@ -1756,9 +1756,9 @@ button:disabled { cursor: not-allowed; }
 .heat-panel button {
   width: 100%;
   display: grid;
-  grid-template-columns: 24px 1fr auto;
+  grid-template-columns: 24px minmax(0, 1fr);
   gap: 9px;
-  align-items: center;
+  align-items: start;
   border: 1px solid transparent;
   border-radius: 8px;
   padding: 8px;
@@ -1768,9 +1768,10 @@ button:disabled { cursor: not-allowed; }
 }
 .heat-panel button:hover { border-color: rgba(101, 215, 195, .55); background: rgba(101, 215, 195, .12); }
 .heat-panel span { color: rgba(245, 245, 241, .52); font: 8px var(--font-geist-mono), monospace; }
+.heat-item-copy { min-width: 0; }
 .heat-panel strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; }
 .heat-panel small { display: block; margin-top: 2px; color: rgba(245, 245, 241, .48); font: 7px var(--font-geist-mono), monospace; }
-.heat-panel em { color: #ffb087; font: 700 12px var(--font-geist-mono), monospace; font-style: normal; }
+.heat-panel em { display: block; margin-top: 5px; color: #ffb087; font: 700 12px var(--font-geist-mono), monospace; font-style: normal; }
 .detail-close {
   position: absolute;
   top: 9px;

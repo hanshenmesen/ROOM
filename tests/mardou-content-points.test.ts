@@ -5,6 +5,7 @@ import {
   MARDOU_ACHIEVEMENT_PLACEMENT,
   MARDOU_COUCH_PLACEMENT,
   MARDOU_CREATIVE_CORNER_POSITION,
+  MARDOU_DIARY_FOCUS,
   MARDOU_DIARY_POSITION,
   MARDOU_DIARY_ROTATION,
   MARDOU_PET_BED_PLACEMENT,
@@ -52,6 +53,18 @@ test("provided source points map to the authored profile, trophy, education, pro
     -19.55 - MARDOU_EDUCATION_PLACEMENT.position[2],
   );
   assert.ok(Math.abs(MARDOU_EDUCATION_PLACEMENT.rotation[1] - (originalEducationYaw + Math.PI)) < 1e-9);
+  const educationFront = [
+    Math.sin(MARDOU_EDUCATION_PLACEMENT.rotation[1]),
+    Math.cos(MARDOU_EDUCATION_PLACEMENT.rotation[1]),
+  ];
+  const educationCameraOffset = [
+    MARDOU_EDUCATION_PLACEMENT.focus.camera[0] - MARDOU_EDUCATION_PLACEMENT.position[0],
+    MARDOU_EDUCATION_PLACEMENT.focus.camera[2] - MARDOU_EDUCATION_PLACEMENT.position[2],
+  ];
+  assert.ok(
+    educationFront[0] * educationCameraOffset[0] + educationFront[1] * educationCameraOffset[1] > 0,
+    "education focus camera stays in front of the rotated display",
+  );
   assert.match(worldSource, /surface\.semanticRole === "achievement"\) return MARDOU_ACHIEVEMENT_PLACEMENT/);
   assert.match(worldSource, /name="achievement-trophy"/);
   const achievementGeometry = worldSource.slice(
@@ -126,8 +139,22 @@ test("the private diary uses supplied upper-floor point 1", () => {
     rounded(mardouSourcePointToWorld([21.6668, -0.3973, -546.3062])),
   );
   assert.equal(MARDOU_DIARY_ROTATION[1] !== Math.PI / 2, true);
+  const diaryReadableSide = [
+    -Math.sin(MARDOU_DIARY_ROTATION[1]),
+    -Math.cos(MARDOU_DIARY_ROTATION[1]),
+  ];
+  const diaryCameraOffset = [
+    MARDOU_DIARY_FOCUS.camera[0] - MARDOU_DIARY_POSITION[0],
+    MARDOU_DIARY_FOCUS.camera[2] - MARDOU_DIARY_POSITION[2],
+  ];
+  assert.ok(
+    diaryReadableSide[0] * diaryCameraOffset[0] + diaryReadableSide[1] * diaryCameraOffset[1] > 0,
+    "private diary focus camera faces the readable side of the imported open book",
+  );
   assert.match(worldSource, /position=\{MARDOU_DIARY_POSITION\}/);
   assert.match(worldSource, /rotation=\{MARDOU_DIARY_ROTATION\}/);
+  assert.match(worldSource, /position=\{\[0, 0\.48, -0\.78\]\}/);
+  assert.match(worldSource, /rotation=\{\[0, Math\.PI, 0\]\}/);
 });
 
 test("the character corner consumes the next free private slot and overflow stays hidden", () => {

@@ -1003,6 +1003,9 @@ export function RoomStudio() {
 
   const requestRoomChange = useCallback((roomId: string) => {
     if (cameraTransitioning) return;
+    // Once the visitor is inside, navigation is limited to the two interior
+    // floors. The exterior is only part of the one-way opening sequence.
+    if (roomId !== "room-lobby" && roomId !== PRIVATE_ROOM_ID) return;
     setSelectedId("");
     setFocusPhase("idle");
     setActiveRoom(roomId);
@@ -1016,11 +1019,11 @@ export function RoomStudio() {
     }
   }, [cameraTransitioning]);
 
-  function leavePrivateRoom(nextRoom: string) {
+  function leavePrivateRoom() {
     if (cameraTransitioning) return;
     setSelectedId("");
     setFocusPhase("idle");
-    setActiveRoom(nextRoom);
+    setActiveRoom("room-lobby");
     if (activeRoom === PRIVATE_ROOM_ID) resetPrivateAccess();
   }
 
@@ -1932,19 +1935,11 @@ export function RoomStudio() {
             <span className="journey-primary">点击画面中的入口 · 进入主展厅</span>
           ) : (
             <>
-              {activeRoom === "room-lobby" ? (
+              {activeRoom !== "room-lobby" && stairNavigationNearby && !cameraTransitioning ? (
                 <button
                   type="button"
                   disabled={cameraTransitioning}
-                  onClick={() => leavePrivateRoom("exterior")}
-                >
-                  ← 回到展馆外
-                </button>
-              ) : stairNavigationNearby && !cameraTransitioning ? (
-                <button
-                  type="button"
-                  disabled={cameraTransitioning}
-                  onClick={() => leavePrivateRoom("room-lobby")}
+                  onClick={leavePrivateRoom}
                 >
                   ← 返回主展厅
                 </button>

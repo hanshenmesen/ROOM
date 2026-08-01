@@ -24,8 +24,11 @@ export function ExhibitHeatPanel({ items, open, onToggle, onSelect }: ExhibitHea
               <li key={item.id}>
                 <button type="button" onClick={() => onSelect(item)}>
                   <span>{String(index + 1).padStart(2, "0")}</span>
-                  <div><strong>{item.label}</strong><small>{item.kind === "project-pedestal" ? "项目展台" : "信息展台"} · {item.eyebrow}</small></div>
-                  <em>{item.total}</em>
+                  <div className="heat-item-copy">
+                    <strong>{item.label}</strong>
+                    <small>{item.kind === "project-pedestal" ? "项目展台" : "信息展台"} · {item.eyebrow}</small>
+                    <em>{item.total}</em>
+                  </div>
                 </button>
               </li>
             ))}

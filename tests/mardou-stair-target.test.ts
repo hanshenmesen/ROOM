@@ -45,7 +45,8 @@ test("floor navigation stays hidden until the camera is close to the stairs", ()
   assert.match(studioSource, /const \[stairNavigationNearby, setStairNavigationNearby\] = useState\(false\)/);
   assert.match(studioSource, /onStairProximityChange=\{setStairNavigationNearby\}/);
   assert.match(studioSource, /activeRoom === "room-lobby" && stairNavigationNearby && !cameraTransitioning/);
-  assert.match(studioSource, /\) : stairNavigationNearby && !cameraTransitioning \? \(/);
+  assert.match(studioSource, /activeRoom !== "room-lobby" && stairNavigationNearby && !cameraTransitioning/);
+  assert.doesNotMatch(studioSource, /回到展馆外/);
 });
 
 test("museum background no longer promotes a broad coordinate region to stairs", () => {

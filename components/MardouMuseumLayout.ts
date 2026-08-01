@@ -266,8 +266,8 @@ export const MARDOU_COMPANION_SAFE_ZONE = {
   bodyHeight: 0.62,
   stoppingRadius: 0.32,
   clickPauseSeconds: 8,
-  // Stay at the supplied spawn point while the entrance camera crosses both
-  // doors. After its final 90-degree turn, walk to the picked greeting point.
+  // Begin at the supplied spawn point as the camera enters the first door,
+  // then reach the picked greeting point exactly as the second-door turn ends.
   entranceSpawn: [
     companionEntranceFloorPoint[0],
     MARDOU_GROUND_FLOOR_Y,
@@ -278,7 +278,7 @@ export const MARDOU_COMPANION_SAFE_ZONE = {
     MARDOU_GROUND_FLOOR_Y,
     companionWelcomeFloorPoint[2],
   ] as Vec3,
-  entrancePauseSeconds: 6,
+  entranceWalkSeconds: MARDOU_LOBBY_INTRO_ROUTE.duration,
   dialoguePoint: companionPatrolPoints[0],
   waypoints: companionPatrolPoints,
 } as const;
@@ -606,12 +606,22 @@ export const MARDOU_PRIVATE_SURFACE_PLACEMENTS: MuseumPlacement[] = privateDispl
     return {
       ...authoredPlacement,
       // Education uses the first upper-floor slot. Turn the whole pedestal and
-      // plaque around without moving its picked floor point or focus route.
+      // plaque around without moving its picked floor point. Its focus camera
+      // must move to the opposite side as well, otherwise the detail view lands
+      // behind the screen after the 180-degree turn.
       rotation: [
         authoredPlacement.rotation[0],
         authoredPlacement.rotation[1] + Math.PI,
         authoredPlacement.rotation[2],
       ],
+      focus: {
+        ...authoredPlacement.focus,
+        camera: [
+          authoredPlacement.position[0] * 2 - authoredPlacement.focus.camera[0],
+          authoredPlacement.focus.camera[1],
+          authoredPlacement.position[2] * 2 - authoredPlacement.focus.camera[2],
+        ],
+      },
     };
   },
 );
@@ -685,7 +695,13 @@ const privateDiaryNormal: Vec3 = [
   privateDiaryFacingZ / privateDiaryFacingLength,
 ];
 export const MARDOU_DIARY_POSITION: Vec3 = privateDiaryFloorPoint;
-export const MARDOU_DIARY_ROTATION: Vec3 = [0, Math.atan2(privateDiaryNormal[0], privateDiaryNormal[2]), 0];
+// The imported open-book asset presents its readable side along local -Z.
+// Rotate that side toward the clear inner-gallery camera aisle.
+export const MARDOU_DIARY_ROTATION: Vec3 = [
+  0,
+  Math.atan2(privateDiaryNormal[0], privateDiaryNormal[2]) + Math.PI,
+  0,
+];
 export const MARDOU_DIARY_FOCUS: MuseumFocus = {
   target: [privateDiaryFloorPoint[0], privateDiaryFloorPoint[1] + 0.85, privateDiaryFloorPoint[2]],
   camera: [

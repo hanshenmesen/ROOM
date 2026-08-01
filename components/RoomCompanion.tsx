@@ -19,12 +19,12 @@ const TURN_SPEED = 8;
 const TWO_PI = Math.PI * 2;
 const COMPANION_COLLISION_RADIUS = 0.24;
 const ENTRANCE_PETTING_SECONDS = 2.8;
-const ENTRANCE_APPROACH_DISTANCE = 5;
 
 export type RoomCompanionProps = {
   activeRoom: string;
   sceneReady?: boolean;
-  entranceGreetingReady?: boolean;
+  entranceGreetingStarted?: boolean;
+  entranceGreetingArrived?: boolean;
   qaOpen?: boolean;
   customization?: PetCustomization;
   seed?: string;
@@ -111,7 +111,8 @@ function companionMovementBlocked(
 export function RoomCompanion({
   activeRoom,
   sceneReady = true,
-  entranceGreetingReady = true,
+  entranceGreetingStarted = true,
+  entranceGreetingArrived = true,
   qaOpen = false,
   customization,
   seed = "room-neutral-companion",
@@ -132,7 +133,7 @@ export function RoomCompanion({
   const collisionRaycaster = useRef(new THREE.Raycaster());
   const clock = useRef(0);
   const pauseUntil = useRef(0);
-  const entranceApproachDistance = useRef(0);
+  const entranceWalkElapsed = useRef(0);
   const entrancePettingStartedAt = useRef<number | null>(null);
   const welcoming = useRef(true);
   const randomState = useRef(hashSeed(seed) || 1);
@@ -142,6 +143,7 @@ export function RoomCompanion({
   const startIndex = 0;
   const currentIndex = useRef(startIndex);
   const targetIndex = useRef((startIndex + 1) % MARDOU_COMPANION_SAFE_ZONE.waypoints.length);
+  const entranceStart = useMemo(() => new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceSpawn), []);
   const target = useMemo(() => new THREE.Vector3(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome), []);
   const direction = useMemo(() => new THREE.Vector3(), []);
   const firstPosition = MARDOU_COMPANION_SAFE_ZONE.entranceSpawn;
@@ -177,7 +179,7 @@ export function RoomCompanion({
     welcoming.current = true;
     clock.current = 0;
     pauseUntil.current = 0;
-    entranceApproachDistance.current = 0;
+    entranceWalkElapsed.current = 0;
     entrancePettingStartedAt.current = null;
     target.set(...MARDOU_COMPANION_SAFE_ZONE.entranceWelcome);
     if (root.current) {
@@ -200,9 +202,8 @@ export function RoomCompanion({
     if (!root.current || activeRoom !== "room-lobby" || !visible || !sceneReady) return;
 
     const stepDelta = Math.min(delta, 1 / 24);
-    // Do not let the greeting clock or movement begin while the visitor is
-    // still crossing the two entrance doors and completing the final turn.
-    if (welcoming.current && !entranceGreetingReady) {
+    // Hold the picked spawn until the entrance camera starts through door one.
+    if (welcoming.current && !entranceGreetingStarted) {
       root.current.position.y = MARDOU_COMPANION_SAFE_ZONE.floorY
         + Math.sin(state.clock.elapsedTime * 3.2) * 0.018;
       return;
@@ -228,31 +229,23 @@ export function RoomCompanion({
         root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, yaw, TURN_SPEED, stepDelta);
       }
       const welcomeDistance = direction.length();
-      if (
-        entranceApproaching
-        && welcomeDistance > 0.001
-        && entranceApproachDistance.current < ENTRANCE_APPROACH_DISTANCE
-      ) {
-        direction.normalize();
-        const step = Math.min(
-          MARDOU_COMPANION_SPEED * 1.35 * stepDelta,
-          welcomeDistance,
-          ENTRANCE_APPROACH_DISTANCE - entranceApproachDistance.current,
+      if (entranceApproaching && !entranceGreetingArrived) {
+        entranceWalkElapsed.current += stepDelta;
+        // Bind the greeting walk to the authored camera duration. Capping just
+        // short of 1 keeps the pet walking until the camera confirms that the
+        // second doorway and final turn are actually complete on this device.
+        // This one-time clear path bypasses architectural faces; normal patrol resumes with full multi-ray collision afterward.
+        const walkProgress = Math.min(
+          0.995,
+          entranceWalkElapsed.current / MARDOU_COMPANION_SAFE_ZONE.entranceWalkSeconds,
         );
-        const movement = direction.clone().multiplyScalar(step);
-        // This one-time greeting follows two user-picked clear floor points.
-        // The museum contains invisible architectural collision faces near the
-        // entrance that would otherwise stop Xiaobai before the welcome spot;
-        // normal patrol resumes with full multi-ray collision immediately after.
-        root.current.position.add(movement);
-        entranceApproachDistance.current += step;
-        walking = true;
-        if (step >= welcomeDistance - 0.001) {
-          root.current.position.x = target.x;
-          root.current.position.z = target.z;
-          entrancePettingStartedAt.current = clock.current;
-        }
-      } else if (entranceApproaching && welcomeDistance <= 0.001) {
+        root.current.position.lerpVectors(
+          entranceStart,
+          target,
+          walkProgress,
+        );
+        walking = welcomeDistance > 0.001;
+      } else if (entranceApproaching && entranceGreetingArrived) {
         root.current.position.x = target.x;
         root.current.position.z = target.z;
         entrancePettingStartedAt.current = clock.current;

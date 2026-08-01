@@ -262,7 +262,7 @@ function pointerEdgeIntent(normalizedCoordinate: number) {
   return Math.sign(normalizedCoordinate) * eased;
 }
 
-function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSettled, onTransitionStateChange, onLobbyIntroComplete, onWideAngleRequested }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan; onFocusSettled: (id: string) => void; onTransitionStateChange: (transitioning: boolean) => void; onLobbyIntroComplete: () => void; onWideAngleRequested: () => void }) {
+function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSettled, onTransitionStateChange, onLobbyIntroStart, onLobbyIntroComplete, onWideAngleRequested }: { activeRoom: string; selectedExhibit?: string; sceneReady: boolean; world: WorldPlan; onFocusSettled: (id: string) => void; onTransitionStateChange: (transitioning: boolean) => void; onLobbyIntroStart: () => void; onLobbyIntroComplete: () => void; onWideAngleRequested: () => void }) {
   const { camera, gl, scene, size } = useThree();
   const viewportAspect = size.width / Math.max(1, size.height);
   const lookAt = useMemo(() => new THREE.Vector3(...MARDOU_LOBBY_INTRO_ROUTE.lookAt), []);
@@ -539,6 +539,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
       positionCurve = silkyCameraCurve(positionPoints);
       duration = MARDOU_LOBBY_INTRO_ROUTE.duration;
       lobbyIntroPending.current = false;
+      onLobbyIntroStart();
     } else if (previousRoom.current === "exterior" && activeRoom === "room-lobby") {
       positionPoints = [
         startPosition,
@@ -712,7 +713,7 @@ function CameraRig({ activeRoom, selectedExhibit, sceneReady, world, onFocusSett
     if (roomTransition) onTransitionStateChange(true);
     previousRoom.current = activeRoom;
     previousExhibit.current = selectedExhibit;
-  }, [activeRoom, camera, destination, lookAt, lookAtTarget, onFocusSettled, onLobbyIntroComplete, onTransitionStateChange, sceneReady, selectedExhibit, viewportAspect, world]);
+  }, [activeRoom, camera, destination, lookAt, lookAtTarget, onFocusSettled, onLobbyIntroComplete, onLobbyIntroStart, onTransitionStateChange, sceneReady, selectedExhibit, viewportAspect, world]);
 
   useEffect(() => () => onTransitionStateChange(false), [onTransitionStateChange]);
 
@@ -2409,7 +2410,14 @@ function BedroomDiary({ interactive, selected, onSelect }: { interactive: boolea
         <cylinderGeometry args={[1.05, 1.05, 1.1, 22]} />
         <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
-      <TextPanel title="PRIVATE DIARY" subtitle="CLICK THE OPEN BOOK" position={[0, 0.48, 0.78]} width={1.34} height={0.3} />
+      <TextPanel
+        title="PRIVATE DIARY"
+        subtitle="CLICK THE OPEN BOOK"
+        position={[0, 0.48, -0.78]}
+        rotation={[0, Math.PI, 0]}
+        width={1.34}
+        height={0.3}
+      />
       <pointLight position={[0.8, 1.45, 0.3]} intensity={interactive ? selected ? 5 : 2.8 : 0} distance={3.5} color="#ffcc91" />
     </group>
   );
@@ -2875,7 +2883,8 @@ function WorldCanvasImpl({
   onStairProximityChange,
 }: WorldCanvasProps) {
   const [stairNearby, setStairNearby] = useState(false);
-  const [entranceGreetingReady, setEntranceGreetingReady] = useState(false);
+  const [entranceGreetingStarted, setEntranceGreetingStarted] = useState(false);
+  const [entranceGreetingArrived, setEntranceGreetingArrived] = useState(false);
   const projectExhibits = world.exhibits.filter((exhibit) => exhibit.eyebrow === "PROJECT");
   const visibleProjectExhibits = projectExhibits.slice(0, PROJECTS_PER_PAGE);
   const visibleProjectPlacements = mardouProjectPlacementsForCount(visibleProjectExhibits.length);
@@ -2896,8 +2905,12 @@ function WorldCanvasImpl({
 
   useEffect(() => () => onStairProximityChange(false), [onStairProximityChange]);
 
-  const markEntranceGreetingReady = useCallback(() => {
-    setEntranceGreetingReady(true);
+  const startEntranceGreeting = useCallback(() => {
+    setEntranceGreetingStarted(true);
+  }, []);
+
+  const finishEntranceGreeting = useCallback(() => {
+    setEntranceGreetingArrived(true);
   }, []);
 
   return (
@@ -2919,7 +2932,8 @@ function WorldCanvasImpl({
           world={world}
           onFocusSettled={onFocusSettled}
           onTransitionStateChange={onTransitionStateChange}
-          onLobbyIntroComplete={markEntranceGreetingReady}
+          onLobbyIntroStart={startEntranceGreeting}
+          onLobbyIntroComplete={finishEntranceGreeting}
           onWideAngleRequested={() => onSelect("")}
         />
         <StairProximityReporter activeRoom={activeRoom} onChange={reportStairProximity} />
@@ -2973,7 +2987,8 @@ function WorldCanvasImpl({
           <RoomCompanion
             activeRoom={activeRoom}
             sceneReady={sceneReady}
-            entranceGreetingReady={entranceGreetingReady}
+            entranceGreetingStarted={entranceGreetingStarted}
+            entranceGreetingArrived={entranceGreetingArrived}
             qaOpen={petQaOpen}
             customization={petCustomization}
             onOpenQa={onOpenPetQa}

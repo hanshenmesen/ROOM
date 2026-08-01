@@ -60,6 +60,14 @@ test("heat-panel controls do not bubble into the 3D canvas miss handler", () => 
   assert.match(roomStudioSource, /setHeatPanelOpen\(false\);\s*window\.requestAnimationFrame\(\(\) => routeToWorldObject\(item\.id\)\)/);
 });
 
+test("each stand heat value is rendered below its descriptive copy", () => {
+  const copyStart = heatPanelSource.indexOf('<div className="heat-item-copy">');
+  const copyEnd = heatPanelSource.indexOf("</div>", copyStart);
+  const copySource = heatPanelSource.slice(copyStart, copyEnd);
+  assert.ok(copyStart >= 0);
+  assert.match(copySource, /<strong>\{item\.label\}<\/strong>[\s\S]*<small>[\s\S]*<\/small>[\s\S]*<em>\{item\.total\}<\/em>/);
+});
+
 test("focus navigation keeps the authored twelve-entity sequence", () => {
   const orderSource = roomStudioSource.slice(
     roomStudioSource.indexOf("const focusableExhibitIds"),
