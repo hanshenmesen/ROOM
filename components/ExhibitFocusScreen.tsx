@@ -153,7 +153,7 @@ export function ExhibitFocusScreen({
           <div className="exhibit-focus-content">
             {image ? (
               <figure className="exhibit-focus-image">
-                <img src={image.src} alt={image.alt} />
+                <img src={image.src} alt={image.alt} decoding="async" />
               </figure>
             ) : null}
 

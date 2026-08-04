@@ -145,6 +145,30 @@ function sceneMediaUrl(url: string) {
     : url;
 }
 
+// CanvasRenderingContext2D.roundRect is unavailable before Chrome 99 / Safari 16 / Firefox 112;
+// tracing the path manually keeps the 3D render loop alive on older browsers.
+function traceRoundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  if (typeof context.roundRect === "function") {
+    context.roundRect(x, y, width, height, radius);
+    return;
+  }
+  const r = Math.min(radius, width / 2, height / 2);
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
+}
+
+const GUESTBOOK_LANE_COLORS = ["#ffad87", "#8de0d2", "#d2b4ef", "#f3cf7a", "#91bdf2"];
+const GUESTBOOK_BORDER_SEGMENTS: { position: Vec3; size: Vec3 }[] = [
+  { position: [0, 0.89, 0], size: [3.2, 0.09, 0.08] },
+  { position: [0, -0.89, 0], size: [3.2, 0.09, 0.08] },
+  { position: [-1.56, 0, 0], size: [0.09, 1.82, 0.08] },
+  { position: [1.56, 0, 0], size: [0.09, 1.82, 0.08] },
+];
+
 const PROJECT_CARD_SIZE = [1.68, 1.12, 0.09] as const;
 const PROJECT_CARD_SURFACE_SIZE = [1.56, 1] as const;
 const PROJECT_CARD_TILT = -0.82;
@@ -1194,7 +1218,7 @@ function StairwayNavigation({ activeRoom, interactive, nearby, onNavigate }: {
     const context = canvas.getContext("2d")!;
     context.fillStyle = "rgba(11, 18, 23, .58)";
     context.beginPath();
-    context.roundRect(8, 8, 752, 208, 30);
+    traceRoundedRect(context, 8, 8, 752, 208, 30);
     context.fill();
     context.strokeStyle = "rgba(161, 229, 216, .78)";
     context.lineWidth = 4;
@@ -2223,6 +2247,22 @@ function ShowroomDetails({ lit }: { lit: boolean }) {
 
 function GuestbookMessageTicker({ messages, selected }: { messages: string[]; selected: boolean }) {
   const lastDraw = useRef(-1);
+  // Derive ticker lanes only when the message list changes instead of on every 24fps redraw.
+  const tickerLanes = useMemo(() => {
+    const sourceMessages = messages.length
+      ? messages.slice(-10).map((message) => message.length > 30 ? `${message.slice(0, 30)}…` : message)
+      : ["还没有留言，点击这里写下第一句吧"];
+    const lanes = [
+      sourceMessages.filter((_, index) => index % 2 === 0),
+      sourceMessages.filter((_, index) => index % 2 === 1),
+    ];
+    if (!lanes[1].length) lanes[1] = [...lanes[0]];
+    return lanes;
+  }, [messages]);
+  const tickerLanesRef = useRef(tickerLanes);
+  useEffect(() => {
+    tickerLanesRef.current = tickerLanes;
+  }, [tickerLanes]);
   const texture = useMemo(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
@@ -2264,7 +2304,7 @@ function GuestbookMessageTicker({ messages, selected }: { messages: string[]; se
     context.fillText("留言将在框内缓慢流动", 54, 160);
 
     context.beginPath();
-    context.roundRect(774, 72, 198, 64, 32);
+    traceRoundedRect(context, 774, 72, 198, 64, 32);
     context.fillStyle = selected ? "rgba(255,155,114,.24)" : "rgba(114,220,203,.18)";
     context.fill();
     context.strokeStyle = accent;
@@ -2276,15 +2316,7 @@ function GuestbookMessageTicker({ messages, selected }: { messages: string[]; se
     context.fillText("点击留言  +", 873, 113);
     context.textAlign = "left";
 
-    const sourceMessages = messages.length
-      ? messages.slice(-10).map((message) => message.length > 30 ? `${message.slice(0, 30)}…` : message)
-      : ["还没有留言，点击这里写下第一句吧"];
-    const lanes = [
-      sourceMessages.filter((_, index) => index % 2 === 0),
-      sourceMessages.filter((_, index) => index % 2 === 1),
-    ];
-    if (!lanes[1].length) lanes[1] = [...lanes[0]];
-    const laneColors = ["#ffad87", "#8de0d2", "#d2b4ef", "#f3cf7a", "#91bdf2"];
+    const lanes = tickerLanesRef.current;
 
     context.save();
     context.beginPath();
@@ -2307,15 +2339,15 @@ function GuestbookMessageTicker({ messages, selected }: { messages: string[]; se
         const itemWidth = itemWidths[itemIndex];
         const drawX = direction > 0 ? x : width - x - itemWidth;
         context.beginPath();
-        context.roundRect(drawX, y, itemWidth, 106, 28);
+        traceRoundedRect(context, drawX, y, itemWidth, 106, 28);
         context.fillStyle = "rgba(255,255,255,.075)";
         context.fill();
-        context.strokeStyle = `${laneColors[(itemIndex + laneIndex * 2) % laneColors.length]}aa`;
+        context.strokeStyle = `${GUESTBOOK_LANE_COLORS[(itemIndex + laneIndex * 2) % GUESTBOOK_LANE_COLORS.length]}aa`;
         context.lineWidth = 2;
         context.stroke();
         context.beginPath();
         context.arc(drawX + 34, y + 53, 7, 0, Math.PI * 2);
-        context.fillStyle = laneColors[(itemIndex + laneIndex * 2) % laneColors.length];
+        context.fillStyle = GUESTBOOK_LANE_COLORS[(itemIndex + laneIndex * 2) % GUESTBOOK_LANE_COLORS.length];
         context.fill();
         context.fillStyle = "rgba(255,255,255,.9)";
         context.textBaseline = "middle";
@@ -2342,16 +2374,24 @@ function GuestbookWallFrame({ messages, interactive, selected, onSelect }: {
   onSelect: () => void;
 }) {
   const frame = useRef<THREE.Group>(null);
+  const borderMaterials = useRef<THREE.MeshStandardMaterial[]>([]);
+  const animatedColor = useRef(new THREE.Color());
   useFrame((state) => {
-    if (!frame.current) return;
-    const color = new THREE.Color().setHSL((state.clock.elapsedTime * 0.12) % 1, 0.82, 0.62);
-    frame.current.traverse((object) => {
-      if (!(object instanceof THREE.Mesh) || !object.userData.animatedGuestbookBorder) return;
-      const material = object.material as THREE.MeshStandardMaterial;
+    // Collect border materials once; the border meshes never change after mount.
+    if (!borderMaterials.current.length && frame.current) {
+      frame.current.traverse((object) => {
+        if (object instanceof THREE.Mesh && object.userData.animatedGuestbookBorder) {
+          borderMaterials.current.push(object.material as THREE.MeshStandardMaterial);
+        }
+      });
+    }
+    const color = animatedColor.current.setHSL((state.clock.elapsedTime * 0.12) % 1, 0.82, 0.62);
+    const emissiveIntensity = selected ? 0.9 : 0.48 + Math.sin(state.clock.elapsedTime * 3) * 0.16;
+    for (const material of borderMaterials.current) {
       material.color.copy(color);
       material.emissive.copy(color);
-      material.emissiveIntensity = selected ? 0.9 : 0.48 + Math.sin(state.clock.elapsedTime * 3) * 0.16;
-    });
+      material.emissiveIntensity = emissiveIntensity;
+    }
   });
   return <group
     ref={frame}
@@ -2363,12 +2403,7 @@ function GuestbookWallFrame({ messages, interactive, selected, onSelect }: {
     onPointerOut={interactive ? () => { document.body.style.cursor = "default"; } : undefined}
   >
     <GuestbookMessageTicker messages={messages} selected={selected} />
-    {[
-      { position: [0, 0.89, 0] as Vec3, size: [3.2, 0.09, 0.08] as Vec3 },
-      { position: [0, -0.89, 0] as Vec3, size: [3.2, 0.09, 0.08] as Vec3 },
-      { position: [-1.56, 0, 0] as Vec3, size: [0.09, 1.82, 0.08] as Vec3 },
-      { position: [1.56, 0, 0] as Vec3, size: [0.09, 1.82, 0.08] as Vec3 },
-    ].map((border, index) => <mesh key={index} position={border.position} userData={{ animatedGuestbookBorder: true, ignoreCameraCollision: true }}>
+    {GUESTBOOK_BORDER_SEGMENTS.map((border, index) => <mesh key={index} position={border.position} userData={{ animatedGuestbookBorder: true, ignoreCameraCollision: true }}>
       <boxGeometry args={border.size} />
       <meshStandardMaterial color="#6fd6c9" emissive="#6fd6c9" emissiveIntensity={0.5} roughness={0.28} metalness={0.3} />
     </mesh>)}

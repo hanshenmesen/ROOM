@@ -4,7 +4,7 @@
   --black: #0b0b0b;
   --white: #f5f5f1;
   --paper: #eeeeea;
-  --gray: #767676;
+  --gray: #6e6e6e;
   --line: #c9c9c3;
 }
 
@@ -19,16 +19,22 @@ body {
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
+/* Keyboard-only focus indicator; mouse/touch users never see it. */
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid #4f7eae;
+  outline-offset: 2px;
+}
 
 /* The opening is rebuilt from the editable PPT artwork, not a flattened slide. */
 .flow-landing {
   --flow-ink: #17202a;
-  --flow-muted: #72808d;
+  --flow-muted: #687685;
   --flow-blue: #4f7eae;
   --flow-rule: rgba(31, 49, 66, .16);
   --stage-height: clamp(470px, 58vh, 600px);
   position: relative;
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
   min-height: 620px;
   display: grid;
@@ -519,10 +525,11 @@ button:disabled { cursor: not-allowed; }
 
 .intake-page {
   --intake-ink: #17202a;
-  --intake-muted: #72808d;
+  --intake-muted: #687685;
   --intake-blue: #527fae;
   --intake-rule: rgba(31, 49, 66, .16);
   width: 100vw;
+  height: 100vh;
   height: 100dvh;
   min-height: 620px;
   display: grid;
@@ -1201,7 +1208,7 @@ button:disabled { cursor: not-allowed; }
 }
 .minimal-footer button { border: 0; padding: 8px 0; background: transparent; text-decoration: underline; }
 
-.world-page { position: relative; height: 100vh; padding: 0; background: #91adbd; overflow: hidden; }
+.world-page { position: relative; height: 100vh; height: 100dvh; padding: 0; background: #91adbd; overflow: hidden; }
 .background-music-control {
   position: absolute;
   z-index: 8;
@@ -1264,11 +1271,12 @@ button:disabled { cursor: not-allowed; }
   position: relative;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   border: 0;
   background: #91adbd;
 }
-.world-stage canvas { display: block; width: 100% !important; height: 100% !important; }
+.world-stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; overscroll-behavior: none; }
 .world-stage.is-loading canvas { visibility: hidden; }
 .scene-loading-screen {
   position: absolute;
@@ -2056,7 +2064,7 @@ button:disabled { cursor: not-allowed; }
   .minimal-footer span:nth-child(2) { display: none; }
   .world-page { padding: 0; }
   .home-return { top: 10px; left: 10px; }
-  .world-stage { width: 100vw; height: 100vh; }
+  .world-stage { width: 100vw; height: 100vh; height: 100dvh; }
   .world-hint { display: none; }
   .background-music-control { left: 10px; bottom: 62px; }
   .companion-qa-launch { left: 106px; bottom: 62px; }

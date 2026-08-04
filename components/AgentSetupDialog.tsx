@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   BROWSER_AGENT_PROVIDER_PRESETS,
   DEFAULT_BROWSER_AGENT_CONFIG,
@@ -47,12 +47,57 @@ function hasCustomPetQa(config: BrowserAgentConfig | null) {
   ));
 }
 
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
 export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: AgentSetupDialogProps) {
   const [draft, setDraft] = useState(() => freshConfig(config));
   const [concurrentWebsiteAgent, setConcurrentWebsiteAgent] = useState(Boolean(config?.website.apiKey));
   const [customImageProvider, setCustomImageProvider] = useState(() => hasCustomImage(config));
   const [customPetQaProvider, setCustomPetQaProvider] = useState(() => hasCustomPetQa(config));
   const [feedback, setFeedback] = useState("");
+  const dialogRef = useRef<HTMLElement>(null);
+  const firstFieldRef = useRef<HTMLSelectElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => firstFieldRef.current?.focus());
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      previouslyFocusedRef.current?.focus();
+    };
+  }, []);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+
+    if (event.key !== "Tab" || !dialogRef.current) return;
+    const targets = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+      .filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
+    if (targets.length === 0) return;
+
+    const first = targets[0];
+    const last = targets[targets.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   function selectPrimaryProvider(presetId: BrowserAgentProviderPresetId) {
     const preset = browserAgentProviderPreset(presetId);
@@ -121,7 +166,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
     <div className="agent-setup-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose();
     }}>
-      <section className="agent-setup-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-setup-title">
+      <section ref={dialogRef} className="agent-setup-dialog" role="dialog" aria-modal="true" aria-labelledby="agent-setup-title" onKeyDown={handleKeyDown}>
         <header>
           <div>
             <span>ROOM / AGENT SETUP</span>
@@ -146,6 +191,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                 <label>
                   <span>Provider</span>
                   <select
+                    ref={firstFieldRef}
                     aria-label="主解析 Provider"
                     value={browserAgentProviderPresetId(draft.maas)}
                     onChange={(event) => selectPrimaryProvider(event.target.value as BrowserAgentProviderPresetId)}

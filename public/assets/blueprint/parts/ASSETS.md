@@ -2,13 +2,15 @@
 
 These transparent PNGs were extracted without redrawing from slide 1 of the user-provided `ROOM_可编辑重建版.pptx`. The supplied `图片 2.pdf` is the rendered visual reference.
 
-- `room-logo.png`: ROOM mark
+The page serves lossy WebP derivatives (`*.webp`, quality 82) for the three heaviest pieces to cut the landing payload by ~1.9MB; the PNGs stay as editable sources.
+
+- `room-logo.png` / `room-logo.webp`: ROOM mark
 - `owner.png`: owner avatar
 - `resume-paper.png`: blank resume paper used by the HTML PDF card
-- `web-profile.png`: web profile sheet
+- `web-profile.png` / `web-profile.webp`: web profile sheet
 - `agent-*.png`: Parser, Director, Orchestrator, and Checker pictograms
 - `world-bolt.png`: world JSON bolt
-- `house.png`: cutaway result house
+- `house.png` / `house.webp`: cutaway result house
 - `visitor.png`: visitor avatar
 - `comment-bubble.png`: visitor comment icon
 

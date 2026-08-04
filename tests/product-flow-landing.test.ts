@@ -9,15 +9,15 @@ const parseRouteSource = readFileSync(new URL("../app/api/parse/route.ts", impor
 
 test("the landing is rebuilt from independently positioned PPT artwork", () => {
   for (const asset of [
-    "room-logo.png",
+    "room-logo.webp",
     "owner.png",
     "resume-paper.png",
-    "web-profile.png",
+    "web-profile.webp",
     "agent-parser.png",
     "agent-director.png",
     "agent-orchestrator.png",
     "agent-checker.png",
-    "house.png",
+    "house.webp",
     "visitor.png",
   ]) {
     assert.match(landingSource, new RegExp(asset.replace(".", "\\.")));
@@ -52,7 +52,8 @@ test("the three stages share a frame and normalize artwork around the web notebo
 test("the creation action stays at the lower-right and the intake can animate back", () => {
   assert.match(landingSource, /className="flow-enter"/);
   assert.match(landingSource, /setLeaving\(true\)/);
-  assert.match(landingSource, /window\.setTimeout\(onEnter, 520\)/);
+  assert.match(landingSource, /prefers-reduced-motion: reduce/);
+  assert.match(landingSource, /window\.setTimeout\(onEnter, reducedMotion \? 0 : 520\)/);
   assert.match(landingStyles, /\.flow-enter\s*\{[^}]*position: fixed;[^}]*right: clamp\([^}]*bottom: clamp\(/);
   assert.match(studioSource, /<ProductFlowLanding onEnter=\{showIntake\} \/>/);
   assert.match(studioSource, /className="intake-back"/);
@@ -63,7 +64,7 @@ test("the creation action stays at the lower-right and the intake can animate ba
 
 test("the landing and intake share one editorial visual system", () => {
   assert.match(studioSource, /intake-wordmark/);
-  assert.match(studioSource, /room-logo\.png/);
+  assert.match(studioSource, /room-logo\.webp/);
   assert.match(studioSource, /从一份经历，/);
   assert.match(studioSource, /className="intake-form-heading"/);
   assert.match(landingStyles, /\.intake-page\s*\{[^}]*--intake-ink: #17202a;[^}]*padding: 0 clamp\(22px, 4vw, 72px\);/);

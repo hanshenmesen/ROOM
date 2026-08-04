@@ -1628,7 +1628,7 @@ export function RoomStudio() {
         <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
         <header className="minimal-header">
           <Link className="wordmark intake-wordmark" href="/" aria-label="ROOM home">
-            <img src="/assets/blueprint/parts/room-logo.png" alt="ROOM" />
+            <img src="/assets/blueprint/parts/room-logo.webp" alt="ROOM" width={438} height={160} decoding="async" />
           </Link>
           <div className="header-tools">
             <button className="intake-back" type="button" onClick={returnToStory}><span aria-hidden="true">←</span> 查看流程</button>
@@ -1719,6 +1719,8 @@ export function RoomStudio() {
               ref={fileInput}
               className="visually-hidden"
               type="file"
+              tabIndex={-1}
+              aria-hidden="true"
               accept=".pdf,.txt,.md,.markdown,.html,.htm,.json,.csv,.tsv,.xml,.yaml,.yml,.rtf,.log,.jpg,.jpeg,.png,.gif,.webp,application/pdf,text/*,image/jpeg,image/png,image/gif,image/webp"
               onChange={upload}
             />
