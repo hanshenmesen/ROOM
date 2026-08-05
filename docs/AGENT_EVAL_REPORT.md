@@ -17,15 +17,15 @@ Phase 2 infrastructure is active, but the dataset is not yet large enough for r√
 | --- | ---: |
 | Identity Accuracy | 93.3% |
 | Item Precision | 83.3% |
-| Item Recall | 100.0% |
-| Item F1 | 85.6% |
+| Item Recall | 92.7% |
+| Item F1 | 85.2% |
 | Structured Field Accuracy | 83.9% |
 | Evidence Coverage | 100.0% |
 | Evidence Accuracy | 100.0% |
 | Unsupported Claim Rate | 0.0% |
 | End-to-end Success | 100.0% |
 
-The suite remains **FAIL**. The human-verified Markdown case exposes parser fragmentation, missing structured fields, lost project section boundaries, and unsafe promotion of explicitly marked placeholder achievements. A separate security case also detects a forbidden Prompt Injection claim in the candidate profile.
+The suite remains **FAIL**. The human-verified Markdown case exposes parser fragmentation, missing structured fields, lost project section boundaries, and achievements misclassified under education. A separate security case also detects a forbidden Prompt Injection claim in the candidate profile.
 
 ## Interpretation
 

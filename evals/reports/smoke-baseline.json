@@ -2,7 +2,7 @@
   "schemaVersion": "profile-eval-report.v1",
   "dataset": "smoke",
   "runner": "deterministic-pipeline",
-  "generatedAt": "2026-08-05T06:08:14.228Z",
+  "generatedAt": "2026-08-05T06:14:19.572Z",
   "caseCount": 5,
   "humanVerifiedCaseCount": 1,
   "passed": false,
@@ -19,8 +19,8 @@
   "summary": {
     "identityAccuracy": 0.9333,
     "itemPrecision": 0.8326,
-    "itemRecall": 1,
-    "itemF1": 0.856,
+    "itemRecall": 0.9273,
+    "itemF1": 0.8519,
     "fieldAccuracy": 0.8385,
     "skillPrecision": 0.8,
     "skillRecall": 0.8,
@@ -38,10 +38,11 @@
   },
   "failureCounts": {
     "identity_mismatch": 1,
+    "missed_item": 4,
     "unexpected_item": 36,
     "field_mismatch": 21,
     "invalid_evidence": 7,
-    "forbidden_claim": 5
+    "forbidden_claim": 1
   },
   "cases": [
     {
@@ -51,8 +52,8 @@
       "metrics": {
         "identityAccuracy": 0.6667,
         "itemPrecision": 0.1628,
-        "itemRecall": 1,
-        "itemF1": 0.28,
+        "itemRecall": 0.6364,
+        "itemF1": 0.2593,
         "fieldAccuracy": 0.1923,
         "skillPrecision": 0,
         "skillRecall": 0,
@@ -76,6 +77,30 @@
           "expected": [
             "https://example.com/linyao"
           ]
+        },
+        {
+          "category": "missed_item",
+          "path": "items.northshore-software-design-award",
+          "message": "Gold item was not extracted: 2024 年 北岸大学软件设计竞赛 二等奖.",
+          "expected": "2024 年 北岸大学软件设计竞赛 二等奖"
+        },
+        {
+          "category": "missed_item",
+          "path": "items.llm-document-assistant-award",
+          "message": "Gold item was not extracted: 2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》.",
+          "expected": "2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》"
+        },
+        {
+          "category": "missed_item",
+          "path": "items.programming-contest-award",
+          "message": "Gold item was not extracted: 2023 年 全国大学生程序设计校内选拔赛 优秀奖.",
+          "expected": "2023 年 全国大学生程序设计校内选拔赛 优秀奖"
+        },
+        {
+          "category": "missed_item",
+          "path": "items.cet-6-certificate",
+          "message": "Gold item was not extracted: 通过 CET-6.",
+          "expected": "通过 CET-6"
         },
         {
           "category": "unexpected_item",
@@ -514,34 +539,6 @@
           "actual": [
             "### 课程项目：文本分类与摘要系统"
           ]
-        },
-        {
-          "category": "forbidden_claim",
-          "path": "profile",
-          "message": "Forbidden claim appeared in the candidate profile: 2024 年 北岸大学软件设计竞赛 二等奖.",
-          "expected": "absent",
-          "actual": "2024 年 北岸大学软件设计竞赛 二等奖"
-        },
-        {
-          "category": "forbidden_claim",
-          "path": "profile",
-          "message": "Forbidden claim appeared in the candidate profile: 2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》.",
-          "expected": "absent",
-          "actual": "2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》"
-        },
-        {
-          "category": "forbidden_claim",
-          "path": "profile",
-          "message": "Forbidden claim appeared in the candidate profile: 2023 年 全国大学生程序设计校内选拔赛 优秀奖.",
-          "expected": "absent",
-          "actual": "2023 年 全国大学生程序设计校内选拔赛 优秀奖"
-        },
-        {
-          "category": "forbidden_claim",
-          "path": "profile",
-          "message": "Forbidden claim appeared in the candidate profile: 通过 CET-6.",
-          "expected": "absent",
-          "actual": "通过 CET-6"
         }
       ],
       "matchedItems": [

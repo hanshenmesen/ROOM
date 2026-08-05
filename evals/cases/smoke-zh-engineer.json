@@ -83,6 +83,31 @@
         "role": "独立开发",
         "techStack": ["TypeScript", "React", "LocalStorage"],
         "expectedEvidence": ["支持模板变量替换，例如 `{role}`、`{input}`、`{format}`"]
+      },
+      {
+        "id": "northshore-software-design-award",
+        "kind": "achievement",
+        "canonicalTitle": "2024 年 北岸大学软件设计竞赛 二等奖",
+        "expectedEvidence": ["2024 年 北岸大学软件设计竞赛 二等奖"]
+      },
+      {
+        "id": "llm-document-assistant-award",
+        "kind": "achievement",
+        "canonicalTitle": "2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》",
+        "expectedEvidence": ["2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》"]
+      },
+      {
+        "id": "programming-contest-award",
+        "kind": "achievement",
+        "canonicalTitle": "2023 年 全国大学生程序设计校内选拔赛 优秀奖",
+        "expectedEvidence": ["2023 年 全国大学生程序设计校内选拔赛 优秀奖"]
+      },
+      {
+        "id": "cet-6-certificate",
+        "kind": "achievement",
+        "canonicalTitle": "通过 CET-6",
+        "aliases": ["通过 CET-6，具备阅读英文技术文档和 API 文档的能力"],
+        "expectedEvidence": ["通过 CET-6，具备阅读英文技术文档和 API 文档的能力"]
       }
     ],
     "skills": [
@@ -114,11 +139,6 @@
       "Linear",
       "VS Code"
     ],
-    "forbiddenClaims": [
-      "2024 年 北岸大学软件设计竞赛 二等奖",
-      "2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》",
-      "2023 年 全国大学生程序设计校内选拔赛 优秀奖",
-      "通过 CET-6"
-    ]
+    "forbiddenClaims": []
   }
 }
