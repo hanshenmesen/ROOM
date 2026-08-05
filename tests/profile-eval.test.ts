@@ -114,3 +114,65 @@ test("the smoke CLI produces JSON and Markdown without network access", () => {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 });
+
+test("generated fixtures stay current and compose a thirty-case full dataset", () => {
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "room-profile-eval-full-"));
+  const output = join(temporaryDirectory, "full");
+  try {
+    const fixtureStatus = JSON.parse(execFileSync(process.execPath, [
+      "scripts/generate-profile-eval-fixtures.mjs",
+    ], {
+      cwd: new URL("../", import.meta.url),
+      encoding: "utf8",
+    })) as { status: string; generatedCases: number; totalFullCases: number };
+    assert.deepEqual(fixtureStatus, { status: "current", generatedCases: 25, totalFullCases: 30 });
+
+    const result = JSON.parse(execFileSync(process.execPath, [
+      "scripts/profile-eval.mjs",
+      "--dataset",
+      "full",
+      "--output",
+      output,
+    ], {
+      cwd: new URL("../", import.meta.url),
+      encoding: "utf8",
+    })) as { status: string; cases: number; humanVerifiedCases: number };
+    assert.equal(result.status, "fail");
+    assert.equal(result.cases, 30);
+    assert.equal(result.humanVerifiedCases, 2);
+    const report = JSON.parse(readFileSync(`${output}.json`, "utf8")) as ProfileEvalReport;
+    assert.equal(new Set(report.cases.map((entry) => entry.caseId)).size, 30);
+    assert.equal(report.cases.filter((entry) => entry.caseId.startsWith("full-")).length, 25);
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("the Profile Agent experiment preflight never exposes or calls provider secrets", () => {
+  const stdout = execFileSync(process.execPath, [
+    "scripts/profile-eval-experiment.mjs",
+    "--dataset",
+    "smoke",
+    "--preflight",
+  ], {
+    cwd: new URL("../", import.meta.url),
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MAAS_API_KEY: "",
+      MAAS_API_KEY_FALLBACK: "",
+      WEBSITE_AGENT_API_KEY: "",
+      WEBSITE_AGENT_API_KEY_FALLBACK: "",
+    },
+  });
+  const result = JSON.parse(stdout) as {
+    status: string;
+    provider: string;
+    secretsExposed: boolean;
+    requiresAllowModelCalls: boolean;
+  };
+  assert.equal(result.status, "blocked");
+  assert.equal(result.provider, "not-configured");
+  assert.equal(result.secretsExposed, false);
+  assert.equal(result.requiresAllowModelCalls, true);
+});

@@ -1,0 +1,10 @@
+Alex Monroe
+Creative Developer
+
+Projects
+Atlas — 2022
+- Role: Developer
+- An audio map for river recordings.
+Atlas — 2025
+- Role: Lead developer
+- A provenance map for research claims.

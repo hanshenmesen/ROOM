@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-education-achievement",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "zh",
+    "education",
+    "achievement"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-education-achievement.txt",
+    "label": "Generated fictional Eval fixture: full-education-achievement"
+  },
+  "expected": {
+    "identity": {
+      "name": "梁溪",
+      "headline": "计算机视觉工程师"
+    },
+    "items": [
+      {
+        "id": "nanchuan-master",
+        "kind": "education",
+        "canonicalTitle": "南川大学 电子信息硕士"
+      },
+      {
+        "id": "innovation-award",
+        "kind": "achievement",
+        "canonicalTitle": "研究生创新竞赛一等奖",
+        "expectedEvidence": [
+          "弱光图像修复系统"
+        ]
+      }
+    ],
+    "skills": [
+      "Python",
+      "OpenCV"
+    ],
+    "forbiddenClaims": []
+  }
+}

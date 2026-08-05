@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-dense-research",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "research",
+    "dense",
+    "publication"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-dense-research.txt",
+    "label": "Generated fictional Eval fixture: full-dense-research"
+  },
+  "expected": {
+    "identity": {
+      "name": "Priya Shah",
+      "headline": "NLP Researcher"
+    },
+    "items": [
+      {
+        "id": "tracebench",
+        "kind": "project",
+        "contentFamily": "publication",
+        "canonicalTitle": "TraceBench",
+        "expectedEvidence": [
+          "evidence-preserving long-form generation"
+        ]
+      },
+      {
+        "id": "grounded-merge",
+        "kind": "project",
+        "contentFamily": "publication",
+        "canonicalTitle": "Grounded Merge",
+        "expectedEvidence": [
+          "conflict resolution across heterogeneous profile sources"
+        ]
+      },
+      {
+        "id": "citation-graphs",
+        "kind": "project",
+        "contentFamily": "publication",
+        "canonicalTitle": "Citation Graphs",
+        "expectedEvidence": [
+          "sentence-level provenance"
+        ]
+      },
+      {
+        "id": "westbridge-phd",
+        "kind": "education",
+        "canonicalTitle": "Westbridge University Computer Science PhD"
+      }
+    ],
+    "skills": [
+      "Python",
+      "PyTorch",
+      "Evaluation"
+    ],
+    "forbiddenClaims": []
+  }
+}

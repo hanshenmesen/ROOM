@@ -1,0 +1,7 @@
+Emery Quinn
+Current role: Research Engineer
+Old biography: Product Designer
+
+Projects
+Merge Notes — 2025
+- Records conflicting identity claims without silently overwriting them.

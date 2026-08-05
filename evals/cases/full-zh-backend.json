@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-zh-backend",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "zh",
+    "engineering",
+    "experience"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-zh-backend.txt",
+    "label": "Generated fictional Eval fixture: full-zh-backend"
+  },
+  "expected": {
+    "identity": {
+      "name": "周岚",
+      "headline": "后端工程师"
+    },
+    "items": [
+      {
+        "id": "queue-observatory",
+        "kind": "project",
+        "canonicalTitle": "队列观测台",
+        "timeRange": "2024-03 - 2024-09",
+        "role": "核心开发者",
+        "techStack": [
+          "Go",
+          "PostgreSQL",
+          "Redis"
+        ],
+        "expectedEvidence": [
+          "为异步任务提供可追溯的状态审计"
+        ]
+      },
+      {
+        "id": "yunfan-backend",
+        "kind": "experience",
+        "canonicalTitle": "云帆科技 后端实习生",
+        "expectedEvidence": [
+          "维护内部任务调度服务"
+        ]
+      }
+    ],
+    "skills": [
+      "Go",
+      "PostgreSQL",
+      "Redis"
+    ],
+    "forbiddenClaims": []
+  }
+}

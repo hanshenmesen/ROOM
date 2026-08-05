@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-bilingual-product",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "zh-en",
+    "product",
+    "bilingual"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-bilingual-product.txt",
+    "label": "Generated fictional Eval fixture: full-bilingual-product"
+  },
+  "expected": {
+    "identity": {
+      "name": "许宁 Xu Ning",
+      "headline": "AI Product Engineer"
+    },
+    "items": [
+      {
+        "id": "flow-notes",
+        "kind": "project",
+        "canonicalTitle": "Flow Notes",
+        "timeRange": "2025",
+        "role": "产品与工程 / Product and Engineering",
+        "techStack": [
+          "TypeScript",
+          "SQLite"
+        ],
+        "expectedEvidence": [
+          "带引用的产品决策日志"
+        ]
+      }
+    ],
+    "skills": [
+      "TypeScript",
+      "SQLite"
+    ],
+    "forbiddenClaims": []
+  }
+}

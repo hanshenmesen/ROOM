@@ -1,0 +1,6 @@
+Dana Wu
+Systems Engineer
+
+Experience
+Independent Systems Engineer
+- Maintains reproducible build and release pipelines.

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "profile-eval-dataset.v1",
+  "id": "full",
+  "description": "Thirty offline fictional cases: the smoke suite plus twenty-five generated breadth and adversarial fixtures.",
+  "runner": "deterministic-pipeline",
+  "includeDatasets": [
+    "smoke"
+  ],
+  "cases": [
+    "full-zh-backend",
+    "full-en-frontend",
+    "full-bilingual-product",
+    "full-dense-research",
+    "full-creative-portfolio",
+    "full-data-scientist",
+    "full-security-engineer",
+    "full-minimal-name-only",
+    "full-missing-headline",
+    "full-multiple-projects",
+    "full-multiple-experiences",
+    "full-education-achievement",
+    "full-url-normalization",
+    "full-date-formats",
+    "full-open-source",
+    "full-talk-exhibition",
+    "full-media-coverage",
+    "full-long-summary",
+    "full-duplicate-titles",
+    "full-prompt-injection-zh",
+    "full-prompt-injection-tool",
+    "full-conflicting-headline",
+    "full-unlabeled-metadata",
+    "full-partial-record",
+    "full-special-characters"
+  ],
+  "thresholds": {
+    "identityAccuracy": 1,
+    "itemPrecision": 1,
+    "itemRecall": 1,
+    "fieldAccuracy": 1,
+    "evidenceCoverage": 1,
+    "evidenceAccuracy": 1,
+    "unsupportedClaimRateMax": 0,
+    "endToEndSuccess": 1
+  }
+}

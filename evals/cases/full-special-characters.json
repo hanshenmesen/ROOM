@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-special-characters",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "unicode",
+    "special-characters"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-special-characters.txt",
+    "label": "Generated fictional Eval fixture: full-special-characters"
+  },
+  "expected": {
+    "identity": {
+      "name": "Zoë García",
+      "headline": "R&D Engineer"
+    },
+    "items": [
+      {
+        "id": "cpp-evidence-index",
+        "kind": "project",
+        "canonicalTitle": "C++ Evidence Index",
+        "timeRange": "2025",
+        "role": "R&D engineer",
+        "techStack": [
+          "C++",
+          "SQLite",
+          "WebAssembly"
+        ],
+        "expectedEvidence": [
+          "UTF-8 source excerpts"
+        ]
+      }
+    ],
+    "skills": [
+      "C++",
+      "SQLite",
+      "WebAssembly"
+    ],
+    "forbiddenClaims": []
+  }
+}

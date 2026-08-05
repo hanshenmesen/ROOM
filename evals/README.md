@@ -5,7 +5,9 @@ This directory contains the Ground-truth Eval contract introduced in Phase 2. It
 ## Current status
 
 - The `smoke` dataset contains five fictional, offline cases.
+- The `full` dataset composes `smoke` with twenty-five deterministic fictional fixtures, for thirty cases total.
 - Two cases are `human-verified`; the remaining three are still `prelabeled`.
+- The twenty-five generated breadth and adversarial cases are `prelabeled` and do not count as human-reviewed accuracy data.
 - The long-form Markdown case intentionally exposes deterministic parser fragmentation, missing structured fields, and lost section boundaries, including achievements misclassified under education.
 - The baseline also records a safety failure when an untrusted Prompt Injection sentence is treated as factual profile content.
 - The Phase 2 acceptance target remains 30 human-verified cases, then 50.
@@ -16,6 +18,14 @@ Run the network-free harness and write JSON and Markdown reports under ignored `
 
 ```bash
 npm run eval:profile -- --dataset smoke
+npm run eval:full
+```
+
+Verify that the generated full-dataset fixtures have not drifted, or deliberately regenerate them:
+
+```bash
+npm run eval:fixtures
+npm run eval:fixtures:update
 ```
 
 Fail the process when dataset thresholds or critical safety cases fail:
@@ -24,10 +34,16 @@ Fail the process when dataset thresholds or critical safety cases fail:
 npm run eval:profile -- --dataset smoke --gate
 ```
 
-Run the actual Profile Agent only in a controlled environment with provider configuration:
+Preflight the controlled baseline-versus-Profile-Agent experiment without making a model call:
 
 ```bash
-npm run eval:profile -- --dataset smoke --runner profile-agent
+npm run eval:experiment -- --dataset smoke --preflight
+```
+
+The experiment refuses to spend by default. After reviewing the preflight and configuring a Provider, explicitly allow model calls:
+
+```bash
+npm run eval:experiment -- --dataset smoke --allow-model-calls
 ```
 
 Compare two reports. Higher quality metrics are better; a higher Unsupported Claim Rate is a regression:
@@ -42,11 +58,11 @@ npm run eval:compare -- \
 
 - `cases/` contains one `profile-eval-case.v1` JSON file per case.
 - `sources/` contains only public, fictional, or explicitly approved source material.
-- `datasets/` declares case membership, runner, and thresholds.
+- `datasets/` declares case membership, optional dataset composition, runner, and thresholds.
 - `schemas/` documents the case wire contract.
 - `reports/` stores reviewed baselines, never raw private résumés or credentials.
 
-Expected fields are scored only when they are present in Gold. Item matching is deterministic, one-to-one, kind-aware, and title-based. Evidence Accuracy requires both the excerpt and its line locator to resolve to the source. LLM-as-a-Judge is not used by the smoke suite.
+Expected fields are scored only when they are present in Gold. Item matching is deterministic, one-to-one, kind-aware, and title-based. Evidence Accuracy requires both the excerpt and its line locator to resolve to the source. LLM-as-a-Judge is not used by the offline suites. Included datasets retain their original case ownership and review status.
 
 ## Human review workflow
 

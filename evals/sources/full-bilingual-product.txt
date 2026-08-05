@@ -1,0 +1,11 @@
+许宁 Xu Ning
+AI Product Engineer
+
+项目 Projects
+Flow Notes — 2025
+- Role: 产品与工程 / Product and Engineering
+- Tech Stack: TypeScript, SQLite
+- 将访谈记录转换为带引用的产品决策日志。
+
+技能 Skills
+TypeScript, SQLite

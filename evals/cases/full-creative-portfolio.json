@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-creative-portfolio",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "creative",
+    "portfolio"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-creative-portfolio.txt",
+    "label": "Generated fictional Eval fixture: full-creative-portfolio"
+  },
+  "expected": {
+    "identity": {
+      "name": "Mina Okafor",
+      "headline": "Creative Coder"
+    },
+    "items": [
+      {
+        "id": "light-orchard",
+        "kind": "project",
+        "canonicalTitle": "Light Orchard",
+        "timeRange": "2024",
+        "role": "Artist and developer",
+        "techStack": [
+          "Three.js",
+          "GLSL"
+        ],
+        "expectedEvidence": [
+          "driven by visitor movement"
+        ]
+      },
+      {
+        "id": "radio-commons",
+        "kind": "project",
+        "canonicalTitle": "Radio Commons",
+        "timeRange": "2023",
+        "role": "Interaction designer",
+        "techStack": [
+          "Web Audio",
+          "JavaScript"
+        ],
+        "expectedEvidence": [
+          "neighborhood field recordings"
+        ]
+      }
+    ],
+    "skills": [
+      "Three.js",
+      "GLSL",
+      "Web Audio",
+      "JavaScript"
+    ],
+    "forbiddenClaims": []
+  }
+}

@@ -2,40 +2,41 @@
 
 ## Status
 
-Phase 2 infrastructure is active, but the dataset is not yet large enough for résumé claims about production accuracy.
+Phase 2 infrastructure now has a thirty-case offline breadth suite, but it is not yet evidence for Profile Agent production accuracy.
 
-- Dataset: `smoke`
-- Cases: 5 fictional, offline cases
+- Datasets: `smoke` (5) and composed `full` (30)
+- Cases: 30 fictional, offline cases
 - Human-verified cases: 2
 - Runner: deterministic Pipeline baseline
 - Model or network calls: 0
+- Profile Agent experiment: blocked until a Provider is configured and model calls are explicitly allowed
 - Report schema: `profile-eval-report.v1`
 
-## Baseline metrics
+## Full deterministic baseline metrics
 
 | Metric | Result |
 | --- | ---: |
-| Identity Accuracy | 93.3% |
-| Item Precision | 83.3% |
-| Item Recall | 92.7% |
-| Item F1 | 85.2% |
-| Structured Field Accuracy | 83.9% |
+| Identity Accuracy | 98.9% |
+| Item Precision | 93.9% |
+| Item Recall | 95.5% |
+| Item F1 | 94.2% |
+| Structured Field Accuracy | 95.6% |
 | Evidence Coverage | 100.0% |
 | Evidence Accuracy | 100.0% |
 | Unsupported Claim Rate | 0.0% |
 | End-to-end Success | 100.0% |
 
-The suite remains **FAIL**. The human-verified Markdown case exposes parser fragmentation, missing structured fields, lost project section boundaries, and achievements misclassified under education. A separate security case also detects a forbidden Prompt Injection claim in the candidate profile.
+The suite remains **FAIL** by design. It reproduces long-Markdown fragmentation, missing achievement items, bilingual section loss, Talk/Exhibition kind mismatches, and three Prompt Injection failures. These failures are baseline defects, not claims about the LLM Profile Agent.
 
 ## Interpretation
 
-The smoke suite proves that the Eval implementation can measure exact identity fields, one-to-one item precision and recall, structured fields, source locators, unsupported claims, cost metadata, and regressions without network access. It now includes two human-verified cases, but does not yet establish Profile Agent production accuracy because three cases remain prelabeled and the runner is deterministic.
+The composed full suite proves that the Eval implementation can scale exact identity checks, one-to-one item matching, structured fields, source locators, unsupported claims, cost metadata, failure classification, and dataset composition to thirty reproducible cases without network access. Twenty-eight cases remain prelabeled and every new case is synthetic text, so these numbers must not be presented as model accuracy.
 
 The first publishable accuracy report requires:
 
-1. Human review of the remaining three smoke cases.
-2. Expansion to at least 30 reviewed cases across PDF, image, multilingual, research, engineering, portfolio, conflict, injection, and partial-failure sources.
-3. A controlled `profile-agent` run with Provider, Prompt version, Token, latency, fallback, and cost metadata.
-4. A baseline-versus-candidate comparison with failure-level evidence.
+1. If résumé accuracy will be claimed publicly, replace or supplement synthetic fixtures with at least 30 reviewed cases.
+2. Add real PDF, image, website, multi-source conflict, inaccessible-page, and partial-failure inputs; the current case schema is text-only.
+3. Configure a controlled Provider and run `npm run eval:experiment -- --dataset smoke --allow-model-calls` with Prompt, Token, latency, fallback, and cost metadata.
+4. Promote the model experiment to `full` only after the smoke cost and failure report is acceptable.
 
-The machine-readable source of truth is [`evals/reports/smoke-baseline.json`](../evals/reports/smoke-baseline.json).
+Machine-readable sources of truth: [`evals/reports/smoke-baseline.json`](../evals/reports/smoke-baseline.json) and [`evals/reports/full-baseline.json`](../evals/reports/full-baseline.json).

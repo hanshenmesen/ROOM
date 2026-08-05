@@ -1,0 +1,11 @@
+Zoë García
+R&D Engineer
+
+Projects
+C++ Evidence Index — 2025
+- Role: R&D engineer
+- Tech Stack: C++, SQLite, WebAssembly
+- Preserves UTF-8 source excerpts across browser and server boundaries.
+
+Skills
+C++, SQLite, WebAssembly

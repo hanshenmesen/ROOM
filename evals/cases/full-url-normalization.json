@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-url-normalization",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "url",
+    "canonicalization"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-url-normalization.txt",
+    "label": "Generated fictional Eval fixture: full-url-normalization"
+  },
+  "expected": {
+    "identity": {
+      "name": "Robin Ellis",
+      "headline": "Developer Advocate"
+    },
+    "items": [
+      {
+        "id": "api-fieldbook",
+        "kind": "project",
+        "canonicalTitle": "API Fieldbook",
+        "timeRange": "2024",
+        "techStack": [
+          "TypeScript"
+        ],
+        "projectUrl": "https://example.com/api-fieldbook",
+        "expectedEvidence": [
+          "resilient API clients"
+        ]
+      }
+    ],
+    "skills": [
+      "TypeScript"
+    ],
+    "forbiddenClaims": []
+  }
+}

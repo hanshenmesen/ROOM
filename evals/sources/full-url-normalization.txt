@@ -1,0 +1,11 @@
+Robin Ellis
+Developer Advocate
+
+Projects
+API Fieldbook — 2024
+- Link: https://example.com/api-fieldbook/?utm_source=resume
+- Tech Stack: TypeScript
+- Interactive examples for resilient API clients.
+
+Skills
+TypeScript

@@ -1,0 +1,15 @@
+Mina Okafor
+Creative Coder
+
+Projects
+Light Orchard — 2024
+- Role: Artist and developer
+- Tech Stack: Three.js, GLSL
+- A participatory installation driven by visitor movement.
+Radio Commons — 2023
+- Role: Interaction designer
+- Tech Stack: Web Audio, JavaScript
+- A browser radio for neighborhood field recordings.
+
+Skills
+Three.js, GLSL, Web Audio, JavaScript

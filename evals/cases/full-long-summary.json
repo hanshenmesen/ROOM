@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-long-summary",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "long-form",
+    "summary"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-long-summary.txt",
+    "label": "Generated fictional Eval fixture: full-long-summary"
+  },
+  "expected": {
+    "identity": {
+      "name": "Fatima Noor",
+      "headline": "AI Systems Designer"
+    },
+    "items": [
+      {
+        "id": "decision-loom",
+        "kind": "project",
+        "canonicalTitle": "Decision Loom",
+        "timeRange": "2025",
+        "expectedEvidence": [
+          "claims, evidence, conflicts, and reviewer decisions"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

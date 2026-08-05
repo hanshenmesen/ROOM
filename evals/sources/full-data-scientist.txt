@@ -1,0 +1,14 @@
+Diego Santos
+Data Scientist
+
+Experience
+Harbor Analytics Data Scientist | 2022 - 2025
+- Built monitored forecasting pipelines for transit demand.
+
+Projects
+Shift Forecast — 2024
+- Tech Stack: Python, pandas, LightGBM
+- Published calibration reports for every model version.
+
+Skills
+Python, pandas, LightGBM

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-multiple-projects",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "projects",
+    "multi-item"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-multiple-projects.txt",
+    "label": "Generated fictional Eval fixture: full-multiple-projects"
+  },
+  "expected": {
+    "identity": {
+      "name": "Jamie Park",
+      "headline": "Software Engineer"
+    },
+    "items": [
+      {
+        "id": "archive-lens",
+        "kind": "project",
+        "canonicalTitle": "Archive Lens",
+        "timeRange": "2022",
+        "expectedEvidence": [
+          "local history collections"
+        ]
+      },
+      {
+        "id": "queue-sketch",
+        "kind": "project",
+        "canonicalTitle": "Queue Sketch",
+        "timeRange": "2023",
+        "expectedEvidence": [
+          "background tasks"
+        ]
+      },
+      {
+        "id": "schema-dock",
+        "kind": "project",
+        "canonicalTitle": "Schema Dock",
+        "timeRange": "2024",
+        "expectedEvidence": [
+          "JSON APIs"
+        ]
+      }
+    ],
+    "skills": [
+      "TypeScript"
+    ],
+    "forbiddenClaims": []
+  }
+}

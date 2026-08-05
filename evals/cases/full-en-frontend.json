@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-en-frontend",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "engineering",
+    "accessibility"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-en-frontend.txt",
+    "label": "Generated fictional Eval fixture: full-en-frontend"
+  },
+  "expected": {
+    "identity": {
+      "name": "Avery Brooks",
+      "headline": "Frontend Engineer"
+    },
+    "items": [
+      {
+        "id": "civic-map",
+        "kind": "project",
+        "canonicalTitle": "Civic Map",
+        "timeRange": "2024",
+        "role": "UI engineer",
+        "techStack": [
+          "React",
+          "TypeScript",
+          "MapLibre"
+        ],
+        "expectedEvidence": [
+          "keyboard-accessible map navigation"
+        ]
+      }
+    ],
+    "skills": [
+      "React",
+      "TypeScript",
+      "MapLibre"
+    ],
+    "forbiddenClaims": []
+  }
+}
