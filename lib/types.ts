@@ -278,11 +278,13 @@ export interface CheckReport {
 }
 
 export interface AgentTrace {
-  id: "parser" | "director" | "orchestrator" | "checker";
+  id: string;
   name: string;
-  status: "complete" | "warning" | "failed";
+  status: "running" | "complete" | "warning" | "failed";
   summary: string;
   artifacts: string[];
+  calls?: import("./agent-runtime/run-types.ts").AgentCallMeta[];
+  latencyMs?: number;
 }
 
 export interface PipelineResult {
@@ -291,4 +293,5 @@ export interface PipelineResult {
   world: WorldPlan;
   report: CheckReport;
   trace: AgentTrace[];
+  run?: import("./agent-runtime/run-types.ts").AgentRunSnapshot;
 }

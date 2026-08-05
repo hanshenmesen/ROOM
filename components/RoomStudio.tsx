@@ -16,6 +16,8 @@ import {
   type FormEvent,
 } from "react";
 import { compileProfile } from "@/lib/agents/pipeline";
+import { latestAgentRunMessage } from "@/lib/agent-runtime/events";
+import type { AgentRunEvent, AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
   BROWSER_AGENT_SESSION_KEY,
@@ -496,6 +498,8 @@ export function RoomStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [agentRunEvents, setAgentRunEvents] = useState<AgentRunEvent[]>([]);
+  const [agentRunProfileId, setAgentRunProfileId] = useState("");
   const [pendingProfile, setPendingProfile] = useState<ParsedProfile | null>(null);
   const [moveInStep, setMoveInStep] = useState<MoveInStep>("pet");
   const [petCustomization, setPetCustomization] = useState<PetCustomization>({ ...DEFAULT_PET_CUSTOMIZATION });
@@ -561,6 +565,7 @@ export function RoomStudio() {
   const agentReady = Boolean(
     browserAgentConfig?.maas.apiKey || browserAgentConfig?.website.apiKey || agentConfig?.ready,
   );
+  const agentRunMessage = useMemo(() => latestAgentRunMessage(agentRunEvents), [agentRunEvents]);
   const hasSourceInput = Boolean(url.trim() || sourceFile);
   const sceneResourcesReady = Boolean(
     sceneLoadState
@@ -871,7 +876,9 @@ export function RoomStudio() {
     const displayProfile = shouldGeneratePortraitArt
       ? profileWithPortraitUrl(editedProfile, abstractPortraitPlaceholder())
       : editedProfile;
-    const next = compileProfile(displayProfile);
+    const next = compileProfile(displayProfile, {
+      priorEvents: agentRunProfileId === profile.id ? agentRunEvents : undefined,
+    });
     beginSceneLoading();
     void musicController.current?.start();
     setSceneProgress(0);
@@ -941,7 +948,10 @@ export function RoomStudio() {
       setPortraitArtStatus("ready");
       setPortraitGenerationSettled(true);
       setPortraitArtMessage("AI 抽象肖像已生成并同步到展厅。");
-      setResult((current) => compileProfile(profileWithPortraitUrl(current?.profile || targetProfile, nextArtUrl)));
+      setResult((current) => compileProfile(
+        profileWithPortraitUrl(current?.profile || targetProfile, nextArtUrl),
+        { priorEvents: agentRunProfileId === targetProfile.id ? agentRunEvents : undefined },
+      ));
     } catch (error) {
       if (generation !== portraitGeneration.current) return;
       setPortraitArtStatus("error");
@@ -979,7 +989,12 @@ export function RoomStudio() {
     sourceUrl?: string,
     followWebsite = true,
   ) {
-    const response = await fetch("/api/parse", {
+    const { response, data } = await requestTrackedAgentRun<{
+      profile?: ParsedProfile;
+      error?: string;
+      details?: string[];
+      run?: AgentRunSnapshot;
+    }>("/api/parse", {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -994,11 +1009,41 @@ export function RoomStudio() {
         followWebsite,
       }),
     });
-    const data = await response.json() as { profile?: ParsedProfile; error?: string; details?: string[] };
     if (!response.ok || !data.profile) {
       throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
     }
+    setAgentRunProfileId(data.profile.id);
     return data.profile;
+  }
+
+  async function requestTrackedAgentRun<T extends { run?: AgentRunSnapshot }>(
+    input: string,
+    init: RequestInit,
+  ) {
+    const runId = crypto.randomUUID();
+    const headers = new Headers(init.headers);
+    headers.set("x-room-agent-run-id", runId);
+    setAgentRunEvents([]);
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/agent-runs/${encodeURIComponent(runId)}/events`, { cache: "no-store" });
+        if (!response.ok) return;
+        const run = await response.json() as AgentRunSnapshot;
+        setAgentRunEvents(run.events);
+      } catch {
+        // The final POST response remains the fallback when in-memory polling is unavailable.
+      }
+    };
+    const pollTimer = window.setInterval(() => void poll(), 500);
+    try {
+      const response = await fetch(input, { ...init, headers });
+      const data = await response.json() as T;
+      if (data.run) setAgentRunEvents(data.run.events);
+      else await poll();
+      return { response, data };
+    } finally {
+      window.clearInterval(pollTimer);
+    }
   }
 
   const requestRoomChange = useCallback((roomId: string) => {
@@ -1051,6 +1096,8 @@ export function RoomStudio() {
     setPetCustomization({ ...DEFAULT_PET_CUSTOMIZATION });
     setPrivateFrameImages({});
     setPrivateFrameMessage("");
+    setAgentRunEvents([]);
+    setAgentRunProfileId("");
   }
 
   async function extractUrl() {
@@ -1108,15 +1155,20 @@ export function RoomStudio() {
       form.set("file", file);
       form.set("followWebsite", "true");
       if (website) form.set("website", website);
-      const response = await fetch("/api/parse", {
+      const { response, data } = await requestTrackedAgentRun<{
+        profile?: ParsedProfile;
+        error?: string;
+        details?: string[];
+        run?: AgentRunSnapshot;
+      }>("/api/parse", {
         method: "POST",
         headers: browserAgentConfigHeaders(browserAgentConfig),
         body: form,
       });
-      const data = await response.json() as { profile?: ParsedProfile; error?: string; details?: string[] };
       if (!response.ok || !data.profile) {
         throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
       }
+      setAgentRunProfileId(data.profile.id);
       setPendingProfile(data.profile);
       const remembered = rememberGeneratedProfile(data.profile);
       setMessage(remembered
@@ -1359,7 +1411,7 @@ export function RoomStudio() {
     // physical placement so adjacent focus navigation uses the real stairs
     // instead of drawing a direct camera line through the upper floor.
     const surfaceRoom = surface
-      ? ["profile", "achievement", "skills"].includes(surface.semanticRole)
+      ? ["profile", "achievement", "skills"].includes(surface.semanticRole || "")
         ? "room-lobby"
         : PRIVATE_ROOM_ID
       : undefined;
@@ -1557,7 +1609,9 @@ export function RoomStudio() {
     const nextEdits = updateProjectEdit(projectEdits, selectedProjectItem.id, projectEditDraft);
     const nextProfile = applyProjectEdits(result.profile, nextEdits);
     setProjectEdits(nextEdits);
-    setResult(compileProfile(nextProfile));
+    setResult(compileProfile(nextProfile, {
+      priorEvents: agentRunProfileId === nextProfile.id ? agentRunEvents : undefined,
+    }));
     try {
       writeStoredProjectEdits(result.profile.id, nextEdits);
       setProjectEditMessage(`已保存到当前浏览器，3D ${materialName}素材框已同步生成精简版。`);
@@ -1591,10 +1645,10 @@ export function RoomStudio() {
             <div className={`creation-orbit ${creationReady ? "is-complete" : ""}`} aria-hidden="true"><span /></div>
             <p className="creation-kicker">{creationReady ? "YOUR HOME IS READY" : "PROFILE AGENT IS WORKING"}</p>
             <h1>{creationReady ? "你的小家，正在等待你的最后装扮。" : `Agent 继续搭建，你先捏一个${companionName}。`}</h1>
-            <p className="creation-message">{message}</p>
+            <p className="creation-message">{agentRunMessage || message}</p>
             <ol className="creation-steps">
               <li className="is-complete"><span>01</span><div><strong>资料已接收</strong><small>简历与公开信息进入解析队列</small></div></li>
-              <li className={creationReady ? "is-complete" : "is-active"}><span>02</span><div><strong>Agent 解析与整合</strong><small>项目、经历和个人网站并行整理</small></div></li>
+              <li className={creationReady ? "is-complete" : "is-active"}><span>02</span><div><strong>Agent 解析与整合</strong><small>{agentRunMessage || "项目、经历和个人网站并行整理"}</small></div></li>
               <li className={moveInStep === "pet" ? "is-active" : "is-complete"}><span>03</span><div><strong>起名、捏宠物与选性格</strong><small>调整{companionName}的名字、颜色、耳朵、花纹和回答语气</small></div></li>
               <li className={moveInStep === "photos" ? "is-active" : ""}><span>04</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
             </ol>

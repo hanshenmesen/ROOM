@@ -98,7 +98,7 @@ test("focus navigation routes upper-gallery surfaces through the stair room tran
     roomStudioSource.indexOf("function routeToWorldObject"),
     roomStudioSource.indexOf("function selectHeatItem"),
   );
-  assert.match(routeSource, /\["profile", "achievement", "skills"\]\.includes\(surface\.semanticRole\)/);
+  assert.match(routeSource, /\["profile", "achievement", "skills"\]\.includes\(surface\.semanticRole \|\| ""\)/);
   assert.match(routeSource, /: PRIVATE_ROOM_ID/);
   assert.match(routeSource, /if \(targetRoom && targetRoom !== activeRoom\) setActiveRoom\(targetRoom\)/);
 });

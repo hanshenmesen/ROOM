@@ -86,6 +86,6 @@ test("website and resume sources wait for one explicit generate action", () => {
   assert.doesNotMatch(studioSource, /function upload\([^}]+readFile/);
   assert.match(studioSource, /if \(sourceFile\) \{[\s\S]*readFile\(sourceFile, website \|\| undefined\)/);
   assert.match(studioSource, /if \(website\) form\.set\("website", website\)/);
-  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\(explicitWebsite, providerConfig\)/);
-  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig\)/);
+  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\(explicitWebsite, providerConfig, tracer\)/);
+  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig, tracer\)/);
 });

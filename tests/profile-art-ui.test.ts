@@ -10,7 +10,8 @@ const viteConfig = readFileSync(new URL("../vite.config.ts", import.meta.url), "
 
 test("world opening replaces a source portrait before compiling the visible scene", () => {
   assert.match(source, /profileWithPortraitUrl\(editedProfile, abstractPortraitPlaceholder\(\)\)/);
-  assert.match(source, /const next = compileProfile\(displayProfile\)/);
+  assert.match(source, /const next = compileProfile\(displayProfile, \{/);
+  assert.match(source, /priorEvents: agentRunProfileId === profile\.id \? agentRunEvents : undefined/);
   assert.match(source, /if \(shouldGeneratePortraitArt\) void generateAbstractPortrait\(sourcePortrait, next\.profile\)/);
   assert.match(source, /profile\.id !== FICTIONAL_DEMO_PROFILE_ID/);
 });
