@@ -8,7 +8,7 @@ import {
   portraitArtProviderError,
 } from "@/lib/portrait-art";
 import { readBrowserPortraitArtConfigHeaders } from "@/lib/browser-agent-config";
-import { validatePublicUrl } from "@/lib/public-web";
+import { validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
 
 export const runtime = "edge";
 
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       try {
         const url = validatePublicUrl(browserConfig.baseUrl);
         if (url.protocol !== "https:" || url.search || url.hash) throw new Error("unsafe image provider URL");
+        await validatePublicUrlResolution(url, { signal: request.signal });
         browserConfig.baseUrl = url.href.replace(/\/$/, "");
       } catch {
         return NextResponse.json({ error: "图像服务 Base URL 必须是公开的 HTTPS 地址。" }, { status: 400 });

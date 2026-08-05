@@ -52,6 +52,66 @@ function unsafeHost(hostname: string) {
   );
 }
 
+export function assertPublicResolvedAddresses(hostname: string, addresses: Iterable<string>) {
+  const resolved = [...addresses].map((address) => address.trim()).filter(Boolean);
+  if (!resolved.length) throw new PublicWebError(`无法验证 ${hostname} 的公开 DNS 地址。`, 502);
+  const malformedAddress = resolved.find((address) => {
+    if (/^\d+(?:\.\d+){3}$/.test(address)) {
+      return address.split(".").some((part) => Number(part) < 0 || Number(part) > 255);
+    }
+    if (!address.includes(":")) return true;
+    try {
+      return !new URL(`http://[${address}]/`).hostname.includes(":");
+    } catch {
+      return true;
+    }
+  });
+  if (malformedAddress) throw new PublicWebError(`无法验证 ${hostname} 的 DNS 地址。`, 502);
+  const unsafeAddress = resolved.find((address) => unsafeHost(address));
+  if (unsafeAddress) {
+    throw new PublicWebError(`域名 ${hostname} 解析到了非公开网络地址。`);
+  }
+  return resolved;
+}
+
+export type PublicHostResolver = (hostname: string, signal: AbortSignal) => Promise<string[]>;
+
+type DnsJsonResponse = {
+  Answer?: Array<{ type?: number; data?: string }>;
+};
+
+export const resolvePublicHostWithDoh: PublicHostResolver = async (hostname, signal) => {
+  if (/^[\d.]+$/.test(hostname) || hostname.includes(":")) return [hostname];
+  const query = async (type: "A" | "AAAA") => {
+    const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`;
+    const response = await fetch(url, {
+      headers: { accept: "application/dns-json" },
+      redirect: "error",
+      signal,
+    });
+    if (!response.ok) throw new PublicWebError("公开 DNS 校验服务不可用。", 502);
+    const payload = await response.json() as DnsJsonResponse;
+    return (payload.Answer || [])
+      .filter((answer) => answer.type === 1 || answer.type === 28)
+      .map((answer) => answer.data || "")
+      .filter(Boolean);
+  };
+  const addresses = (await Promise.all([query("A"), query("AAAA")])).flat();
+  return assertPublicResolvedAddresses(hostname, addresses);
+};
+
+export async function validatePublicUrlResolution(
+  value: string | URL,
+  options: { signal?: AbortSignal; resolveHost?: PublicHostResolver; timeoutMs?: number } = {},
+) {
+  const url = validatePublicUrl(value);
+  const timeout = AbortSignal.timeout(Math.min(10_000, Math.max(1, options.timeoutMs || 5_000)));
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
+  const addresses = await (options.resolveHost || resolvePublicHostWithDoh)(url.hostname, signal);
+  assertPublicResolvedAddresses(url.hostname, addresses);
+  return url;
+}
+
 export function validatePublicUrl(value: string | URL) {
   let url: URL;
   try {
@@ -75,6 +135,8 @@ export type PublicWebFetchOptions = {
   maxBytes?: number;
   timeoutMs?: number;
   authorizeUrl?: (url: URL) => void;
+  resolveHost?: PublicHostResolver;
+  signal?: AbortSignal;
 };
 
 async function readBoundedText(response: Response, maxBytes: number) {
@@ -106,9 +168,13 @@ async function readBoundedText(response: Response, maxBytes: number) {
 export async function fetchPublicWebPage(value: string | URL, options: PublicWebFetchOptions = {}) {
   let url = validatePublicUrl(value);
   const maxBytes = Math.min(MAX_SOURCE_BYTES, Math.max(1, options.maxBytes || MAX_SOURCE_BYTES));
-  const signal = AbortSignal.timeout(Math.min(30_000, Math.max(1, options.timeoutMs || 12_000)));
+  const timeoutSignal = AbortSignal.timeout(Math.min(30_000, Math.max(1, options.timeoutMs || 12_000)));
+  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+  const resolveHost = options.resolveHost || resolvePublicHostWithDoh;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     options.authorizeUrl?.(url);
+    const addresses = await resolveHost(url.hostname, signal);
+    assertPublicResolvedAddresses(url.hostname, addresses);
     const response = await fetch(url, {
       redirect: "manual",
       headers: {
@@ -121,7 +187,6 @@ export async function fetchPublicWebPage(value: string | URL, options: PublicWeb
       const location = response.headers.get("location");
       if (!location) throw new PublicWebError("网页重定向缺少目标地址。", 502);
       url = validatePublicUrl(new URL(location, url));
-      options.authorizeUrl?.(url);
       continue;
     }
     if (!response.ok) throw new PublicWebError(`目标网页返回 ${response.status}。`, 502);

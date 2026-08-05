@@ -108,6 +108,9 @@ test("uses the browser-session image provider without mixing server settings", a
   let providerForm: FormData | undefined;
   let authorization = "";
   globalThis.fetch = (async (input, init) => {
+    if (String(input).startsWith("https://cloudflare-dns.com/dns-query")) {
+      return Response.json({ Answer: [{ type: 1, data: "93.184.216.34" }] });
+    }
     assert.equal(String(input), "https://browser.example.test/v1/images/edits");
     providerForm = init?.body as FormData;
     authorization = new Headers(init?.headers).get("authorization") || "";

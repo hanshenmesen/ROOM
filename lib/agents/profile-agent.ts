@@ -11,6 +11,7 @@ import type {
 export {
   extractProfileFromAttachmentWithAgentRun,
   extractProfileWithAgentRun,
+  MAX_SOURCE_CHARACTERS,
 } from "./profile/run-profile-agent.ts";
 export {
   ProfileAgentError,

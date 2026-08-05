@@ -1,11 +1,13 @@
 import { createAgentTracer } from "../../agent-runtime/tracer.ts";
 import type { AgentRunSnapshot } from "../../agent-runtime/run-types.ts";
+import { AgentBudgetExceededError, AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import type { ParsedProfile } from "../../types.ts";
 import { normalizeProfileDraft } from "./normalize.ts";
 import { PROFILE_PROMPT_VERSIONS, systemPrompt, userPrompt } from "./prompts.ts";
 import { callProfileModel } from "./provider.ts";
 import { IDENTITY_DRAFT_SCHEMA, ITEMS_DRAFT_SCHEMA } from "./schemas.ts";
 import { inventoryExpectations, planInventoryShards } from "./shard-planner.ts";
+import { quarantineSourceInstructions } from "../source-security.ts";
 import type {
   AgentAttachment,
   AgentProfileDraft,
@@ -17,7 +19,7 @@ import type {
 import { ProfileAgentError } from "./types.ts";
 import { cleanString, safeHttpUrl } from "./utils.ts";
 
-const MAX_SOURCE_CHARACTERS = 160_000;
+export const MAX_SOURCE_CHARACTERS = 160_000;
 const MAX_AGENT_ATTEMPTS = 2;
 
 export type ProfileAgentRunResult = {
@@ -60,16 +62,29 @@ export async function runProfileAgent(
   attachment?: AgentAttachment,
   options: ProfileAgentOptions = {},
 ): Promise<ProfileAgentRunResult> {
-  const normalized = text.replace(/\r\n?/g, "\n").trim();
-  if (!normalized && !attachment) throw new ProfileAgentError("没有可供 Agent 解析的内容。", 400);
+  const preparedSource = quarantineSourceInstructions(text);
+  const normalized = preparedSource.text;
+  if (!normalized.trim() && !attachment) throw new ProfileAgentError("没有可供 Agent 解析的内容。", 400);
   if (normalized.length > MAX_SOURCE_CHARACTERS) {
     throw new ProfileAgentError(`来源内容过长，当前上限为 ${MAX_SOURCE_CHARACTERS.toLocaleString()} 个字符。`, 413);
   }
   const ownsTracer = !options.tracer;
   const tracer = options.tracer || createAgentTracer(options.runId);
   tracer.start();
+  if (preparedSource.findings.length) {
+    tracer.emit({
+      type: "security.input_quarantined",
+      step: options.stepPrefix || "profile",
+      count: preparedSource.findings.length,
+      categories: [...new Set(preparedSource.findings.map((finding) => finding.category))],
+    });
+  }
   const expectations = inventoryExpectations(normalized);
   const inventoryShards = planInventoryShards(expectations);
+  const runtimeControls = options.runtimeControls || new AgentRunControls({
+    budget: options.budget,
+    signal: options.signal,
+  });
   let previousErrors: string[] | undefined;
 
   try {
@@ -103,6 +118,7 @@ export async function runProfileAgent(
           attempt,
           promptVersion: PROFILE_PROMPT_VERSIONS[shard],
           step,
+          runtimeControls,
         });
         tracer.emit({
           type: "artifact.created",
@@ -203,6 +219,14 @@ export async function runProfileAgent(
     }
     throw new ProfileAgentError("Agent 解析失败。", 502);
   } catch (error) {
+    if (error instanceof AgentBudgetExceededError) {
+      tracer.emit({
+        type: "budget.exhausted",
+        step: options.stepPrefix || "profile",
+        reason: error.reason,
+        usage: runtimeControls.budget.snapshot(),
+      });
+    }
     if (ownsTracer) tracer.fail(errorCode(error));
     throw error;
   }

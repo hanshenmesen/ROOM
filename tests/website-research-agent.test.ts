@@ -245,6 +245,7 @@ test("the public fetch guard authorizes every redirect before contacting the nex
   }) as typeof fetch;
   try {
     await assert.rejects(fetchPublicWebPage(ROOT, {
+      resolveHost: async () => ["93.184.216.34"],
       authorizeUrl: (url) => {
         if (url.hostname !== "portfolio.example.com") throw new Error("blocked redirect host");
       },

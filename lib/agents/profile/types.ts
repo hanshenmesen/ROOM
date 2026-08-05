@@ -1,4 +1,5 @@
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
+import type { AgentRunBudgetLimits, AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import type { ContentFamily, ProfileItem, ProfileMedia } from "../../types.ts";
 import type { AgentProviderOverride } from "../provider-config.ts";
 
@@ -62,6 +63,9 @@ export type ProfileAgentOptions = {
   tracer?: AgentTracer;
   runId?: string;
   stepPrefix?: "profile" | "website";
+  budget?: Partial<AgentRunBudgetLimits>;
+  signal?: AbortSignal;
+  runtimeControls?: AgentRunControls;
 };
 
 export type AgentAttachment = {

@@ -45,6 +45,7 @@ export type WebsiteResearchOptions = {
   prefetchedRoot?: WebsiteResearchPrefetch;
   approvedHosts?: string[];
   budget?: Partial<WebsiteResearchBudget>;
+  signal?: AbortSignal;
 };
 
 function positiveInteger(value: number | undefined, fallback: number, maximum: number) {
@@ -119,6 +120,7 @@ export async function prefetchWebsiteResearchRoot(input: {
   fetcher?: WebsitePageFetcher;
   approvedHosts?: string[];
   budget?: Partial<WebsiteResearchBudget>;
+  signal?: AbortSignal;
 }): Promise<WebsiteResearchPrefetch> {
   const root = normalizeWebsiteResearchUrl(input.rootUrl);
   const budget = resolvedBudget(input.budget);
@@ -134,6 +136,7 @@ export async function prefetchWebsiteResearchRoot(input: {
       allowedHosts,
       budget,
       fetcher: input.fetcher,
+      signal: input.signal,
     }),
     summarizeOutput: (output) => ({
       url: output.url,
@@ -291,6 +294,7 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
             allowedHosts,
             budget: { ...budget, maxPageBytes: Math.min(budget.maxPageBytes, remainingBytes) },
             fetcher: options.fetcher,
+            signal: options.signal,
           }),
           (output) => ({ url: output.url, contentType: output.contentType, byteLength: output.byteLength }),
         );

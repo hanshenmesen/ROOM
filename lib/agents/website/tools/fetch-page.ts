@@ -6,6 +6,7 @@ export type WebsitePageFetcher = (url: string, options: {
   maxBytes: number;
   timeoutMs: number;
   allowedHosts: string[];
+  signal?: AbortSignal;
 }) => Promise<{ url: string; contentType: string; text: string }>;
 
 export const defaultWebsitePageFetcher: WebsitePageFetcher = async (url, options) => fetchPublicWebPage(url, {
@@ -14,6 +15,7 @@ export const defaultWebsitePageFetcher: WebsitePageFetcher = async (url, options
   authorizeUrl: (candidate) => {
     assertAllowedResearchUrl(candidate, options.allowedHosts);
   },
+  signal: options.signal,
 });
 
 export async function fetchPageTool(input: {
@@ -22,6 +24,7 @@ export async function fetchPageTool(input: {
   allowedHosts: string[];
   budget: WebsiteResearchBudget;
   fetcher?: WebsitePageFetcher;
+  signal?: AbortSignal;
 }): Promise<WebsiteFetchedPage> {
   if (!Number.isInteger(input.depth) || input.depth < 0 || input.depth > input.budget.maxDepth) {
     throw new Error("Website page depth is outside the research policy.");
@@ -31,6 +34,7 @@ export async function fetchPageTool(input: {
     maxBytes: input.budget.maxPageBytes,
     timeoutMs: Math.min(12_000, input.budget.maxDurationMs),
     allowedHosts: input.allowedHosts,
+    signal: input.signal,
   });
   const finalUrl = assertAllowedResearchUrl(page.url, input.allowedHosts);
   if (!page.contentType.includes("text/html") && !page.contentType.includes("text/plain")) {

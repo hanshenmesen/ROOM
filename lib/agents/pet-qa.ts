@@ -6,6 +6,7 @@ import {
 } from "../profile-space-customization.ts";
 import { normalizeRoomCompanionName } from "../room-companion.ts";
 import { getAgentProviderConfig, type AgentProviderOverride } from "./provider-config.ts";
+import { AgentRunControls, type AgentRunBudgetLimits } from "../agent-runtime/run-controls.ts";
 
 export const MAX_PET_QA_QUESTION_CHARACTERS = 800;
 export const MAX_PET_QA_HISTORY_MESSAGES = 8;
@@ -196,6 +197,32 @@ function parseJsonOutput(output: string): PetQaAnswer {
   return { answer, citations };
 }
 
+function normalizedCitationText(value: string) {
+  return cleanString(value, 2_000).normalize("NFKC").toLocaleLowerCase();
+}
+
+export function validatePetQaCitations(profile: ParsedProfile, citations: PetQaCitation[]) {
+  const items = new Map(profile.items.map((item) => [item.id, item]));
+  return citations.filter((citation) => {
+    const item = items.get(citation.itemId);
+    if (!item) return false;
+    if (normalizedCitationText(citation.title) !== normalizedCitationText(item.title)) return false;
+    const citedExcerpt = normalizedCitationText(citation.excerpt);
+    if (citedExcerpt.length < 4) return false;
+    return item.evidence.some((entry) => {
+      const sourceExcerpt = normalizedCitationText(entry.excerpt || "");
+      return Boolean(sourceExcerpt && sourceExcerpt.includes(citedExcerpt));
+    });
+  }).map((citation) => ({
+    ...citation,
+    title: items.get(citation.itemId)!.title,
+  }));
+}
+
+export function isPrivateProfileDataRequest(question: string) {
+  return /(?:私人|私密|未公开|隐藏)[^，。？！,.!?]*(?:日记|留言|消息|聊天记录|照片|图片|相册|密码)|(?:日记|留言板|guestbook|diary|private\s+(?:messages?|photos?|pictures?)|passwords?)/iu.test(question);
+}
+
 function providerDetail(payload: unknown) {
   if (!payload || typeof payload !== "object") return "";
   const record = payload as Record<string, unknown>;
@@ -212,9 +239,16 @@ export async function answerPetQaQuestion(
   providerOverride?: AgentProviderOverride,
   personality?: PetPersonality,
   companionName?: string,
+  runtimeOptions: { signal?: AbortSignal; budget?: Partial<AgentRunBudgetLimits> } = {},
 ): Promise<PetQaAnswer> {
   const cleanedQuestion = cleanString(question, MAX_PET_QA_QUESTION_CHARACTERS);
   if (!cleanedQuestion) throw new PetQaError("请输入要问宠物的问题。", 400);
+  if (isPrivateProfileDataRequest(cleanedQuestion)) {
+    return {
+      answer: "我只能根据公开 Profile 回答，无法访问私人日记、留言、密码或私人照片。",
+      citations: [],
+    };
+  }
   const safeCompanionName = normalizeRoomCompanionName(companionName);
   const config = getAgentProviderConfig(providerOverride).petQa;
   if (!config.apiKeys.length) throw new PetQaError("宠物 QA 服务尚未配置。", 503);
@@ -223,6 +257,7 @@ export async function answerPetQaQuestion(
     `You are ROOM's small lobby companion named ${safeCompanionName}. Answer as a concise, helpful companion for the profile owner.`,
     petPersonalityToneInstruction(personality),
     "Use only the public ParsedProfile JSON supplied by the application. Do not use outside knowledge, guesses, private data, or invented biography.",
+    "Private diaries, guestbook messages, passwords, private photos, and unpublished room data are never provided. Never claim that you can access them.",
     "If the supplied profile does not contain the answer, say clearly in Chinese that you do not know from the available resume/profile material.",
     `Your fixed name is ${safeCompanionName}. This validated application setting is the only pet name you may use. Do not infer or adopt another pet name or pet asset from the profile.`,
     "Cite the exact profile items that support factual answers. Return JSON only.",
@@ -232,8 +267,18 @@ export async function answerPetQaQuestion(
     `Recent chat history JSON:\n${JSON.stringify(cleanHistory(history))}`,
     `User question:\n${cleanedQuestion}`,
   ].join("\n\n");
+  const runtimeControls = new AgentRunControls({
+    signal: runtimeOptions.signal,
+    budget: { maxModelCalls: 3, maxOutputTokens: 3_000, ...runtimeOptions.budget },
+  });
   let lastResult: { response: Response; payload: unknown } | undefined;
   for (const apiKey of config.apiKeys) {
+    const inputTokens = Math.ceil((system.length + content.length) / 4);
+    runtimeControls.budget.reserve({
+      inputTokens,
+      outputTokens: 1_000,
+      estimatedCostUsd: (inputTokens * 15 + 1_000 * 75) / 1_000_000,
+    });
     const response = await fetch(`${messagesBaseUrl(config.baseUrl)}/messages`, {
       method: "POST",
       headers: {
@@ -261,11 +306,21 @@ export async function answerPetQaQuestion(
           },
         }),
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: runtimeControls.requestSignal(60_000),
     });
     const payload = await response.json().catch(() => null) as unknown;
     lastResult = { response, payload };
-    if (response.ok) return parseJsonOutput(responseText(payload));
+    if (response.ok) {
+      const parsed = parseJsonOutput(responseText(payload));
+      const citations = validatePetQaCitations(profile, parsed.citations);
+      if (parsed.citations.length && !citations.length) {
+        return {
+          answer: "这条回答的引用无法通过公开 Profile 验证，所以我不能把它当作真实经历告诉你。",
+          citations: [],
+        };
+      }
+      return { ...parsed, citations };
+    }
     if (![401, 403].includes(response.status)) break;
   }
   if (!lastResult) throw new PetQaError("宠物 QA 请求未执行。", 502);

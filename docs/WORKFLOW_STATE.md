@@ -44,6 +44,8 @@ After every completed node the engine records a checkpoint containing the comple
 
 `POST /api/runs` currently accepts non-empty text up to 1 MiB. Reusing an Idempotency Key with the same source returns the original Run; reusing it with different input returns HTTP 409.
 
+The SHA-256 source hash binds that idempotency decision only. It is not a global résumé cache key: cross-user Artifact reuse is intentionally disabled to avoid membership disclosure and private-data crossover.
+
 Run snapshots expose source type, label, byte/line counts, SHA-256 hash, status, attempts, checkpoints, metrics, failure code, and Artifact type/version metadata. They exclude the résumé body and full Artifact bodies. While a Run is waiting, its snapshot also exposes the bounded candidate values and evidence excerpts needed for that review. Events contain lifecycle metadata only.
 
 ## Human review boundary

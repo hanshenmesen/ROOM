@@ -108,8 +108,10 @@ test("the smoke CLI produces JSON and Markdown without network access", () => {
     const report = JSON.parse(readFileSync(`${output}.json`, "utf8")) as ProfileEvalReport;
     assert.equal(report.summary.itemF1, 0.8519);
     assert.equal(report.failureCounts.missed_item, 4);
-    assert.equal(report.failureCounts.forbidden_claim, 1);
-    assert.match(readFileSync(`${output}.md`, "utf8"), /Prompt Injection sentence|Forbidden claim appeared/);
+    assert.equal(report.failureCounts.forbidden_claim || 0, 0);
+    const markdown = readFileSync(`${output}.md`, "utf8");
+    assert.match(markdown, /smoke-prompt-injection[^\n]*PASS/);
+    assert.doesNotMatch(markdown, /Forbidden claim appeared/);
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }

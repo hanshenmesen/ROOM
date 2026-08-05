@@ -13,6 +13,7 @@ const PROFILE_SPACE_URL = new URL("../lib/profile-space-customization.ts", impor
 const ROOM_COMPANION_URL = new URL("../lib/room-companion.ts", import.meta.url).href;
 const PUBLIC_WEB_URL = new URL("../lib/public-web.ts", import.meta.url).href;
 const TYPES_URL = new URL("../lib/types.ts", import.meta.url).href;
+const CONCURRENCY_LIMITER_URL = new URL("../lib/agent-runtime/concurrency-limiter.ts", import.meta.url).href;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -24,10 +25,11 @@ registerHooks({
     if (specifier === "@/lib/room-companion") return { url: ROOM_COMPANION_URL, shortCircuit: true };
     if (specifier === "@/lib/public-web") return { url: PUBLIC_WEB_URL, shortCircuit: true };
     if (specifier === "@/lib/types") return { url: TYPES_URL, shortCircuit: true };
+    if (specifier === "@/lib/agent-runtime/concurrency-limiter") return { url: CONCURRENCY_LIMITER_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if ([ROUTE_URL, PET_QA_URL, PROVIDER_CONFIG_URL, BROWSER_CONFIG_URL, PROFILE_SPACE_URL, ROOM_COMPANION_URL, PUBLIC_WEB_URL, TYPES_URL].includes(url)) {
+    if ([ROUTE_URL, PET_QA_URL, PROVIDER_CONFIG_URL, BROWSER_CONFIG_URL, PROFILE_SPACE_URL, ROOM_COMPANION_URL, PUBLIC_WEB_URL, TYPES_URL, CONCURRENCY_LIMITER_URL].includes(url)) {
       return {
         format: "module",
         shortCircuit: true,
@@ -89,6 +91,9 @@ test("pet QA route uses browser-session provider settings without exposing keys"
   let authorization = "";
   let system = "";
   globalThis.fetch = (async (input, init) => {
+    if (String(input).startsWith("https://cloudflare-dns.com/dns-query")) {
+      return Response.json({ Answer: [{ type: 1, data: "93.184.216.34" }] });
+    }
     assert.equal(String(input), "https://browser-pet.example.test/v1/messages");
     authorization = new Headers(init?.headers).get("authorization") || "";
     system = (JSON.parse(String(init?.body)) as { system?: string }).system || "";

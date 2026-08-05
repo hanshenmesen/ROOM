@@ -8,8 +8,9 @@ import type { AgentProviderOverride } from "@/lib/agents/provider-config";
 import { readBrowserPetQaConfigHeaders } from "@/lib/browser-agent-config";
 import { normalizePetPersonality } from "@/lib/profile-space-customization";
 import { normalizeRoomCompanionName } from "@/lib/room-companion";
-import { validatePublicUrl } from "@/lib/public-web";
+import { validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
 import type { ParsedProfile } from "@/lib/types";
+import { privacySafeRequestKey, tryAcquireConcurrencyLease } from "@/lib/agent-runtime/concurrency-limiter";
 
 export const runtime = "edge";
 
@@ -21,7 +22,7 @@ type PetQaBody = {
   personality?: unknown;
 };
 
-function requestProviderConfig(request: Request): AgentProviderOverride | undefined {
+async function requestProviderConfig(request: Request): Promise<AgentProviderOverride | undefined> {
   const config = readBrowserPetQaConfigHeaders(request.headers);
   if (!config) return undefined;
   if (config.petQaApiKey.length > 1_024) throw new PetQaError("Pet QA API Key 长度不合法。", 400);
@@ -29,6 +30,7 @@ function requestProviderConfig(request: Request): AgentProviderOverride | undefi
   try {
     const url = validatePublicUrl(config.petQaBaseUrl);
     if (url.protocol !== "https:" || url.search || url.hash) throw new Error("unsafe provider URL");
+    await validatePublicUrlResolution(url, { signal: request.signal });
     return { ...config, petQaBaseUrl: url.href.replace(/\/$/, "") };
   } catch {
     throw new PetQaError("宠物 QA Base URL 必须是公开的 HTTPS 地址。", 400);
@@ -50,8 +52,13 @@ function isParsedProfile(value: unknown): value is ParsedProfile {
 }
 
 export async function POST(request: Request) {
+  const requestKey = await privacySafeRequestKey(request);
+  const releaseLease = tryAcquireConcurrencyLease(`pet-qa:${requestKey}`, 3);
+  if (!releaseLease) {
+    return NextResponse.json({ error: "当前 Companion 请求较多，请稍后重试。" }, { status: 429 });
+  }
   try {
-    const providerOverride = requestProviderConfig(request);
+    const providerOverride = await requestProviderConfig(request);
     const body = await request.json() as PetQaBody;
     const question = typeof body.question === "string" ? body.question.trim() : "";
     if (!question) {
@@ -71,6 +78,7 @@ export async function POST(request: Request) {
       providerOverride,
       normalizePetPersonality(body.personality),
       normalizeRoomCompanionName(body.name),
+      { signal: request.signal },
     );
     return NextResponse.json(answer, { headers: { "cache-control": "no-store" } });
   } catch (error) {
@@ -81,9 +89,14 @@ export async function POST(request: Request) {
     if (error instanceof PetQaError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    if (error && typeof error === "object" && "status" in error && typeof error.status === "number") {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Companion 预算已用尽。" }, { status: error.status });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "宠物 QA 请求失败。" },
       { status: 502 },
     );
+  } finally {
+    releaseLease();
   }
 }

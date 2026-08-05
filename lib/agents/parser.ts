@@ -7,6 +7,7 @@ import type {
   ContentFamily,
   SourceEvidence,
 } from "../types.ts";
+import { quarantineSourceInstructions } from "./source-security.ts";
 
 export interface ParseSource {
   id?: string;
@@ -685,7 +686,7 @@ type ParsedSection = {
 };
 
 export function parseProfile(text: string, source: ParseSource = {}): ParsedProfile {
-  const normalized = text.replace(/\r\n?/g, "\n");
+  const normalized = quarantineSourceInstructions(text).text;
   const allLines = normalized.split("\n").map(cleanLine);
   const rows = allLines
     .map((line, index) => ({ text: line, line: index }))

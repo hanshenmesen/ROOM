@@ -1,5 +1,6 @@
 import type { AgentCallMeta, AgentCallResult } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
+import type { AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import {
   DEFAULT_WEBSITE_AGENT_MODEL,
   FALLBACK_MAAS_MODEL,
@@ -15,6 +16,17 @@ import { shardOutputErrors } from "./validation.ts";
 const IDENTITY_MAX_OUTPUT_TOKENS = 4_000;
 const ITEMS_MAX_OUTPUT_TOKENS = 12_000;
 const PROFILE_AGENT_EFFORT = "low";
+
+function estimatedTokens(input: string | MaasContentBlock[]) {
+  const characters = typeof input === "string"
+    ? input.length
+    : input.reduce((total, block) => total + (block.type === "text" ? block.text.length : 8_000), 0);
+  return Math.max(1, Math.ceil(characters / 4));
+}
+
+function estimatedCost(inputTokens: number, outputTokens: number) {
+  return (inputTokens * 15 + outputTokens * 75) / 1_000_000;
+}
 
 function responseText(payload: unknown) {
   if (!payload || typeof payload !== "object") return "";
@@ -126,6 +138,7 @@ function metaFor(input: {
   payload?: unknown;
 }): AgentCallMeta {
   const stopReason = responseStopReason(input.payload);
+  const usage = responseUsage(input.payload);
   return {
     callId: input.callId,
     agent: input.agent,
@@ -136,7 +149,10 @@ function metaFor(input: {
     promptVersion: input.promptVersion,
     startedAt: input.startedAt,
     latencyMs: Math.max(0, Math.round(performance.now() - input.startedMark)),
-    ...responseUsage(input.payload),
+    ...usage,
+    ...(usage.inputTokens !== undefined || usage.outputTokens !== undefined ? {
+      estimatedCost: Number(estimatedCost(usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
+    } : {}),
     attempt: input.attempt,
     fallbackCount: input.fallbackCount,
     ...(stopReason ? { stopReason } : {}),
@@ -155,6 +171,7 @@ export async function callProfileModel<T>(input: {
   attempt: number;
   promptVersion: string;
   step: string;
+  runtimeControls: AgentRunControls;
 }): Promise<AgentCallResult<T>> {
   const providerConfig = getAgentProviderConfig(input.providerOverride);
   const maasApiKeys = providerConfig.maas.apiKeys;
@@ -189,17 +206,26 @@ export async function callProfileModel<T>(input: {
   let fallbackCount = 0;
   const invalidOutputDetails: string[] = [];
 
-  for (const provider of providers) {
+  providerLoop: for (const provider of providers) {
+    const providerLabel = providerName(provider.baseUrl);
+    if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue;
     const modes = provider.mode === "json-schema"
       ? ["json-schema", "tool"] as const
       : ["tool", "json-schema"] as const;
     for (const mode of modes) {
       for (const model of provider.models) {
         for (const apiKey of provider.apiKeys) {
+          if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue providerLoop;
           const callId = `call-${crypto.randomUUID()}`;
           const startedAt = new Date().toISOString();
           const startedMark = performance.now();
-          const providerLabel = providerName(provider.baseUrl);
+          const maxOutputTokens = input.schema === IDENTITY_DRAFT_SCHEMA ? IDENTITY_MAX_OUTPUT_TOKENS : ITEMS_MAX_OUTPUT_TOKENS;
+          const inputTokenEstimate = estimatedTokens(input.system) + estimatedTokens(input.content);
+          input.runtimeControls.budget.reserve({
+            inputTokens: inputTokenEstimate,
+            outputTokens: maxOutputTokens,
+            estimatedCostUsd: estimatedCost(inputTokenEstimate, maxOutputTokens),
+          });
           let result: { response: Response; payload: unknown };
           try {
             const response = await fetch(`${provider.baseUrl}/messages`, {
@@ -215,7 +241,7 @@ export async function callProfileModel<T>(input: {
                 system: input.system,
                 messages: [{ role: "user", content: input.content }],
                 temperature: 0,
-                max_tokens: input.schema === IDENTITY_DRAFT_SCHEMA ? IDENTITY_MAX_OUTPUT_TOKENS : ITEMS_MAX_OUTPUT_TOKENS,
+                max_tokens: maxOutputTokens,
                 ...(mode === "tool" ? {
                   tools: [{
                     name: "submit_profile_result",
@@ -230,7 +256,7 @@ export async function callProfileModel<T>(input: {
                   },
                 }),
               }),
-              signal: AbortSignal.timeout(120_000),
+              signal: input.runtimeControls.requestSignal(120_000),
             });
             const payload = await response.json().catch(() => null) as unknown;
             result = { response, payload };
@@ -243,6 +269,9 @@ export async function callProfileModel<T>(input: {
             });
             input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "request_failed" });
             fallbackCount += 1;
+            const failureCount = input.runtimeControls.circuitBreaker.recordFailure(providerLabel);
+            if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue providerLoop;
+            await input.runtimeControls.boundedBackoff(failureCount);
             continue;
           }
 
@@ -252,6 +281,7 @@ export async function callProfileModel<T>(input: {
             payload: result.payload,
           });
           if (result.response.ok) {
+            input.runtimeControls.circuitBreaker.recordSuccess(providerLabel);
             const output = responseText(result.payload);
             if (output) {
               try {
@@ -288,6 +318,11 @@ export async function callProfileModel<T>(input: {
           input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: `http_${result.response.status}` });
           fallbackCount += 1;
           if ([401, 403].includes(result.response.status)) continue;
+          if (result.response.status === 429 || result.response.status >= 500) {
+            const failureCount = input.runtimeControls.circuitBreaker.recordFailure(providerLabel);
+            if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue providerLoop;
+            await input.runtimeControls.boundedBackoff(failureCount);
+          }
           break;
         }
       }

@@ -50,14 +50,14 @@ Callers may lower these limits for an experiment but cannot raise them above the
 
 ## Security policy
 
-- Root URLs and every redirect pass the existing public URL validator.
-- Literal loopback, private, link-local, reserved, credential-bearing, and nonstandard-port URLs are rejected.
+- Root URLs and every redirect pass the public URL validator and a fresh DNS A/AAAA safety check.
+- Literal or DNS-resolved loopback, private, link-local, reserved, credential-bearing, and nonstandard-port URLs are rejected before the page request.
 - Additional navigation is restricted to the root hostname and its canonical `www` counterpart unless a server-side caller explicitly approves another hostname. The product route does not currently approve any other host.
 - External, local-network, login, admin, account, private, feed, archive, and binary candidates are excluded from the plan.
 - Page instructions are untrusted data. They never reach the tool dispatcher or policy configuration.
 - Failed tools expose a generic error code in Trace; sibling candidates may still be inspected.
 
-Cloudflare's Edge `fetch` API does not expose the resolved peer IP before a request. Hostname validation therefore cannot fully prove DNS-rebinding safety. Production deployment for arbitrary public domains still requires a controlled fetch proxy or platform capability that validates resolved addresses and pins the authorized destination. This limitation must not be presented as solved by string-level URL checks.
+DNS-over-HTTPS preflight closes deterministic DNS-to-private cases, but Cloudflare's Edge `fetch` API does not expose or pin the resolved peer IP. A target can still change DNS answers between preflight and connection. High-assurance deployment for arbitrary domains therefore still requires a controlled fetch proxy or platform capability that validates and pins the destination.
 
 ## Eval boundary
 

@@ -48,6 +48,8 @@ export type AgentRunEvent = EventBase & (
   | { type: "tool.completed"; step: string; meta: AgentToolCallMeta }
   | { type: "tool.failed"; step: string; meta: AgentToolCallMeta; errorCode: string }
   | { type: "validation.failed"; step: string; errors: string[] }
+  | { type: "security.input_quarantined"; step: string; count: number; categories: string[] }
+  | { type: "budget.exhausted"; step: string; reason: string; usage: AgentToolSummary }
   | { type: "step.retried"; step: string; attempt: number; reason: string }
   | { type: "artifact.created"; step: string; name: string; schemaVersion: string }
   | { type: "step.completed"; step: string }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   extractProfileFromAttachmentWithAgentRun,
   extractProfileWithAgentRun,
+  MAX_SOURCE_CHARACTERS,
   ProfileAgentError,
   type AgentAttachment,
   type ProfileAgentSource,
@@ -9,7 +10,7 @@ import {
 import { summarizeAgentRun } from "@/lib/agent-runtime/trace-summary";
 import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
-import { validatePublicUrl } from "@/lib/public-web";
+import { validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfilesWithReport } from "@/lib/profile-merge";
 import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
@@ -21,10 +22,12 @@ import {
   type WebsiteResearchPrefetch,
 } from "@/lib/agents/website/agent";
 import type { ParsedProfile } from "@/lib/types";
+import { privacySafeRequestKey, tryAcquireConcurrencyLease } from "@/lib/agent-runtime/concurrency-limiter";
 
 export const runtime = "edge";
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_JSON_BYTES = 1_000_000;
 const TEXT_EXTENSIONS = new Set([
   "txt", "md", "markdown", "html", "htm", "json", "csv", "tsv", "xml", "yaml", "yml", "rtf", "log",
 ]);
@@ -56,6 +59,7 @@ type WebsiteAgentTask = {
   website: string;
   providerConfig?: AgentProviderOverride;
   prefetch: Promise<{ value?: WebsiteResearchPrefetch; error?: string; errorStatus?: number }>;
+  signal: AbortSignal;
 };
 
 function publicErrorStatus(error: unknown) {
@@ -76,7 +80,7 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-function requestProviderConfig(request: Request): AgentProviderOverride | undefined {
+async function requestProviderConfig(request: Request): Promise<AgentProviderOverride | undefined> {
   const config = readBrowserAgentConfigHeaders(request.headers);
   if (!config) return undefined;
   if (config.maasApiKey.length > 1_024 || config.websiteApiKey.length > 1_024) {
@@ -94,26 +98,40 @@ function requestProviderConfig(request: Request): AgentProviderOverride | undefi
       throw new ProfileAgentError(`${label} 必须是公开的 HTTPS 地址。`, 400);
     }
   };
-  return {
+  const safeConfig = {
     ...config,
     maasBaseUrl: safeBaseUrl(config.maasBaseUrl, "MAAS Base URL"),
     websiteBaseUrl: safeBaseUrl(config.websiteBaseUrl, "Website Agent Base URL"),
   };
+  try {
+    await Promise.all([
+      ...(safeConfig.maasApiKey
+        ? [validatePublicUrlResolution(safeConfig.maasBaseUrl, { signal: request.signal })]
+        : []),
+      ...(safeConfig.websiteApiKey
+        ? [validatePublicUrlResolution(safeConfig.websiteBaseUrl, { signal: request.signal })]
+        : []),
+    ]);
+  } catch {
+    throw new ProfileAgentError("Provider Base URL 的 DNS 地址不是可验证的公开网络。", 400);
+  }
+  return safeConfig;
 }
 
 function startWebsiteAgent(
   website: string,
   providerConfig: AgentProviderOverride | undefined,
   tracer: AgentTracer,
+  signal: AbortSignal,
 ): WebsiteAgentTask {
-  const prefetch = prefetchWebsiteResearchRoot({ rootUrl: website, tracer }).then(
+  const prefetch = prefetchWebsiteResearchRoot({ rootUrl: website, tracer, signal }).then(
     (value) => ({ value }),
     (error) => ({
       error: error instanceof Error ? error.message : "个人网站补充失败。",
       errorStatus: publicErrorStatus(error),
     }),
   );
-  return { website, providerConfig, prefetch };
+  return { website, providerConfig, prefetch, signal };
 }
 
 async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | undefined, tracer: AgentTracer): Promise<WebsiteAgentResult> {
@@ -128,6 +146,7 @@ async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | 
       currentProfile: profile,
       tracer,
       prefetchedRoot: prefetched.value,
+      signal: task.signal,
       submitter: async ({ text, label, sourceId, media }) => (await extractProfileWithAgentRun(text, {
         id: sourceId,
         type: "url",
@@ -139,6 +158,7 @@ async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | 
         providerConfig: task.providerConfig,
         tracer,
         stepPrefix: "website",
+        signal: task.signal,
       })).profile,
     });
     return {
@@ -161,9 +181,12 @@ async function enrichFromWebsite(
   pendingTask?: WebsiteAgentTask,
   providerConfig?: AgentProviderOverride,
   tracer?: AgentTracer,
+  signal?: AbortSignal,
 ) {
   if (!tracer) throw new ProfileAgentError("Agent Trace 未初始化。", 500);
-  const task = pendingTask?.website === website ? pendingTask : startWebsiteAgent(website, providerConfig, tracer);
+  const task = pendingTask?.website === website
+    ? pendingTask
+    : startWebsiteAgent(website, providerConfig, tracer, signal || AbortSignal.timeout(24_000));
   const websiteResult = await runWebsiteAgent(task, profile, tracer);
   if (websiteResult.profile && websiteResult.pageUrl) {
     tracer.emit({ type: "step.started", step: "profile.merge", attempt: 1 });
@@ -204,14 +227,21 @@ async function enrichFromPersonalWebsite(
   pendingTask?: WebsiteAgentTask,
   providerConfig?: AgentProviderOverride,
   tracer?: AgentTracer,
+  signal?: AbortSignal,
 ) {
   const website = profile.personalWebsite;
   if (!website) return { profile, enrichment: { attempted: false, succeeded: false } };
-  return enrichFromWebsite(profile, originalLabel, website, pendingTask, providerConfig, tracer);
+  return enrichFromWebsite(profile, originalLabel, website, pendingTask, providerConfig, tracer, signal);
 }
 
 async function parseJson(request: Request, tracer: AgentTracer, providerConfig?: AgentProviderOverride) {
   const body = await request.json() as ParseJsonBody;
+  if (body.text !== undefined && typeof body.text !== "string") {
+    throw new ProfileAgentError("text 必须是字符串。", 400);
+  }
+  if ((body.text || "").length > MAX_SOURCE_CHARACTERS) {
+    throw new ProfileAgentError(`来源内容过长，当前上限为 ${MAX_SOURCE_CHARACTERS.toLocaleString()} 个字符。`, 413);
+  }
   tracer.emit({ type: "step.started", step: "source.prepare", attempt: 1 });
   const source: ProfileAgentSource = {
     id: body.sourceId,
@@ -230,7 +260,7 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
     if (website) {
       tracer.emit({ type: "artifact.created", step: "source.prepare", name: "website-root.json", schemaVersion: "website-root.v1" });
       tracer.emit({ type: "step.completed", step: "source.prepare" });
-      const result = await runWebsiteAgent(startWebsiteAgent(website, providerConfig, tracer), undefined, tracer);
+      const result = await runWebsiteAgent(startWebsiteAgent(website, providerConfig, tracer, request.signal), undefined, tracer);
       if (!result.profile) throw new ProfileAgentError(result.error || "个人网站研究失败。", result.errorStatus || 502);
       return {
         profile: result.profile,
@@ -252,9 +282,10 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
     providerConfig,
     tracer,
     stepPrefix: source.type === "url" ? "website" : "profile",
+    signal: request.signal,
     ...(shouldFollowWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer);
+        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, request.signal);
       },
     } : {}),
   });
@@ -262,7 +293,7 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
   if (!shouldFollowWebsite) {
     return { profile, enrichment: { attempted: false, succeeded: false } };
   }
-  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask, providerConfig, tracer);
+  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask, providerConfig, tracer, request.signal);
 }
 
 async function parseFile(request: Request, tracer: AgentTracer, providerConfig?: AgentProviderOverride) {
@@ -285,16 +316,17 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
     }
   }
   let websiteTask: WebsiteAgentTask | undefined = explicitWebsite
-    ? startWebsiteAgent(explicitWebsite, providerConfig, tracer)
+    ? startWebsiteAgent(explicitWebsite, providerConfig, tracer, request.signal)
     : undefined;
   const agentOptions = {
     providerScope: "resume" as const,
     providerConfig,
     tracer,
     stepPrefix: "profile" as const,
+    signal: request.signal,
     ...(shouldFollowWebsite && !explicitWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer);
+        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, request.signal);
       },
     } : {}),
   };
@@ -325,11 +357,11 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
     throw new ProfileAgentError("当前支持 PDF、JPG、PNG、GIF、WebP 和常见文本/网页数据文件。", 415);
   }
   if (explicitWebsite) {
-    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig, tracer);
+    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig, tracer, request.signal);
   }
   return !shouldFollowWebsite
     ? { profile, enrichment: { attempted: false, succeeded: false } }
-    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig, tracer);
+    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig, tracer, request.signal);
 }
 
 function requestedRunId(request: Request) {
@@ -338,10 +370,19 @@ function requestedRunId(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type") || "";
+  const declaredBytes = Number(request.headers.get("content-length") || 0);
+  if (!contentType.includes("multipart/form-data") && declaredBytes > MAX_JSON_BYTES) {
+    return NextResponse.json({ error: "请求内容过大。" }, { status: 413 });
+  }
+  const requestKey = await privacySafeRequestKey(request);
+  const releaseLease = tryAcquireConcurrencyLease(`parse:${requestKey}`, 2);
+  if (!releaseLease) {
+    return NextResponse.json({ error: "当前 Agent 任务较多，请稍后重试。" }, { status: 429 });
+  }
   const tracer = createAgentTracer(requestedRunId(request));
   try {
-    const providerConfig = requestProviderConfig(request);
-    const contentType = request.headers.get("content-type") || "";
+    const providerConfig = await requestProviderConfig(request);
     const result = contentType.includes("multipart/form-data")
       ? await parseFile(request, tracer, providerConfig)
       : await parseJson(request, tracer, providerConfig);
@@ -351,7 +392,7 @@ export async function POST(request: Request) {
   } catch (error) {
     tracer.fail(error instanceof ProfileAgentError ? `profile_agent_${error.status}` : "profile_agent_failed");
     const timedOut = error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name);
-    const status = error instanceof ProfileAgentError ? error.status : timedOut ? 504 : 500;
+    const status = error instanceof ProfileAgentError ? error.status : timedOut ? 504 : publicErrorStatus(error) || 500;
     const message = timedOut
       ? "Claude Profile Agent 解析超时，请重试。"
       : error instanceof Error ? error.message : "Agent 解析失败。";
@@ -363,5 +404,7 @@ export async function POST(request: Request) {
       },
       { status },
     );
+  } finally {
+    releaseLease();
   }
 }

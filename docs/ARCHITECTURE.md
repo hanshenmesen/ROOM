@@ -88,6 +88,10 @@ Each Website Research tool call records a unique Tool Call ID, tool name, bounde
 
 The framework-neutral `RoomWorkflowEngine` records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, review interrupts, and checkpoint resume. A node may return a `ProfileMergeReport`; required conflicts move the Run to `waiting_for_review`. Applying review decisions replaces only the Profile Artifact and resumes at the first incomplete node. Public Run snapshots expose Artifact metadata and only the evidence needed for an active review, never the source body or full Artifact body.
 
+Profile model shards share one pre-call budget for model calls, estimated input tokens, reserved output tokens, estimated cost, and wall-clock duration. The same Run also shares a Provider circuit breaker and bounded backoff state. Incoming request cancellation is combined with Provider and webpage timeouts. Budget exhaustion is a redacted Trace event and cannot silently start another fallback call.
+
+Untrusted source-authored instructions are quarantined before parsing and LLM submission while preserving source line numbers. Public-web requests validate URL syntax, every redirect, and resolved A/AAAA addresses. Companion citations are verified against actual Profile Item evidence, and Companion context is a public-field allowlist. See [Agent security](./AGENT_SECURITY.md).
+
 The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.json` has no D1 or R2 binding. It survives requests and browser refreshes handled by the same process or Worker isolate, but not process restarts, isolate replacement, or deployment. The D1 tables and migration are present as the durable metadata contract; enabling durable recovery still requires a D1/R2 store adapter, private object retention/deletion, and run ownership checks. See [Workflow state](./WORKFLOW_STATE.md).
 
 ## Decision records
@@ -95,3 +99,4 @@ The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.j
 - [ADR 0001: Hybrid Agent boundary](./adr/0001-hybrid-agent-boundary.md)
 - [ADR 0002: Agent run persistence](./adr/0002-agent-run-persistence.md)
 - [ADR 0003: Agent framework decision](./adr/0003-agent-framework-decision.md)
+- [Agent security, reliability, and cost boundary](./AGENT_SECURITY.md)
