@@ -1,40 +1,28 @@
-import { referenceCatalog, roomFirstReferenceIds } from "../rag/reference-catalog.ts";
-import type { CreativeBrief, ParsedProfile, RetrievedReference } from "../types.ts";
+import { retrieveCreativeReferences } from "../rag/creative-retrieval.ts";
+import type { CreativeBrief, ParsedProfile } from "../types.ts";
 
 const roomKeywords = ["room", "房间", "空间", "project", "项目", "gallery", "interactive"];
 
-function tokens(value: string) {
-  return value
-    .toLowerCase()
-    .split(/[^a-z0-9\u4e00-\u9fff]+/)
-    .filter((token) => token.length > 1);
-}
-
 export function directWorld(profile: ParsedProfile): CreativeBrief {
-  const query = new Set(
-    tokens(
-      [profile.headline, profile.summary, profile.skills.join(" "), roomKeywords.join(" ")].join(" "),
-    ),
-  );
-  const references: RetrievedReference[] = referenceCatalog
-    .map((reference) => {
-      const overlap = [...tokens(`${reference.tags.join(" ")} ${reference.patterns.join(" ")}`)].filter(
-        (token) => query.has(token),
-      ).length;
-      const roomBoost = roomFirstReferenceIds.includes(reference.id) ? 5 : 0;
-      const licenseBoost = reference.reuse === "approved" ? 3 : 0;
-      const score = reference.similarity * 4 + roomBoost + licenseBoost + overlap;
-      return {
-        referenceId: reference.id,
-        name: reference.name,
-        score,
-        reason: `${reference.category === "room" ? "房间叙事匹配" : "交互模式补充"} · ${reference.license}`,
-        patterns: reference.patterns.slice(0, 2),
-        reuse: reference.reuse,
-      };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+  const itemText = profile.items.slice(0, 30).flatMap((item) => [
+    item.title,
+    item.summary,
+    item.tags.join(" "),
+    (item.techStack || []).join(" "),
+  ]).join(" ");
+  const { references } = retrieveCreativeReferences({
+    text: [
+      profile.headline,
+      profile.summary,
+      profile.skills.join(" "),
+      (profile.hobbies || []).join(" "),
+      itemText,
+      roomKeywords.join(" "),
+    ].join(" "),
+    purpose: "implementation",
+    categories: ["room", "world", "template"],
+    limit: 5,
+  });
 
   return {
     id: `brief-${profile.id}`,

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "creative-retrieval-dataset.v1",
+  "id": "creative-retrieval-v1",
+  "reviewStatus": "prelabeled",
+  "topK": 3,
+  "thresholds": {
+    "recallAtK": 0.95,
+    "precisionAtK": 0.5,
+    "ndcg": 0.95,
+    "licenseViolationRate": 0,
+    "creativeBriefCitationRate": 1
+  },
+  "cases": [
+    {
+      "id": "low-poly-room",
+      "query": "low-poly room hover click blender overview",
+      "purpose": "implementation",
+      "categories": ["room"],
+      "relevant": [{ "referenceId": "maxime-morel", "relevance": 3 }]
+    },
+    {
+      "id": "guided-personal-room",
+      "query": "guided hotspots music day night readable modal personality",
+      "purpose": "implementation",
+      "categories": ["room"],
+      "relevant": [{ "referenceId": "sooah-room-folio", "relevance": 3 }]
+    },
+    {
+      "id": "world-onboarding-recovery",
+      "query": "world vehicle physics onboarding recovery quality modes",
+      "purpose": "implementation",
+      "categories": ["world"],
+      "relevant": [{ "referenceId": "bruno-simon", "relevance": 3 }]
+    },
+    {
+      "id": "accessible-react-fallback",
+      "query": "react accessibility fallback lazy load sections contact",
+      "purpose": "implementation",
+      "categories": ["template"],
+      "relevant": [{ "referenceId": "react18-portfolio", "relevance": 3 }]
+    },
+    {
+      "id": "computer-gallery-room",
+      "query": "room computer gallery games css3d baked lighting",
+      "purpose": "implementation",
+      "categories": ["room"],
+      "relevant": [{ "referenceId": "joan-ramos", "relevance": 3 }]
+    },
+    {
+      "id": "bilingual-low-poly-room",
+      "query": "低多边形房间，项目支持悬停与点击，单一总览镜头",
+      "purpose": "implementation",
+      "categories": ["room"],
+      "relevant": [{ "referenceId": "maxime-morel", "relevance": 3 }]
+    },
+    {
+      "id": "bilingual-world-recovery",
+      "query": "游戏世界，需要物理导航、引导教学、性能质量模式和恢复操作",
+      "purpose": "implementation",
+      "categories": ["world"],
+      "relevant": [{ "referenceId": "bruno-simon", "relevance": 3 }]
+    },
+    {
+      "id": "cyberpunk-visual-inspiration",
+      "query": "cyberpunk neon narrative shop",
+      "purpose": "inspiration",
+      "categories": ["visual"],
+      "relevant": [{ "referenceId": "jesses-ramen", "relevance": 3 }]
+    },
+    {
+      "id": "space-career-inspiration",
+      "query": "space game career missions map progress",
+      "purpose": "inspiration",
+      "categories": ["visual"],
+      "relevant": [{ "referenceId": "thibault-gamefolio", "relevance": 3 }]
+    },
+    {
+      "id": "quarantined-retro-implementation",
+      "query": "retro computer operating system navigation hub",
+      "purpose": "implementation",
+      "categories": ["retro"],
+      "relevant": [],
+      "forbiddenReferenceIds": ["henry-heffernan"]
+    }
+  ]
+}

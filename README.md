@@ -164,7 +164,7 @@ components/        3D world and product workbench
 tests/             Pipeline and rendered output checks
 ```
 
-Refresh the compact reference corpus with `npm run rag:sync`. Only repositories explicitly classified for reuse may contribute implementation patterns; research-only and visual-only references remain quarantined.
+Refresh the compact reference corpus with `npm run rag:sync`. Only repositories explicitly classified for reuse may contribute implementation patterns; research-only and visual-only references remain quarantined. Run `npm run eval:creative` for Recall@K, Precision@K, nDCG, license-violation, and Creative Brief citation metrics. The 13-entry catalog intentionally stays lexical; vector retrieval is gated on at least 200 curated references plus a measured Recall regression.
 
 ## Status
 

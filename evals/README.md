@@ -9,7 +9,7 @@ This directory contains the Ground-truth Eval contract introduced in Phase 2. It
 - Two cases are `human-verified`; the remaining three are still `prelabeled`.
 - The twenty-five generated breadth and adversarial cases are `prelabeled` and do not count as human-reviewed accuracy data.
 - The long-form Markdown case intentionally exposes deterministic parser fragmentation, missing structured fields, and lost section boundaries, including achievements misclassified under education.
-- The baseline also records a safety failure when an untrusted Prompt Injection sentence is treated as factual profile content.
+- The committed Phase 2 baseline records the historical Prompt Injection failure; Phase 6 quarantine tests and current generated Eval runs verify that the same cases now pass.
 - The Phase 2 acceptance target remains 30 human-verified cases, then 50.
 
 ## Commands
@@ -19,6 +19,7 @@ Run the network-free harness and write JSON and Markdown reports under ignored `
 ```bash
 npm run eval:profile -- --dataset smoke
 npm run eval:full
+npm run eval:creative
 ```
 
 Verify that the generated full-dataset fixtures have not drifted, or deliberately regenerate them:
@@ -60,6 +61,7 @@ npm run eval:compare -- \
 - `sources/` contains only public, fictional, or explicitly approved source material.
 - `datasets/` declares case membership, optional dataset composition, runner, and thresholds.
 - `schemas/` documents the case wire contract.
+- `creative-retrieval-cases.json` uses `creative-retrieval-dataset.v1` for reference-ranking and License Guard regression.
 - `reports/` stores reviewed baselines, never raw private résumés or credentials.
 
 Expected fields are scored only when they are present in Gold. Item matching is deterministic, one-to-one, kind-aware, and title-based. Evidence Accuracy requires both the excerpt and its line locator to resolve to the source. LLM-as-a-Judge is not used by the offline suites. Included datasets retain their original case ownership and review status.

@@ -13,7 +13,7 @@ test("the offline Agent baseline is current, deterministic, and credential-free"
   });
   const result = JSON.parse(output) as { status: string; coreSha256: string };
   assert.equal(result.status, "pass");
-  assert.equal(result.coreSha256, "71873d47cd8b9c74ad1c7329025968d5692f67d2b9215437f8a9362a926d1d24");
+  assert.equal(result.coreSha256, "75f1b708924563c84615c7ab49f0f0c8bfeefd4b082ea91f0ed37d2fbf43aa1c");
 
   const snapshot = readFileSync(snapshotUrl, "utf8");
   assert.doesNotMatch(snapshot, /\bBearer\s+[A-Za-z0-9._~+/=-]+/i);

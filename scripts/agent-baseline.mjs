@@ -7,9 +7,10 @@ import { redactTraceValue } from "../lib/agent-runtime/redaction.ts";
 import { runPipeline } from "../lib/agents/pipeline.ts";
 import { sampleResume } from "../lib/data/sample-resume.ts";
 
-const REFERENCE_REVISION = "5c3acfc";
-const CANDIDATE_REVISION = "f79b9c2";
-const EXPECTED_CORE_SHA256 = "71873d47cd8b9c74ad1c7329025968d5692f67d2b9215437f8a9362a926d1d24";
+const BASELINE_LABEL = "phase-7-creative-retrieval";
+const HISTORICAL_REFERENCE_REVISION = "5c3acfc";
+const HISTORICAL_PHASE1_CANDIDATE_REVISION = "f79b9c2";
+const EXPECTED_CORE_SHA256 = "75f1b708924563c84615c7ab49f0f0c8bfeefd4b082ea91f0ed37d2fbf43aa1c";
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const snapshotPath = resolve(scriptDirectory, "../docs/baselines/agent-pipeline-v1.json");
 
@@ -54,8 +55,9 @@ function buildSnapshot() {
       text: sampleResume,
     },
     comparison: {
-      referenceRevision: REFERENCE_REVISION,
-      candidateRevision: CANDIDATE_REVISION,
+      baselineLabel: BASELINE_LABEL,
+      historicalReferenceRevision: HISTORICAL_REFERENCE_REVISION,
+      historicalPhase1CandidateRevision: HISTORICAL_PHASE1_CANDIDATE_REVISION,
       coreSha256,
       profileItems: result.profile.items.length,
       rooms: result.world.rooms.length,
@@ -103,8 +105,7 @@ if (process.argv.includes("--write")) {
   console.log(JSON.stringify({
     status: "pass",
     snapshot: snapshotPath,
-    referenceRevision: snapshot.comparison.referenceRevision,
-    candidateRevision: snapshot.comparison.candidateRevision,
+    baselineLabel: snapshot.comparison.baselineLabel,
     coreSha256: snapshot.comparison.coreSha256,
   }, null, 2));
 }

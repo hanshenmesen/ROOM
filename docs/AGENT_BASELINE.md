@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This baseline fixes ROOM's public Pipeline behavior before Agent Eval and recoverable workflow work. It proves that the Phase 1 observability refactor did not change the deterministic Profile, Creative Brief, World, or Check Report artifacts.
+This baseline fixes ROOM's current public Pipeline behavior and preserves the historical Phase 0/1 comparison. Phase 7 intentionally changes only Creative Brief reference selection by replacing a soft license boost with a hard License Guard and an evaluated lexical ranker.
 
 ## Revisions and environment
 
@@ -10,6 +10,7 @@ This baseline fixes ROOM's public Pipeline behavior before Agent Eval and recove
 | --- | --- |
 | Reference revision | `5c3acfc` |
 | Phase 1 candidate | `f79b9c2` |
+| Current baseline label | `phase-7-creative-retrieval` |
 | Baseline date | 2026-08-05 |
 | Node used for capture | `v24.16.0` |
 | npm used for capture | `11.13.0` |
@@ -28,7 +29,9 @@ The core JSON was serialized in this order: Profile, Creative Brief, World, Chec
 | `5c3acfc` | `71873d47cd8b9c74ad1c7329025968d5692f67d2b9215437f8a9362a926d1d24` | 13 | 2 | 25 | 100 |
 | `f79b9c2` | `71873d47cd8b9c74ad1c7329025968d5692f67d2b9215437f8a9362a926d1d24` | 13 | 2 | 25 | 100 |
 
-The identical digest confirms that the Phase 1 refactor preserved the four public core artifacts. Trace is intentionally compared separately because Phase 1 replaced a static summary with real events.
+The identical historical digest confirms that the Phase 1 refactor preserved the four public core artifacts. Trace is intentionally compared separately because Phase 1 replaced a static summary with real events.
+
+Phase 7 records a reviewed new core digest, `75f1b708924563c84615c7ab49f0f0c8bfeefd4b082ea91f0ed37d2fbf43aa1c`. Profile, world geometry, exhibit count, and Check Report remain unchanged; the Creative Brief now excludes the quarantined `andrii-babintsev` implementation reference, adds the approved `react18-portfolio`, and records deterministic lexical-match reasons. This is an intentional policy correction rather than an unnoticed regression.
 
 ## Reproduction
 

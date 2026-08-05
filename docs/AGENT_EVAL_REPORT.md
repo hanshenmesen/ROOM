@@ -26,7 +26,7 @@ Phase 2 infrastructure now has a thirty-case offline breadth suite, but it is no
 | Unsupported Claim Rate | 0.0% |
 | End-to-end Success | 100.0% |
 
-The suite remains **FAIL** by design. It reproduces long-Markdown fragmentation, missing achievement items, bilingual section loss, Talk/Exhibition kind mismatches, and three Prompt Injection failures. These failures are baseline defects, not claims about the LLM Profile Agent.
+The suite remains **FAIL** by design. It reproduces long-Markdown fragmentation, missing achievement items, bilingual section loss, and Talk/Exhibition kind mismatches. The three historical Prompt Injection failures were removed by the Phase 6 deterministic quarantine boundary and now pass; the committed Phase 2 reports remain the pre-fix comparison baseline. These failures are deterministic parser defects, not claims about the LLM Profile Agent.
 
 ## Interpretation
 
@@ -46,3 +46,9 @@ Machine-readable sources of truth: [`evals/reports/smoke-baseline.json`](../eval
 Phase 4 adds an offline comparison contract for single-page and bounded multi-page website extraction. It reports expected-title Recall, Recall delta, visited pages, downloaded bytes, Tool calls, Tool latency, model calls, and Provider token usage when supplied. The fixture proves that a root page with no projects can discover supported project and publication pages while external, local-network, and private links do not enter the plan.
 
 This is a capability test, not a production benchmark. It uses a fictional in-memory website graph and an injected deterministic submitter, so it does not claim real-model website accuracy or real-network latency. A publishable comparison still requires reviewed multi-page websites and an explicitly authorized Provider experiment.
+
+## Creative Retrieval Eval
+
+Phase 7 adds a 10-case, network-free Creative Retrieval dataset covering English and Chinese lexical matching, metadata categories, visual-inspiration policy, and quarantined implementation references. The current 13-entry catalog reaches Recall@3 100%, Precision@3 60%, nDCG 100%, license violations 0%, and Creative Brief citation integrity 100%.
+
+These labels are prelabeled, and citation integrity proves catalog provenance rather than causal design quality. The report therefore supports regression and licensing decisions, not a claim that users prefer the selected aesthetic. Because the catalog is below 200 entries and lexical Recall is above threshold, the evaluated decision is not to introduce embeddings or a vector database. Machine-readable source: [`evals/reports/creative-retrieval-v1.json`](../evals/reports/creative-retrieval-v1.json).

@@ -18,6 +18,7 @@
     "eval:full": "node scripts/profile-eval.mjs --dataset full",
     "eval:compare": "node scripts/profile-eval-compare.mjs",
     "eval:experiment": "node scripts/profile-eval-experiment.mjs",
+    "eval:creative": "node scripts/creative-retrieval-eval.mjs",
     "eval:fixtures": "node scripts/generate-profile-eval-fixtures.mjs",
     "eval:fixtures:update": "node scripts/generate-profile-eval-fixtures.mjs --write",
     "rag:sync": "node scripts/sync-reference-rag.mjs",

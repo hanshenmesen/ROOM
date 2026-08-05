@@ -59,7 +59,7 @@ Portrait art generation and companion Q&A call models, but they are not pipeline
 - **Source preparation:** upload limits, URL safety, PDF pre-parsing, media extraction, and source labeling.
 - **Profile validation and merge:** evidence-backed Claims, schema checks, deduplication, explicit source decisions, conflict detection, and user-confirmed locks. String length is not a confidence proxy.
 - **Human Review:** exposes both candidate values and their source excerpts for high-risk conflicts. User decisions are recorded as `extractionMethod: "user"` / `origin: "user-confirmed"` and cannot be overwritten by a later Agent merge.
-- **Creative Retrieval:** keyword and metadata ranking over a license-aware reference catalog. This is not currently semantic RAG or an LLM Agent.
+- **Creative Retrieval:** bilingual lexical recall, metadata filtering, weighted reranking, and a purpose-specific License Guard over a curated reference catalog. This is not currently semantic RAG or an LLM Agent; vector retrieval is gated on catalog scale and measured Recall. See [Creative Retrieval](./CREATIVE_RETRIEVAL.md).
 - **World Orchestrator:** maps validated profile content and a creative brief into stable rooms, exhibits, surfaces, and interactions.
 - **World Checker:** detects content omissions, overlap, dead interactions, navigation issues, and performance-budget violations.
 - **Room runtime:** Three.js rendering, loading, collision, navigation, focus transitions, accessible presentation, and local customization.
@@ -100,3 +100,4 @@ The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.j
 - [ADR 0002: Agent run persistence](./adr/0002-agent-run-persistence.md)
 - [ADR 0003: Agent framework decision](./adr/0003-agent-framework-decision.md)
 - [Agent security, reliability, and cost boundary](./AGENT_SECURITY.md)
+- [ADR 0004: Creative Retrieval vector gate](./adr/0004-creative-retrieval-vector-gate.md)
