@@ -1,0 +1,5 @@
+Mei Lin
+Frontend Developer
+
+Skills
+React, TypeScript

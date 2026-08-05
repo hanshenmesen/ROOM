@@ -14,6 +14,8 @@
     "asset:optimize": "node scripts/optimize-mardou-asset.mjs public/vendor/mardou/MardouMuseumResult.glb",
     "baseline:agent": "node scripts/agent-baseline.mjs",
     "baseline:agent:update": "node scripts/agent-baseline.mjs --write",
+    "eval:profile": "node scripts/profile-eval.mjs",
+    "eval:compare": "node scripts/profile-eval-compare.mjs",
     "rag:sync": "node scripts/sync-reference-rag.mjs",
     "eval:parser": "node scripts/evaluate-profile-models.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",

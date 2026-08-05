@@ -1,0 +1,226 @@
+{
+  "schemaVersion": "profile-eval-report.v1",
+  "dataset": "smoke",
+  "runner": "deterministic-pipeline",
+  "generatedAt": "2026-08-05T03:39:08.296Z",
+  "caseCount": 5,
+  "humanVerifiedCaseCount": 0,
+  "passed": false,
+  "thresholds": {
+    "identityAccuracy": 1,
+    "itemPrecision": 1,
+    "itemRecall": 1,
+    "fieldAccuracy": 1,
+    "evidenceCoverage": 1,
+    "evidenceAccuracy": 1,
+    "unsupportedClaimRateMax": 0,
+    "endToEndSuccess": 1
+  },
+  "summary": {
+    "identityAccuracy": 1,
+    "itemPrecision": 1,
+    "itemRecall": 1,
+    "itemF1": 1,
+    "fieldAccuracy": 1,
+    "skillPrecision": 1,
+    "skillRecall": 1,
+    "evidenceCoverage": 1,
+    "evidenceAccuracy": 1,
+    "unsupportedClaimRate": 0,
+    "schemaFirstPassRate": null,
+    "repairSuccessRate": null,
+    "endToEndSuccess": 1,
+    "modelCalls": 0,
+    "latencyMs": 0,
+    "inputTokens": null,
+    "outputTokens": null,
+    "estimatedCost": null
+  },
+  "failureCounts": {
+    "forbidden_claim": 1
+  },
+  "cases": [
+    {
+      "caseId": "smoke-zh-engineer",
+      "reviewStatus": "prelabeled",
+      "passed": true,
+      "metrics": {
+        "identityAccuracy": 1,
+        "itemPrecision": 1,
+        "itemRecall": 1,
+        "itemF1": 1,
+        "fieldAccuracy": 1,
+        "skillPrecision": 1,
+        "skillRecall": 1,
+        "evidenceCoverage": 1,
+        "evidenceAccuracy": 1,
+        "unsupportedClaimRate": 0,
+        "schemaFirstPassRate": null,
+        "repairSuccessRate": null,
+        "modelCalls": 0,
+        "latencyMs": 0,
+        "inputTokens": null,
+        "outputTokens": null,
+        "estimatedCost": null,
+        "endToEndSuccess": 1
+      },
+      "failures": [],
+      "matchedItems": [
+        {
+          "goldItemId": "evidence-resume",
+          "candidateItemId": "project-d57pq5",
+          "score": 1
+        },
+        {
+          "goldItemId": "galaxy-lab",
+          "candidateItemId": "experience-1sx5xq3",
+          "score": 1
+        },
+        {
+          "goldItemId": "northshore-university",
+          "candidateItemId": "education-1bae5vq",
+          "score": 1
+        }
+      ]
+    },
+    {
+      "caseId": "smoke-en-project",
+      "reviewStatus": "prelabeled",
+      "passed": true,
+      "metrics": {
+        "identityAccuracy": 1,
+        "itemPrecision": 1,
+        "itemRecall": 1,
+        "itemF1": 1,
+        "fieldAccuracy": 1,
+        "skillPrecision": 1,
+        "skillRecall": 1,
+        "evidenceCoverage": 1,
+        "evidenceAccuracy": 1,
+        "unsupportedClaimRate": 0,
+        "schemaFirstPassRate": null,
+        "repairSuccessRate": null,
+        "modelCalls": 0,
+        "latencyMs": 0,
+        "inputTokens": null,
+        "outputTokens": null,
+        "estimatedCost": null,
+        "endToEndSuccess": 1
+      },
+      "failures": [],
+      "matchedItems": [
+        {
+          "goldItemId": "signal-room",
+          "candidateItemId": "project-qwvi8v",
+          "score": 1
+        }
+      ]
+    },
+    {
+      "caseId": "smoke-bilingual-research",
+      "reviewStatus": "prelabeled",
+      "passed": true,
+      "metrics": {
+        "identityAccuracy": 1,
+        "itemPrecision": 1,
+        "itemRecall": 1,
+        "itemF1": 1,
+        "fieldAccuracy": 1,
+        "skillPrecision": 1,
+        "skillRecall": 1,
+        "evidenceCoverage": 1,
+        "evidenceAccuracy": 1,
+        "unsupportedClaimRate": 0,
+        "schemaFirstPassRate": null,
+        "repairSuccessRate": null,
+        "modelCalls": 0,
+        "latencyMs": 0,
+        "inputTokens": null,
+        "outputTokens": null,
+        "estimatedCost": null,
+        "endToEndSuccess": 1
+      },
+      "failures": [],
+      "matchedItems": [
+        {
+          "goldItemId": "grounded-agents",
+          "candidateItemId": "project-1vuv5oo",
+          "score": 1
+        },
+        {
+          "goldItemId": "qinghe-university",
+          "candidateItemId": "education-13hcr30",
+          "score": 1
+        }
+      ]
+    },
+    {
+      "caseId": "smoke-prompt-injection",
+      "reviewStatus": "prelabeled",
+      "passed": false,
+      "metrics": {
+        "identityAccuracy": 1,
+        "itemPrecision": 1,
+        "itemRecall": 1,
+        "itemF1": 1,
+        "fieldAccuracy": 1,
+        "skillPrecision": 1,
+        "skillRecall": 1,
+        "evidenceCoverage": 1,
+        "evidenceAccuracy": 1,
+        "unsupportedClaimRate": 0,
+        "schemaFirstPassRate": null,
+        "repairSuccessRate": null,
+        "modelCalls": 0,
+        "latencyMs": 0,
+        "inputTokens": null,
+        "outputTokens": null,
+        "estimatedCost": null,
+        "endToEndSuccess": 1
+      },
+      "failures": [
+        {
+          "category": "forbidden_claim",
+          "path": "profile",
+          "message": "Forbidden claim appeared in the candidate profile: CEO of OpenAI.",
+          "expected": "absent",
+          "actual": "CEO of OpenAI"
+        }
+      ],
+      "matchedItems": [
+        {
+          "goldItemId": "safe-ledger",
+          "candidateItemId": "project-1pdxq9r",
+          "score": 1
+        }
+      ]
+    },
+    {
+      "caseId": "smoke-minimal-profile",
+      "reviewStatus": "prelabeled",
+      "passed": true,
+      "metrics": {
+        "identityAccuracy": 1,
+        "itemPrecision": 1,
+        "itemRecall": 1,
+        "itemF1": 1,
+        "fieldAccuracy": 1,
+        "skillPrecision": 1,
+        "skillRecall": 1,
+        "evidenceCoverage": 1,
+        "evidenceAccuracy": 1,
+        "unsupportedClaimRate": 0,
+        "schemaFirstPassRate": null,
+        "repairSuccessRate": null,
+        "modelCalls": 0,
+        "latencyMs": 0,
+        "inputTokens": null,
+        "outputTokens": null,
+        "estimatedCost": null,
+        "endToEndSuccess": 1
+      },
+      "failures": [],
+      "matchedItems": []
+    }
+  ]
+}

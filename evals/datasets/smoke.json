@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "profile-eval-dataset.v1",
+  "id": "smoke",
+  "description": "Offline fictional cases that verify the deterministic Eval harness without model or network access.",
+  "runner": "deterministic-pipeline",
+  "cases": [
+    "smoke-zh-engineer",
+    "smoke-en-project",
+    "smoke-bilingual-research",
+    "smoke-prompt-injection",
+    "smoke-minimal-profile"
+  ],
+  "thresholds": {
+    "identityAccuracy": 1,
+    "itemPrecision": 1,
+    "itemRecall": 1,
+    "fieldAccuracy": 1,
+    "evidenceCoverage": 1,
+    "evidenceAccuracy": 1,
+    "unsupportedClaimRateMax": 0,
+    "endToEndSuccess": 1
+  }
+}

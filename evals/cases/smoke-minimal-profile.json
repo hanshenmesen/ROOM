@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "smoke-minimal-profile",
+  "dataset": "smoke",
+  "reviewStatus": "prelabeled",
+  "tags": ["en", "missing-fields", "minimal"],
+  "source": {
+    "type": "text",
+    "path": "../sources/smoke-minimal-profile.txt",
+    "label": "Fictional minimal résumé"
+  },
+  "expected": {
+    "identity": {
+      "name": "Mei Lin",
+      "headline": "Frontend Developer"
+    },
+    "items": [],
+    "skills": ["React", "TypeScript"],
+    "forbiddenClaims": []
+  }
+}

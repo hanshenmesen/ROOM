@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "smoke-en-project",
+  "dataset": "smoke",
+  "reviewStatus": "prelabeled",
+  "tags": ["en", "project", "structured-fields"],
+  "source": {
+    "type": "text",
+    "path": "../sources/smoke-en-project.txt",
+    "label": "Fictional English project résumé"
+  },
+  "expected": {
+    "identity": {
+      "name": "Jordan Rivera",
+      "headline": "Creative Technologist"
+    },
+    "items": [
+      {
+        "id": "signal-room",
+        "kind": "project",
+        "canonicalTitle": "Signal Room",
+        "timeRange": "2024-01 - 2024-06",
+        "role": "Lead developer",
+        "techStack": ["Three.js", "TypeScript", "Web Audio"],
+        "projectUrl": "https://example.com/signal-room",
+        "expectedEvidence": ["turns environmental signals into a navigable archive"]
+      }
+    ],
+    "skills": ["Three.js", "TypeScript", "Web Audio"],
+    "forbiddenClaims": []
+  }
+}

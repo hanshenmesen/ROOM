@@ -1,0 +1,25 @@
+林遥
+AI 应用工程师
+
+简介
+专注于可追溯的智能应用与开发者工具。
+
+项目
+证据简历助手 — 2025-03 - 2025-07
+- Role: 核心开发者
+- Tech Stack: TypeScript, Claude API
+- Link: https://example.com/evidence-resume
+- 为每个提取字段保存原文证据并检测无来源陈述。
+
+经历
+星河实验室 AI 工程实习生 | 2024-06 - 2024-12
+- 构建结构化信息抽取和自动评测流水线。
+
+教育
+北岸大学 计算机科学学士 | 2021 - 2025
+
+技能
+TypeScript, Agent Evaluation, Information Extraction
+
+联系
+linyao@example.com

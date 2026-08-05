@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "smoke-zh-engineer",
+  "dataset": "smoke",
+  "reviewStatus": "prelabeled",
+  "tags": ["zh", "engineer", "structured-fields"],
+  "source": {
+    "type": "text",
+    "path": "../sources/smoke-zh-engineer.txt",
+    "label": "Fictional Chinese engineering résumé"
+  },
+  "expected": {
+    "identity": {
+      "name": "林遥",
+      "headline": "AI 应用工程师"
+    },
+    "items": [
+      {
+        "id": "evidence-resume",
+        "kind": "project",
+        "canonicalTitle": "证据简历助手",
+        "timeRange": "2025-03 - 2025-07",
+        "role": "核心开发者",
+        "techStack": ["TypeScript", "Claude API"],
+        "projectUrl": "https://example.com/evidence-resume",
+        "expectedEvidence": ["为每个提取字段保存原文证据"]
+      },
+      {
+        "id": "galaxy-lab",
+        "kind": "experience",
+        "canonicalTitle": "星河实验室 AI 工程实习生",
+        "expectedEvidence": ["构建结构化信息抽取和自动评测流水线"]
+      },
+      {
+        "id": "northshore-university",
+        "kind": "education",
+        "canonicalTitle": "北岸大学 计算机科学学士"
+      }
+    ],
+    "skills": ["TypeScript", "Agent Evaluation", "Information Extraction"],
+    "forbiddenClaims": []
+  }
+}

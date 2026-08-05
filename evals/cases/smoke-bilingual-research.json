@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "smoke-bilingual-research",
+  "dataset": "smoke",
+  "reviewStatus": "prelabeled",
+  "tags": ["zh-en", "research", "publication"],
+  "source": {
+    "type": "text",
+    "path": "../sources/smoke-bilingual-research.txt",
+    "label": "Fictional bilingual research résumé"
+  },
+  "expected": {
+    "identity": {
+      "name": "陈宇 Chen Yu",
+      "headline": "Machine Learning Researcher"
+    },
+    "items": [
+      {
+        "id": "grounded-agents",
+        "kind": "project",
+        "contentFamily": "publication",
+        "canonicalTitle": "Grounded Agents",
+        "expectedEvidence": ["citation verifier for multi-step research agents"]
+      },
+      {
+        "id": "qinghe-university",
+        "kind": "education",
+        "canonicalTitle": "清河大学 计算机科学博士"
+      }
+    ],
+    "skills": ["Python", "PyTorch", "Agent Evaluation"],
+    "forbiddenClaims": []
+  }
+}
