@@ -1,0 +1,2684 @@
+{
+  "formatVersion": 1,
+  "source": {
+    "id": "fictional-sample-resume.v1",
+    "classification": "public-fictional",
+    "sha256": "3785f682f08414d520002f3eb4f747f23ecbc2f7af905a61b52913ca78e7f988",
+    "text": "林澈（虚构人物）\nCreative Technologist / AI Experience Designer\n\n简介\n以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。\n\n项目\nEcho Atlas — AI 记忆观测站 | 2026 · 创意总监 / 产品负责人\n- 将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。\n- 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。\n- 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。\n\nROOM — Agent 驱动的 3D 个人世界 | 2026 · 发起人 / 系统设计\n- 设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。\n- 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。\n- 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。\n\nMuseum of Small Models — 浏览器 AI 实验博物馆 | 2025 · 策展人 / 创意开发\n- 策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。\n- 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。\n- 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。\n\nField Notes FM — 城市声音档案 | 2024 · 产品设计 / 前端开发\n- 与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。\n- 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。\n- 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。\n\n经历\nIndependent Studio 创意技术负责人 | 2024—现在\n- 为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。\n\nCommon Ground Lab 产品设计负责人 | 2021—2024\n- 带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。\n\nStudio Parallel 交互设计师 | 2018—2021\n- 参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。\n\n教育\n河岸设计学院（虚构） 信息体验设计硕士 | 2018\n- 研究方向为信息可视化、交互叙事与数字公共空间。\n\n北港艺术与技术学院（虚构） 交换研究 | 2017\n- 完成 Creative Computing 与 Physical Interaction 联合工作室课程。\n\n技能\nCreative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design\n\n成就\nDigital Futures 2025 — Official Selection\nAI Interaction Challenge 2025 — Best Prototype\n四项开源项目累计获得 8,600+ GitHub Stars\n\n联系\nhello@linche.example\nhttps://linche.example"
+  },
+  "comparison": {
+    "referenceRevision": "5c3acfc",
+    "candidateRevision": "f79b9c2",
+    "coreSha256": "71873d47cd8b9c74ad1c7329025968d5692f67d2b9215437f8a9362a926d1d24",
+    "profileItems": 13,
+    "rooms": 2,
+    "exhibits": 25,
+    "checkScore": 100
+  },
+  "artifacts": {
+    "profile": {
+      "artifactType": "profile",
+      "schemaVersion": "profile.v1",
+      "data": {
+        "id": "profile-4klix8",
+        "name": "林澈（虚构人物）",
+        "headline": "Creative Technologist / AI Experience Designer",
+        "summary": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。",
+        "contacts": [
+          "Email: hello@linche.example",
+          "Other: https://linche.example"
+        ],
+        "identityEvidence": {
+          "name": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:1",
+              "excerpt": "林澈（虚构人物）"
+            }
+          ],
+          "headline": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:2",
+              "excerpt": "Creative Technologist / AI Experience Designer"
+            }
+          ],
+          "summary": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:5",
+              "excerpt": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。"
+            }
+          ]
+        },
+        "contactEvidence": {
+          "Email: hello@linche.example": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "lines:54",
+              "excerpt": "hello@linche.example"
+            }
+          ],
+          "Other: https://linche.example": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "lines:55",
+              "excerpt": "https://linche.example"
+            }
+          ]
+        },
+        "media": [],
+        "foods": [],
+        "foodEvidence": {},
+        "hobbies": [],
+        "hobbyEvidence": {},
+        "skills": [
+          "Creative Direction",
+          "Agent Systems",
+          "Product Strategy",
+          "Three.js",
+          "React",
+          "TypeScript",
+          "RAG",
+          "WebGL",
+          "Blender",
+          "Spatial Audio",
+          "Prototyping",
+          "Interaction Design"
+        ],
+        "skillEvidence": {
+          "Creative Direction": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Agent Systems": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Product Strategy": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Three.js": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "React": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "TypeScript": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "RAG": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "WebGL": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Blender": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Spatial Audio": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Prototyping": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ],
+          "Interaction Design": [
+            {
+              "sourceId": "source-1wbskqa",
+              "locator": "line:46",
+              "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+            }
+          ]
+        },
+        "items": [
+          {
+            "id": "summary-upwsnz",
+            "kind": "summary",
+            "title": "About",
+            "summary": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。",
+            "bullets": [],
+            "tags": [],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:5",
+                "excerpt": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。"
+              }
+            ]
+          },
+          {
+            "id": "project-1gbbnpi",
+            "kind": "project",
+            "title": "Echo Atlas",
+            "subtitle": "AI 记忆观测站 · 2026 · 创意总监 / 产品负责人",
+            "summary": "将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。",
+            "bullets": [
+              "将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。",
+              "设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。",
+              "在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。"
+            ],
+            "tags": [
+              "访客通过旋转星图",
+              "证据核查",
+              "叙事编排和隐私检查四段式 Agent 系统",
+              "000 名访客",
+              "平均探索时长 7 分 42 秒",
+              "并获得 94% 的内容可追溯率。"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:8-11",
+                "excerpt": "Echo Atlas — AI 记忆观测站 | 2026 · 创意总监 / 产品负责人 - 将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。 - 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。 - 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。"
+              }
+            ]
+          },
+          {
+            "id": "project-ja6vyk",
+            "kind": "project",
+            "title": "ROOM",
+            "subtitle": "Agent 驱动的 3D 个人世界 · 2026 · 发起人 / 系统设计",
+            "summary": "设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。",
+            "bullets": [
+              "设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。",
+              "将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。",
+              "建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。"
+            ],
+            "tags": [
+              "ROOM 设计 Parser",
+              "Creative Director",
+              "经历",
+              "技能与成就逐项映射为可以点击的展品",
+              "并自动检测内容遗漏",
+              "物体重叠"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:13-16",
+                "excerpt": "ROOM — Agent 驱动的 3D 个人世界 | 2026 · 发起人 / 系统设计 - 设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。 - 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。 - 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。"
+              }
+            ]
+          },
+          {
+            "id": "project-tuglsv",
+            "kind": "project",
+            "title": "Museum of Small Models",
+            "subtitle": "浏览器 AI 实验博物馆 · 2025 · 策展人 / 创意开发",
+            "summary": "策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。",
+            "bullets": [
+              "策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。",
+              "使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。",
+              "项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。"
+            ],
+            "tags": [
+              "将速度",
+              "成本",
+              "准确率和局限性转换成天平",
+              "传送带",
+              "望远镜与收音机等可交互展品。 使用 WebGL",
+              "程序化动画和空间音频设计一条十五分钟的自由参观路线"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:18-21",
+                "excerpt": "Museum of Small Models — 浏览器 AI 实验博物馆 | 2025 · 策展人 / 创意开发 - 策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。 - 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。 - 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。"
+              }
+            ]
+          },
+          {
+            "id": "project-1bl00ma",
+            "kind": "project",
+            "title": "Field Notes FM",
+            "subtitle": "城市声音档案 · 2024 · 产品设计 / 前端开发",
+            "summary": "与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。",
+            "bullets": [
+              "与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。",
+              "设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。",
+              "开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。"
+            ],
+            "tags": [
+              "并把地点",
+              "黑白编辑风界面和无障碍键盘控制",
+              "400 GitHub Stars",
+              "社区贡献了 28 种语言的地点说明。"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:23-26",
+                "excerpt": "Field Notes FM — 城市声音档案 | 2024 · 产品设计 / 前端开发 - 与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。 - 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。 - 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。"
+              }
+            ]
+          },
+          {
+            "id": "experience-fl7r5i",
+            "kind": "experience",
+            "title": "Independent Studio 创意技术负责人",
+            "subtitle": "2024 · 现在",
+            "summary": "为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。",
+            "bullets": [
+              "为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。"
+            ],
+            "tags": [
+              "Agent 产品与交互原型",
+              "负责从概念",
+              "系统架构到上线评测的完整流程。"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:29-30",
+                "excerpt": "Independent Studio 创意技术负责人 | 2024—现在 - 为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。"
+              }
+            ]
+          },
+          {
+            "id": "experience-p93odc",
+            "kind": "experience",
+            "title": "Common Ground Lab 产品设计负责人",
+            "subtitle": "2021 · 2024",
+            "summary": "带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。",
+            "bullets": [
+              "带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。"
+            ],
+            "tags": [
+              "建立基于真实任务的可用性测试和模型质量评估体系。"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:32-33",
+                "excerpt": "Common Ground Lab 产品设计负责人 | 2021—2024 - 带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。"
+              }
+            ]
+          },
+          {
+            "id": "experience-1t45p3a",
+            "kind": "experience",
+            "title": "Studio Parallel 交互设计师",
+            "subtitle": "2018 · 2021",
+            "summary": "参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。",
+            "bullets": [
+              "参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。"
+            ],
+            "tags": [
+              "公共装置与品牌体验项目",
+              "重点负责实时视觉",
+              "空间交互和网页端原型开发。"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:35-36",
+                "excerpt": "Studio Parallel 交互设计师 | 2018—2021 - 参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。"
+              }
+            ]
+          },
+          {
+            "id": "education-12h738r",
+            "kind": "education",
+            "title": "河岸设计学院（虚构） 信息体验设计硕士",
+            "subtitle": "2018",
+            "summary": "研究方向为信息可视化、交互叙事与数字公共空间。",
+            "bullets": [
+              "研究方向为信息可视化、交互叙事与数字公共空间。"
+            ],
+            "tags": [
+              "交互叙事与数字公共空间。"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:39-40",
+                "excerpt": "河岸设计学院（虚构） 信息体验设计硕士 | 2018 - 研究方向为信息可视化、交互叙事与数字公共空间。"
+              }
+            ]
+          },
+          {
+            "id": "education-10lun8k",
+            "kind": "education",
+            "title": "北港艺术与技术学院（虚构） 交换研究",
+            "subtitle": "2017",
+            "summary": "完成 Creative Computing 与 Physical Interaction 联合工作室课程。",
+            "bullets": [
+              "完成 Creative Computing 与 Physical Interaction 联合工作室课程。"
+            ],
+            "tags": [],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:42-43",
+                "excerpt": "北港艺术与技术学院（虚构） 交换研究 | 2017 - 完成 Creative Computing 与 Physical Interaction 联合工作室课程。"
+              }
+            ]
+          },
+          {
+            "id": "achievement-9nxvwa",
+            "kind": "achievement",
+            "title": "Digital Futures 2025",
+            "subtitle": "Official Selection",
+            "summary": "Official Selection",
+            "bullets": [],
+            "tags": [],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:49",
+                "excerpt": "Digital Futures 2025 — Official Selection"
+              }
+            ]
+          },
+          {
+            "id": "achievement-5xpoj1",
+            "kind": "achievement",
+            "title": "AI Interaction Challenge 2025",
+            "subtitle": "Best Prototype",
+            "summary": "Best Prototype",
+            "bullets": [],
+            "tags": [],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:50",
+                "excerpt": "AI Interaction Challenge 2025 — Best Prototype"
+              }
+            ]
+          },
+          {
+            "id": "achievement-i9f22a",
+            "kind": "achievement",
+            "title": "四项开源项目累计获得 8,600+ GitHub Stars",
+            "summary": "四项开源项目累计获得 8,600+ GitHub Stars",
+            "bullets": [],
+            "tags": [
+              "四项开源项目累计获得 8",
+              "600+ GitHub Stars"
+            ],
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:51",
+                "excerpt": "四项开源项目累计获得 8,600+ GitHub Stars"
+              }
+            ]
+          }
+        ],
+        "source": {
+          "id": "source-1wbskqa",
+          "type": "text",
+          "label": "Pasted resume",
+          "lineCount": 55
+        }
+      }
+    },
+    "creativeBrief": {
+      "artifactType": "creative-brief",
+      "schemaVersion": "creative-brief.v1",
+      "data": {
+        "id": "brief-profile-4klix8",
+        "concept": "林澈（虚构人物） 的可追溯创作事务所",
+        "narrative": "访客先面对 林澈（虚构人物） 的小别墅，亲自打开正门进入公开陈列客厅；个人信息、项目、技能与档案都在这里被看见。侧门后的私人卧室需要密码进入，并在当前版本保持留白。",
+        "spatialStrategy": "采用公开陈列客厅加私密卧室的两段式小别墅。客厅集中展示履历内容和可点击项目；卧室通过本地密码门禁进入，当前只保留完整空间外壳。",
+        "mood": [
+          "architectural-diorama",
+          "warm-cyber",
+          "dense-personal",
+          "low-poly"
+        ],
+        "palette": {
+          "background": "#171720",
+          "floor": "#5a4033",
+          "accent": "#ff8b61",
+          "highlight": "#68d8c4",
+          "rooms": {
+            "lobby": "#cc8a5e",
+            "bedroom": "#6678bd",
+            "experience": "#b76555",
+            "skills": "#39766f",
+            "achievements": "#83568d"
+          }
+        },
+        "references": [
+          {
+            "referenceId": "joan-ramos",
+            "name": "Joan Ramos Refusta",
+            "score": 24,
+            "reason": "房间叙事匹配 · MIT",
+            "patterns": [
+              "Use a room as a semantic container instead of a decorative backdrop",
+              "Turn monitors and arcade machines into deep interactive exhibits"
+            ],
+            "reuse": "approved"
+          },
+          {
+            "referenceId": "sooah-room-folio",
+            "name": "Soo-ah’s Room Folio",
+            "score": 23,
+            "reason": "房间叙事匹配 · MIT",
+            "patterns": [
+              "Use curated hotspots so visitors never have to guess what is interactive",
+              "Let the visual theme respond to the profile’s personality"
+            ],
+            "reuse": "approved"
+          },
+          {
+            "referenceId": "maxime-morel",
+            "name": "Maxime Morel",
+            "score": 22,
+            "reason": "房间叙事匹配 · MIT",
+            "patterns": [
+              "Prefer a coherent low-poly language over many mismatched high-detail assets",
+              "Use hover feedback before click interactions"
+            ],
+            "reuse": "approved"
+          },
+          {
+            "referenceId": "andrii-babintsev",
+            "name": "Andrii Babintsev",
+            "score": 21,
+            "reason": "房间叙事匹配 · MIT",
+            "patterns": [
+              "Distribute interaction across many small personal objects",
+              "Use lightweight physics for memorable moments"
+            ],
+            "reuse": "quarantined"
+          },
+          {
+            "referenceId": "bruno-simon",
+            "name": "Bruno Simon 2025",
+            "score": 15,
+            "reason": "交互模式补充 · MIT",
+            "patterns": [
+              "Teach controls inside the world instead of in a manual",
+              "Offer quality modes and a recovery action"
+            ],
+            "reuse": "approved"
+          }
+        ]
+      }
+    },
+    "world": {
+      "artifactType": "world",
+      "schemaVersion": "world.v1",
+      "data": {
+        "version": "0.1.0",
+        "id": "world-profile-4klix8",
+        "profile": {
+          "id": "profile-4klix8",
+          "name": "林澈（虚构人物）",
+          "headline": "Creative Technologist / AI Experience Designer",
+          "summary": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。",
+          "contacts": [
+            "Email: hello@linche.example",
+            "Other: https://linche.example"
+          ],
+          "identityEvidence": {
+            "name": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:1",
+                "excerpt": "林澈（虚构人物）"
+              }
+            ],
+            "headline": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:2",
+                "excerpt": "Creative Technologist / AI Experience Designer"
+              }
+            ],
+            "summary": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:5",
+                "excerpt": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。"
+              }
+            ]
+          },
+          "contactEvidence": {
+            "Email: hello@linche.example": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:54",
+                "excerpt": "hello@linche.example"
+              }
+            ],
+            "Other: https://linche.example": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:55",
+                "excerpt": "https://linche.example"
+              }
+            ]
+          },
+          "media": [],
+          "foods": [],
+          "foodEvidence": {},
+          "hobbies": [],
+          "hobbyEvidence": {},
+          "skills": [
+            "Creative Direction",
+            "Agent Systems",
+            "Product Strategy",
+            "Three.js",
+            "React",
+            "TypeScript",
+            "RAG",
+            "WebGL",
+            "Blender",
+            "Spatial Audio",
+            "Prototyping",
+            "Interaction Design"
+          ],
+          "skillEvidence": {
+            "Creative Direction": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Agent Systems": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Product Strategy": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Three.js": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "React": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "TypeScript": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "RAG": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "WebGL": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Blender": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Spatial Audio": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Prototyping": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "Interaction Design": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ]
+          },
+          "items": [
+            {
+              "id": "summary-upwsnz",
+              "kind": "summary",
+              "title": "About",
+              "summary": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。",
+              "bullets": [],
+              "tags": [],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "line:5",
+                  "excerpt": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。"
+                }
+              ]
+            },
+            {
+              "id": "project-1gbbnpi",
+              "kind": "project",
+              "title": "Echo Atlas",
+              "subtitle": "AI 记忆观测站 · 2026 · 创意总监 / 产品负责人",
+              "summary": "将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。",
+              "bullets": [
+                "将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。",
+                "设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。",
+                "在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。"
+              ],
+              "tags": [
+                "访客通过旋转星图",
+                "证据核查",
+                "叙事编排和隐私检查四段式 Agent 系统",
+                "000 名访客",
+                "平均探索时长 7 分 42 秒",
+                "并获得 94% 的内容可追溯率。"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:8-11",
+                  "excerpt": "Echo Atlas — AI 记忆观测站 | 2026 · 创意总监 / 产品负责人 - 将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。 - 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。 - 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。"
+                }
+              ]
+            },
+            {
+              "id": "project-ja6vyk",
+              "kind": "project",
+              "title": "ROOM",
+              "subtitle": "Agent 驱动的 3D 个人世界 · 2026 · 发起人 / 系统设计",
+              "summary": "设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。",
+              "bullets": [
+                "设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。",
+                "将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。",
+                "建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。"
+              ],
+              "tags": [
+                "ROOM 设计 Parser",
+                "Creative Director",
+                "经历",
+                "技能与成就逐项映射为可以点击的展品",
+                "并自动检测内容遗漏",
+                "物体重叠"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:13-16",
+                  "excerpt": "ROOM — Agent 驱动的 3D 个人世界 | 2026 · 发起人 / 系统设计 - 设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。 - 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。 - 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。"
+                }
+              ]
+            },
+            {
+              "id": "project-tuglsv",
+              "kind": "project",
+              "title": "Museum of Small Models",
+              "subtitle": "浏览器 AI 实验博物馆 · 2025 · 策展人 / 创意开发",
+              "summary": "策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。",
+              "bullets": [
+                "策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。",
+                "使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。",
+                "项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。"
+              ],
+              "tags": [
+                "将速度",
+                "成本",
+                "准确率和局限性转换成天平",
+                "传送带",
+                "望远镜与收音机等可交互展品。 使用 WebGL",
+                "程序化动画和空间音频设计一条十五分钟的自由参观路线"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:18-21",
+                  "excerpt": "Museum of Small Models — 浏览器 AI 实验博物馆 | 2025 · 策展人 / 创意开发 - 策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。 - 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。 - 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。"
+                }
+              ]
+            },
+            {
+              "id": "project-1bl00ma",
+              "kind": "project",
+              "title": "Field Notes FM",
+              "subtitle": "城市声音档案 · 2024 · 产品设计 / 前端开发",
+              "summary": "与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。",
+              "bullets": [
+                "与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。",
+                "设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。",
+                "开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。"
+              ],
+              "tags": [
+                "并把地点",
+                "黑白编辑风界面和无障碍键盘控制",
+                "400 GitHub Stars",
+                "社区贡献了 28 种语言的地点说明。"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:23-26",
+                  "excerpt": "Field Notes FM — 城市声音档案 | 2024 · 产品设计 / 前端开发 - 与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。 - 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。 - 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。"
+                }
+              ]
+            },
+            {
+              "id": "experience-fl7r5i",
+              "kind": "experience",
+              "title": "Independent Studio 创意技术负责人",
+              "subtitle": "2024 · 现在",
+              "summary": "为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。",
+              "bullets": [
+                "为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。"
+              ],
+              "tags": [
+                "Agent 产品与交互原型",
+                "负责从概念",
+                "系统架构到上线评测的完整流程。"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:29-30",
+                  "excerpt": "Independent Studio 创意技术负责人 | 2024—现在 - 为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。"
+                }
+              ]
+            },
+            {
+              "id": "experience-p93odc",
+              "kind": "experience",
+              "title": "Common Ground Lab 产品设计负责人",
+              "subtitle": "2021 · 2024",
+              "summary": "带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。",
+              "bullets": [
+                "带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。"
+              ],
+              "tags": [
+                "建立基于真实任务的可用性测试和模型质量评估体系。"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:32-33",
+                  "excerpt": "Common Ground Lab 产品设计负责人 | 2021—2024 - 带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。"
+                }
+              ]
+            },
+            {
+              "id": "experience-1t45p3a",
+              "kind": "experience",
+              "title": "Studio Parallel 交互设计师",
+              "subtitle": "2018 · 2021",
+              "summary": "参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。",
+              "bullets": [
+                "参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。"
+              ],
+              "tags": [
+                "公共装置与品牌体验项目",
+                "重点负责实时视觉",
+                "空间交互和网页端原型开发。"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:35-36",
+                  "excerpt": "Studio Parallel 交互设计师 | 2018—2021 - 参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。"
+                }
+              ]
+            },
+            {
+              "id": "education-12h738r",
+              "kind": "education",
+              "title": "河岸设计学院（虚构） 信息体验设计硕士",
+              "subtitle": "2018",
+              "summary": "研究方向为信息可视化、交互叙事与数字公共空间。",
+              "bullets": [
+                "研究方向为信息可视化、交互叙事与数字公共空间。"
+              ],
+              "tags": [
+                "交互叙事与数字公共空间。"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:39-40",
+                  "excerpt": "河岸设计学院（虚构） 信息体验设计硕士 | 2018 - 研究方向为信息可视化、交互叙事与数字公共空间。"
+                }
+              ]
+            },
+            {
+              "id": "education-10lun8k",
+              "kind": "education",
+              "title": "北港艺术与技术学院（虚构） 交换研究",
+              "subtitle": "2017",
+              "summary": "完成 Creative Computing 与 Physical Interaction 联合工作室课程。",
+              "bullets": [
+                "完成 Creative Computing 与 Physical Interaction 联合工作室课程。"
+              ],
+              "tags": [],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "lines:42-43",
+                  "excerpt": "北港艺术与技术学院（虚构） 交换研究 | 2017 - 完成 Creative Computing 与 Physical Interaction 联合工作室课程。"
+                }
+              ]
+            },
+            {
+              "id": "achievement-9nxvwa",
+              "kind": "achievement",
+              "title": "Digital Futures 2025",
+              "subtitle": "Official Selection",
+              "summary": "Official Selection",
+              "bullets": [],
+              "tags": [],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "line:49",
+                  "excerpt": "Digital Futures 2025 — Official Selection"
+                }
+              ]
+            },
+            {
+              "id": "achievement-5xpoj1",
+              "kind": "achievement",
+              "title": "AI Interaction Challenge 2025",
+              "subtitle": "Best Prototype",
+              "summary": "Best Prototype",
+              "bullets": [],
+              "tags": [],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "line:50",
+                  "excerpt": "AI Interaction Challenge 2025 — Best Prototype"
+                }
+              ]
+            },
+            {
+              "id": "achievement-i9f22a",
+              "kind": "achievement",
+              "title": "四项开源项目累计获得 8,600+ GitHub Stars",
+              "summary": "四项开源项目累计获得 8,600+ GitHub Stars",
+              "bullets": [],
+              "tags": [
+                "四项开源项目累计获得 8",
+                "600+ GitHub Stars"
+              ],
+              "evidence": [
+                {
+                  "sourceId": "source-1wbskqa",
+                  "locator": "line:51",
+                  "excerpt": "四项开源项目累计获得 8,600+ GitHub Stars"
+                }
+              ]
+            }
+          ],
+          "source": {
+            "id": "source-1wbskqa",
+            "type": "text",
+            "label": "Pasted resume",
+            "lineCount": 55
+          }
+        },
+        "brief": {
+          "id": "brief-profile-4klix8",
+          "concept": "林澈（虚构人物） 的可追溯创作事务所",
+          "narrative": "访客先面对 林澈（虚构人物） 的小别墅，亲自打开正门进入公开陈列客厅；个人信息、项目、技能与档案都在这里被看见。侧门后的私人卧室需要密码进入，并在当前版本保持留白。",
+          "spatialStrategy": "采用公开陈列客厅加私密卧室的两段式小别墅。客厅集中展示履历内容和可点击项目；卧室通过本地密码门禁进入，当前只保留完整空间外壳。",
+          "mood": [
+            "architectural-diorama",
+            "warm-cyber",
+            "dense-personal",
+            "low-poly"
+          ],
+          "palette": {
+            "background": "#171720",
+            "floor": "#5a4033",
+            "accent": "#ff8b61",
+            "highlight": "#68d8c4",
+            "rooms": {
+              "lobby": "#cc8a5e",
+              "bedroom": "#6678bd",
+              "experience": "#b76555",
+              "skills": "#39766f",
+              "achievements": "#83568d"
+            }
+          },
+          "references": [
+            {
+              "referenceId": "joan-ramos",
+              "name": "Joan Ramos Refusta",
+              "score": 24,
+              "reason": "房间叙事匹配 · MIT",
+              "patterns": [
+                "Use a room as a semantic container instead of a decorative backdrop",
+                "Turn monitors and arcade machines into deep interactive exhibits"
+              ],
+              "reuse": "approved"
+            },
+            {
+              "referenceId": "sooah-room-folio",
+              "name": "Soo-ah’s Room Folio",
+              "score": 23,
+              "reason": "房间叙事匹配 · MIT",
+              "patterns": [
+                "Use curated hotspots so visitors never have to guess what is interactive",
+                "Let the visual theme respond to the profile’s personality"
+              ],
+              "reuse": "approved"
+            },
+            {
+              "referenceId": "maxime-morel",
+              "name": "Maxime Morel",
+              "score": 22,
+              "reason": "房间叙事匹配 · MIT",
+              "patterns": [
+                "Prefer a coherent low-poly language over many mismatched high-detail assets",
+                "Use hover feedback before click interactions"
+              ],
+              "reuse": "approved"
+            },
+            {
+              "referenceId": "andrii-babintsev",
+              "name": "Andrii Babintsev",
+              "score": 21,
+              "reason": "房间叙事匹配 · MIT",
+              "patterns": [
+                "Distribute interaction across many small personal objects",
+                "Use lightweight physics for memorable moments"
+              ],
+              "reuse": "quarantined"
+            },
+            {
+              "referenceId": "bruno-simon",
+              "name": "Bruno Simon 2025",
+              "score": 15,
+              "reason": "交互模式补充 · MIT",
+              "patterns": [
+                "Teach controls inside the world instead of in a manual",
+                "Offer quality modes and a recovery action"
+              ],
+              "reuse": "approved"
+            }
+          ]
+        },
+        "rooms": [
+          {
+            "id": "room-lobby",
+            "kind": "lobby",
+            "title": "客厅",
+            "subtitle": "人物、项目、能力与档案",
+            "center": [
+              0,
+              0,
+              -7
+            ],
+            "size": [
+              21.6,
+              0.3,
+              28
+            ],
+            "color": "#cc8a5e",
+            "portalIds": [
+              "portal-1",
+              "portal-entrance"
+            ],
+            "exhibitIds": [
+              "exhibit-1",
+              "exhibit-2",
+              "exhibit-3",
+              "exhibit-4",
+              "exhibit-5",
+              "exhibit-6",
+              "exhibit-7",
+              "exhibit-8",
+              "exhibit-9",
+              "exhibit-10",
+              "exhibit-11",
+              "exhibit-12",
+              "exhibit-13",
+              "exhibit-14",
+              "exhibit-15",
+              "exhibit-16",
+              "exhibit-17",
+              "exhibit-18",
+              "exhibit-19",
+              "exhibit-20",
+              "exhibit-21",
+              "exhibit-22",
+              "exhibit-23",
+              "exhibit-24",
+              "exhibit-25"
+            ]
+          },
+          {
+            "id": "room-private",
+            "kind": "bedroom",
+            "title": "Private Upper Gallery",
+            "subtitle": "需密码进入 · 私人日记",
+            "center": [
+              0,
+              3.53,
+              -20
+            ],
+            "size": [
+              10,
+              0.3,
+              12
+            ],
+            "color": "#6678bd",
+            "portalIds": [
+              "portal-1"
+            ],
+            "exhibitIds": []
+          }
+        ],
+        "portals": [
+          {
+            "id": "portal-1",
+            "fromRoomId": "room-lobby",
+            "toRoomId": "room-private",
+            "position": [
+              2.5,
+              3.53,
+              -15
+            ],
+            "label": "Private Upper Gallery"
+          },
+          {
+            "id": "portal-entrance",
+            "fromRoomId": "exterior",
+            "toRoomId": "room-lobby",
+            "position": [
+              2,
+              1.5,
+              8
+            ],
+            "label": "Museum Entrance"
+          }
+        ],
+        "exhibits": [
+          {
+            "id": "exhibit-1",
+            "sourceItemId": "summary-upwsnz",
+            "roomId": "room-lobby",
+            "title": "About",
+            "eyebrow": "SUMMARY",
+            "body": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。",
+            "tags": [],
+            "kind": "panel",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:5",
+                "excerpt": "以下人物、机构、经历与数据均为 ROOM 产品演示所虚构。林澈是一位常驻上海的创意技术产品设计师，专注于把复杂的人工智能、实时数据和研究内容转化为可以被看见、触碰和探索的数字体验。过去七年横跨产品设计、创意编程与空间叙事，偏爱克制的建筑结构、低多边形模型、可操作的机器和带有声音反馈的展览空间。"
+              }
+            ],
+            "position": [
+              -4.5,
+              1.65,
+              -18.1
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-2",
+            "sourceItemId": "project-1gbbnpi",
+            "roomId": "room-lobby",
+            "title": "Echo Atlas",
+            "eyebrow": "PROJECT",
+            "body": "将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。",
+            "tags": [
+              "访客通过旋转星图",
+              "证据核查",
+              "叙事编排和隐私检查四段式 Agent 系统",
+              "000 名访客",
+              "平均探索时长 7 分 42 秒",
+              "并获得 94% 的内容可追溯率。"
+            ],
+            "kind": "pedestal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:8-11",
+                "excerpt": "Echo Atlas — AI 记忆观测站 | 2026 · 创意总监 / 产品负责人 - 将两万余条个人数字记录组织成一座可探索的虚拟观测站，访客通过旋转星图、打开档案抽屉和收听声音碎片理解记忆之间的关系。 - 设计检索、证据核查、叙事编排和隐私检查四段式 Agent 系统，所有生成内容均能返回原始记录。 - 在首轮公开测试中服务 18,000 名访客，平均探索时长 7 分 42 秒，并获得 94% 的内容可追溯率。"
+              }
+            ],
+            "position": [
+              -4,
+              0,
+              -3
+            ],
+            "size": [
+              1.72,
+              1.72,
+              1.5
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.92,
+                1.82,
+                1.7
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-3",
+            "sourceItemId": "project-ja6vyk",
+            "roomId": "room-lobby",
+            "title": "ROOM",
+            "eyebrow": "PROJECT",
+            "body": "设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。",
+            "tags": [
+              "ROOM 设计 Parser",
+              "Creative Director",
+              "经历",
+              "技能与成就逐项映射为可以点击的展品",
+              "并自动检测内容遗漏",
+              "物体重叠"
+            ],
+            "kind": "pedestal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:13-16",
+                "excerpt": "ROOM — Agent 驱动的 3D 个人世界 | 2026 · 发起人 / 系统设计 - 设计 Parser、Creative Director、World Orchestrator 和 Checker 四个协作 Agent，把普通个人网页转换为多房间 Three.js 世界。 - 将项目、经历、技能与成就逐项映射为可以点击的展品，并自动检测内容遗漏、物体重叠、断开的动线和移动端性能。 - 建立许可证分层的 3D Portfolio 参考库，从开源房间、复古电脑和游戏世界中检索空间模式，但不复制来源不明的代码与资产。"
+              }
+            ],
+            "position": [
+              4,
+              0,
+              -3
+            ],
+            "size": [
+              1.72,
+              1.72,
+              1.5
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.92,
+                1.82,
+                1.7
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-4",
+            "sourceItemId": "project-tuglsv",
+            "roomId": "room-lobby",
+            "title": "Museum of Small Models",
+            "eyebrow": "PROJECT",
+            "body": "策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。",
+            "tags": [
+              "将速度",
+              "成本",
+              "准确率和局限性转换成天平",
+              "传送带",
+              "望远镜与收音机等可交互展品。 使用 WebGL",
+              "程序化动画和空间音频设计一条十五分钟的自由参观路线"
+            ],
+            "kind": "pedestal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:18-21",
+                "excerpt": "Museum of Small Models — 浏览器 AI 实验博物馆 | 2025 · 策展人 / 创意开发 - 策划十二个小模型实验，将速度、成本、准确率和局限性转换成天平、传送带、望远镜与收音机等可交互展品。 - 使用 WebGL、程序化动画和空间音频设计一条十五分钟的自由参观路线，同时保留完整的二维文字阅读模式。 - 项目入选 Digital Futures 2025，并被六所高校用于人工智能通识课程。"
+              }
+            ],
+            "position": [
+              -4,
+              0,
+              -11
+            ],
+            "size": [
+              1.72,
+              1.72,
+              1.5
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.92,
+                1.82,
+                1.7
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-5",
+            "sourceItemId": "project-1bl00ma",
+            "roomId": "room-lobby",
+            "title": "Field Notes FM",
+            "eyebrow": "PROJECT",
+            "body": "与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。",
+            "tags": [
+              "并把地点",
+              "黑白编辑风界面和无障碍键盘控制",
+              "400 GitHub Stars",
+              "社区贡献了 28 种语言的地点说明。"
+            ],
+            "kind": "pedestal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:23-26",
+                "excerpt": "Field Notes FM — 城市声音档案 | 2024 · 产品设计 / 前端开发 - 与声音研究者共同采集七座城市的 320 段环境录音，并把地点、天气和时间映射成一台可以调频的浏览器收音机。 - 设计实体旋钮式交互、黑白编辑风界面和无障碍键盘控制，移动端首屏资源控制在 420 KB 内。 - 开源后获得 3,400 GitHub Stars，社区贡献了 28 种语言的地点说明。"
+              }
+            ],
+            "position": [
+              4,
+              0,
+              -11
+            ],
+            "size": [
+              1.72,
+              1.72,
+              1.5
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.92,
+                1.82,
+                1.7
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-6",
+            "sourceItemId": "experience-fl7r5i",
+            "roomId": "room-lobby",
+            "title": "Independent Studio 创意技术负责人",
+            "eyebrow": "EXPERIENCE",
+            "body": "为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。",
+            "tags": [
+              "Agent 产品与交互原型",
+              "负责从概念",
+              "系统架构到上线评测的完整流程。"
+            ],
+            "kind": "timeline",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:29-30",
+                "excerpt": "Independent Studio 创意技术负责人 | 2024—现在 - 为文化机构和 AI 创业团队设计沉浸式网站、Agent 产品与交互原型，负责从概念、系统架构到上线评测的完整流程。"
+              }
+            ],
+            "position": [
+              -2.25,
+              1.65,
+              -18.1
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-7",
+            "sourceItemId": "experience-p93odc",
+            "roomId": "room-lobby",
+            "title": "Common Ground Lab 产品设计负责人",
+            "eyebrow": "EXPERIENCE",
+            "body": "带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。",
+            "tags": [
+              "建立基于真实任务的可用性测试和模型质量评估体系。"
+            ],
+            "kind": "timeline",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:32-33",
+                "excerpt": "Common Ground Lab 产品设计负责人 | 2021—2024 - 带领八人跨职能团队发布三款面向创作者的智能工具，建立基于真实任务的可用性测试和模型质量评估体系。"
+              }
+            ],
+            "position": [
+              0,
+              1.65,
+              -18.1
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-8",
+            "sourceItemId": "experience-1t45p3a",
+            "roomId": "room-lobby",
+            "title": "Studio Parallel 交互设计师",
+            "eyebrow": "EXPERIENCE",
+            "body": "参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。",
+            "tags": [
+              "公共装置与品牌体验项目",
+              "重点负责实时视觉",
+              "空间交互和网页端原型开发。"
+            ],
+            "kind": "timeline",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:35-36",
+                "excerpt": "Studio Parallel 交互设计师 | 2018—2021 - 参与数字展览、公共装置与品牌体验项目，重点负责实时视觉、空间交互和网页端原型开发。"
+              }
+            ],
+            "position": [
+              2.25,
+              1.65,
+              -18.1
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-9",
+            "sourceItemId": "education-12h738r",
+            "roomId": "room-lobby",
+            "title": "河岸设计学院（虚构） 信息体验设计硕士",
+            "eyebrow": "EDUCATION",
+            "body": "研究方向为信息可视化、交互叙事与数字公共空间。",
+            "tags": [
+              "交互叙事与数字公共空间。"
+            ],
+            "kind": "timeline",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:39-40",
+                "excerpt": "河岸设计学院（虚构） 信息体验设计硕士 | 2018 - 研究方向为信息可视化、交互叙事与数字公共空间。"
+              }
+            ],
+            "position": [
+              4.5,
+              1.65,
+              -18.1
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-10",
+            "sourceItemId": "education-10lun8k",
+            "roomId": "room-lobby",
+            "title": "北港艺术与技术学院（虚构） 交换研究",
+            "eyebrow": "EDUCATION",
+            "body": "完成 Creative Computing 与 Physical Interaction 联合工作室课程。",
+            "tags": [],
+            "kind": "timeline",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "lines:42-43",
+                "excerpt": "北港艺术与技术学院（虚构） 交换研究 | 2017 - 完成 Creative Computing 与 Physical Interaction 联合工作室课程。"
+              }
+            ],
+            "position": [
+              -4.5,
+              1.65,
+              -14.4
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-11",
+            "sourceItemId": "achievement-9nxvwa",
+            "roomId": "room-lobby",
+            "title": "Digital Futures 2025",
+            "eyebrow": "ACHIEVEMENT",
+            "body": "Official Selection",
+            "tags": [],
+            "kind": "trophy",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:49",
+                "excerpt": "Digital Futures 2025 — Official Selection"
+              }
+            ],
+            "position": [
+              -2.25,
+              1.65,
+              -14.4
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-12",
+            "sourceItemId": "achievement-5xpoj1",
+            "roomId": "room-lobby",
+            "title": "AI Interaction Challenge 2025",
+            "eyebrow": "ACHIEVEMENT",
+            "body": "Best Prototype",
+            "tags": [],
+            "kind": "trophy",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:50",
+                "excerpt": "AI Interaction Challenge 2025 — Best Prototype"
+              }
+            ],
+            "position": [
+              0,
+              1.65,
+              -14.4
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-13",
+            "sourceItemId": "achievement-i9f22a",
+            "roomId": "room-lobby",
+            "title": "四项开源项目累计获得 8,600+ GitHub Stars",
+            "eyebrow": "ACHIEVEMENT",
+            "body": "四项开源项目累计获得 8,600+ GitHub Stars",
+            "tags": [
+              "四项开源项目累计获得 8",
+              "600+ GitHub Stars"
+            ],
+            "kind": "trophy",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:51",
+                "excerpt": "四项开源项目累计获得 8,600+ GitHub Stars"
+              }
+            ],
+            "position": [
+              2.25,
+              1.65,
+              -14.4
+            ],
+            "size": [
+              0.82,
+              0.92,
+              0.52
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-14",
+            "sourceItemId": "skill:Creative Direction",
+            "roomId": "room-lobby",
+            "title": "Creative Direction",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Creative Direction"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              4.5,
+              1.65,
+              -14.4
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-15",
+            "sourceItemId": "skill:Agent Systems",
+            "roomId": "room-lobby",
+            "title": "Agent Systems",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Agent Systems"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              -4.5,
+              1.65,
+              0.40000000000000036
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-16",
+            "sourceItemId": "skill:Product Strategy",
+            "roomId": "room-lobby",
+            "title": "Product Strategy",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Product Strategy"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              -2.25,
+              1.65,
+              0.40000000000000036
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-17",
+            "sourceItemId": "skill:Three.js",
+            "roomId": "room-lobby",
+            "title": "Three.js",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Three.js"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              0,
+              1.65,
+              0.40000000000000036
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-18",
+            "sourceItemId": "skill:React",
+            "roomId": "room-lobby",
+            "title": "React",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "React"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              2.25,
+              1.65,
+              0.40000000000000036
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-19",
+            "sourceItemId": "skill:TypeScript",
+            "roomId": "room-lobby",
+            "title": "TypeScript",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "TypeScript"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              4.5,
+              1.65,
+              0.40000000000000036
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-20",
+            "sourceItemId": "skill:RAG",
+            "roomId": "room-lobby",
+            "title": "RAG",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "RAG"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              -4.5,
+              1.65,
+              4.100000000000001
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-21",
+            "sourceItemId": "skill:WebGL",
+            "roomId": "room-lobby",
+            "title": "WebGL",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "WebGL"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              -2.25,
+              1.65,
+              4.100000000000001
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-22",
+            "sourceItemId": "skill:Blender",
+            "roomId": "room-lobby",
+            "title": "Blender",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Blender"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              0,
+              1.65,
+              4.100000000000001
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-23",
+            "sourceItemId": "skill:Spatial Audio",
+            "roomId": "room-lobby",
+            "title": "Spatial Audio",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Spatial Audio"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              2.25,
+              1.65,
+              4.100000000000001
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-24",
+            "sourceItemId": "skill:Prototyping",
+            "roomId": "room-lobby",
+            "title": "Prototyping",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Prototyping"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              4.5,
+              1.65,
+              4.100000000000001
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "exhibit-25",
+            "sourceItemId": "skill:Interaction Design",
+            "roomId": "room-lobby",
+            "title": "Interaction Design",
+            "eyebrow": "SKILL",
+            "body": "林澈（虚构人物） 的履历中明确列出的能力。",
+            "tags": [
+              "Interaction Design"
+            ],
+            "kind": "terminal",
+            "evidence": [
+              {
+                "sourceId": "source-1wbskqa",
+                "locator": "line:46",
+                "excerpt": "Creative Direction, Agent Systems, Product Strategy, Three.js, React, TypeScript, RAG, WebGL, Blender, Spatial Audio, Prototyping, Interaction Design"
+              }
+            ],
+            "position": [
+              -4.5,
+              1.65,
+              7.800000000000001
+            ],
+            "size": [
+              0.72,
+              0.72,
+              0.48
+            ],
+            "color": "#cc8a5e",
+            "interaction": {
+              "clickable": true,
+              "hitbox": [
+                1.05,
+                1.2,
+                0.9
+              ],
+              "action": "open-detail"
+            }
+          }
+        ],
+        "displaySurfaces": [
+          {
+            "id": "showroom-profile",
+            "roomId": "room-lobby",
+            "semanticRole": "profile",
+            "title": "林澈（虚构人物）",
+            "kicker": "个人介绍",
+            "accent": "#ff8b61",
+            "sourceItemIds": [
+              "summary-upwsnz",
+              "identity:name",
+              "identity:headline",
+              "identity:summary"
+            ],
+            "presentationMode": "summary",
+            "layout": {
+              "position": [
+                -4.04,
+                2.95,
+                -20.82
+              ],
+              "width": 5.05,
+              "height": 2.26,
+              "variant": "profile"
+            },
+            "focusTarget": {
+              "target": [
+                -4.04,
+                2.95,
+                -20.82
+              ],
+              "camera": [
+                -4.04,
+                2.27,
+                -16.72
+              ],
+              "fov": 46
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "showroom-education",
+            "roomId": "room-lobby",
+            "semanticRole": "education",
+            "title": "教育背景",
+            "kicker": "教育背景",
+            "accent": "#d3aa54",
+            "sourceItemIds": [
+              "education-12h738r",
+              "education-10lun8k"
+            ],
+            "presentationMode": "summary",
+            "layout": {
+              "position": [
+                0.74,
+                2.95,
+                -20.82
+              ],
+              "width": 3.35,
+              "height": 1.72,
+              "variant": "timeline"
+            },
+            "focusTarget": {
+              "target": [
+                0.74,
+                2.95,
+                -20.82
+              ],
+              "camera": [
+                0.74,
+                2.27,
+                -16.72
+              ],
+              "fov": 46
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "showroom-experience",
+            "roomId": "room-lobby",
+            "semanticRole": "experience",
+            "title": "工作经验",
+            "kicker": "工作经验",
+            "accent": "#7088d4",
+            "sourceItemIds": [
+              "experience-fl7r5i",
+              "experience-p93odc",
+              "experience-1t45p3a"
+            ],
+            "presentationMode": "summary",
+            "layout": {
+              "position": [
+                4.78,
+                2.95,
+                -20.82
+              ],
+              "width": 3.57,
+              "height": 1.72,
+              "variant": "timeline"
+            },
+            "focusTarget": {
+              "target": [
+                4.78,
+                2.95,
+                -20.82
+              ],
+              "camera": [
+                4.78,
+                2.27,
+                -16.72
+              ],
+              "fov": 46
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "showroom-highlights",
+            "roomId": "room-lobby",
+            "semanticRole": "achievement",
+            "title": "成果与成就",
+            "kicker": "成果成就",
+            "accent": "#d3aa54",
+            "sourceItemIds": [
+              "achievement-9nxvwa",
+              "achievement-5xpoj1",
+              "achievement-i9f22a"
+            ],
+            "presentationMode": "summary",
+            "layout": {
+              "position": [
+                -6.64,
+                1.45,
+                -20.82
+              ],
+              "width": 3.57,
+              "height": 1.72,
+              "variant": "timeline"
+            },
+            "focusTarget": {
+              "target": [
+                -6.64,
+                1.45,
+                -20.82
+              ],
+              "camera": [
+                -6.64,
+                1.32,
+                -16.72
+              ],
+              "fov": 48
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "showroom-works",
+            "roomId": "room-lobby",
+            "semanticRole": "works",
+            "title": "项目与作品",
+            "kicker": "作品索引",
+            "accent": "#8d77bf",
+            "sourceItemIds": [
+              "project-1gbbnpi",
+              "project-ja6vyk",
+              "project-tuglsv",
+              "project-1bl00ma"
+            ],
+            "presentationMode": "summary",
+            "layout": {
+              "position": [
+                -2.31,
+                1.45,
+                -20.82
+              ],
+              "width": 4.54,
+              "height": 1.8,
+              "variant": "timeline"
+            },
+            "focusTarget": {
+              "target": [
+                -2.31,
+                1.45,
+                -20.82
+              ],
+              "camera": [
+                -2.31,
+                1.32,
+                -16.72
+              ],
+              "fov": 48
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "showroom-skills",
+            "roomId": "room-lobby",
+            "semanticRole": "skills",
+            "title": "技能工具",
+            "kicker": "技能工具",
+            "accent": "#65d7c3",
+            "sourceItemIds": [
+              "skill:Creative Direction",
+              "skill:Agent Systems",
+              "skill:Product Strategy",
+              "skill:Three.js",
+              "skill:React",
+              "skill:TypeScript",
+              "skill:RAG",
+              "skill:WebGL",
+              "skill:Blender",
+              "skill:Spatial Audio",
+              "skill:Prototyping",
+              "skill:Interaction Design"
+            ],
+            "presentationMode": "paged",
+            "pageSize": 10,
+            "layout": {
+              "position": [
+                2.52,
+                1.45,
+                -20.82
+              ],
+              "width": 4.55,
+              "height": 2.2,
+              "variant": "skills"
+            },
+            "focusTarget": {
+              "target": [
+                2.52,
+                1.45,
+                -20.82
+              ],
+              "camera": [
+                2.52,
+                1.32,
+                -16.72
+              ],
+              "fov": 48
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          },
+          {
+            "id": "showroom-contact",
+            "roomId": "room-lobby",
+            "semanticRole": "contact",
+            "title": "联系方式",
+            "kicker": "联系方式",
+            "accent": "#9fc6b8",
+            "sourceItemIds": [
+              "contact:1",
+              "contact:2"
+            ],
+            "presentationMode": "summary",
+            "layout": {
+              "position": [
+                6.75,
+                1.45,
+                -20.82
+              ],
+              "width": 3.35,
+              "height": 1.72,
+              "variant": "timeline"
+            },
+            "focusTarget": {
+              "target": [
+                6.75,
+                1.45,
+                -20.82
+              ],
+              "camera": [
+                6.75,
+                1.32,
+                -16.72
+              ],
+              "fov": 48
+            },
+            "interaction": {
+              "clickable": true,
+              "action": "open-detail"
+            }
+          }
+        ],
+        "tour": [
+          {
+            "roomId": "room-lobby",
+            "label": "客厅",
+            "camera": [
+              6.8,
+              7.2,
+              1.1999999999999993
+            ]
+          },
+          {
+            "roomId": "room-private",
+            "label": "Private Upper Gallery",
+            "camera": [
+              6.8,
+              7.2,
+              -11.8
+            ]
+          }
+        ],
+        "metrics": {
+          "rooms": 2,
+          "exhibits": 25,
+          "estimatedDrawCalls": 53,
+          "estimatedTriangles": 107000,
+          "realtimeLights": 3
+        }
+      }
+    },
+    "checkReport": {
+      "artifactType": "check-report",
+      "schemaVersion": "check-report.v1",
+      "data": {
+        "passed": true,
+        "score": 100,
+        "summary": "内容、空间、交互与性能检查全部通过",
+        "checks": [
+          {
+            "name": "Content parity",
+            "passed": true,
+            "detail": "25/25 来源条目已映射"
+          },
+          {
+            "name": "Spatial collisions",
+            "passed": true,
+            "detail": "25 个展品已做 AABB 检查"
+          },
+          {
+            "name": "Click targets",
+            "passed": true,
+            "detail": "25/25 可交互"
+          },
+          {
+            "name": "Room graph",
+            "passed": true,
+            "detail": "2/2 房间从入口连通"
+          },
+          {
+            "name": "Mobile budget",
+            "passed": true,
+            "detail": "53 calls · 107000 tris · 3 lights"
+          }
+        ],
+        "issues": []
+      }
+    }
+  },
+  "pipeline": {
+    "trace": [
+      {
+        "id": "profile.parse",
+        "name": "资料解析",
+        "status": "complete",
+        "summary": "生成 profile.json",
+        "artifacts": [
+          "profile.json"
+        ],
+        "calls": [],
+        "latencyMs": "<latency-ms>"
+      },
+      {
+        "id": "creative.retrieve",
+        "name": "创意检索",
+        "status": "complete",
+        "summary": "生成 creative-brief.json",
+        "artifacts": [
+          "creative-brief.json"
+        ],
+        "calls": [],
+        "latencyMs": "<latency-ms>"
+      },
+      {
+        "id": "world.compile",
+        "name": "世界编译",
+        "status": "complete",
+        "summary": "生成 world-plan.json",
+        "artifacts": [
+          "world-plan.json"
+        ],
+        "calls": [],
+        "latencyMs": "<latency-ms>"
+      },
+      {
+        "id": "world.check",
+        "name": "世界检查",
+        "status": "complete",
+        "summary": "生成 check-report.json",
+        "artifacts": [
+          "check-report.json"
+        ],
+        "calls": [],
+        "latencyMs": "<latency-ms>"
+      }
+    ],
+    "run": {
+      "runId": "<runId>",
+      "status": "completed",
+      "startedAt": "<timestamp>",
+      "completedAt": "<timestamp>",
+      "events": [
+        {
+          "type": "run.started",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.started",
+          "step": "profile.parse",
+          "attempt": 1,
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "artifact.created",
+          "step": "profile.parse",
+          "name": "profile.json",
+          "schemaVersion": "profile.v1",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.completed",
+          "step": "profile.parse",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.started",
+          "step": "creative.retrieve",
+          "attempt": 1,
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "artifact.created",
+          "step": "creative.retrieve",
+          "name": "creative-brief.json",
+          "schemaVersion": "creative-brief.v1",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.completed",
+          "step": "creative.retrieve",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.started",
+          "step": "world.compile",
+          "attempt": 1,
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "artifact.created",
+          "step": "world.compile",
+          "name": "world-plan.json",
+          "schemaVersion": "world.v1",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.completed",
+          "step": "world.compile",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.started",
+          "step": "world.check",
+          "attempt": 1,
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "artifact.created",
+          "step": "world.check",
+          "name": "check-report.json",
+          "schemaVersion": "check-report.v1",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "step.completed",
+          "step": "world.check",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        },
+        {
+          "type": "run.completed",
+          "eventId": "<eventId>",
+          "occurredAt": "<timestamp>",
+          "runId": "<runId>"
+        }
+      ]
+    }
+  }
+}

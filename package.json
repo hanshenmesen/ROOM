@@ -12,6 +12,8 @@
     "test": "node scripts/audit-mardou-layout.mjs && npm run asset:audit && node --test tests/*.test.ts && npm run build && node --test tests/rendered-html.test.mjs",
     "asset:audit": "node scripts/audit-mardou-asset.mjs --max-bytes 20971520",
     "asset:optimize": "node scripts/optimize-mardou-asset.mjs public/vendor/mardou/MardouMuseumResult.glb",
+    "baseline:agent": "node scripts/agent-baseline.mjs",
+    "baseline:agent:update": "node scripts/agent-baseline.mjs --write",
     "rag:sync": "node scripts/sync-reference-rag.mjs",
     "eval:parser": "node scripts/evaluate-profile-models.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
