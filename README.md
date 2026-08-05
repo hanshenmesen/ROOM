@@ -104,7 +104,7 @@ Résumé / PDF ──→ page evidence + identity Agent ──→ personal homep
                                            ↓ concurrent join
                                   evidence-backed profile.json
         ↓
-Creative Director + World Orchestrator
+Creative Retrieval + deterministic World Compiler
         ↓
 Validated world.json
         ↓
@@ -115,14 +115,15 @@ QA Agent
 Published personal world
 ```
 
-## Demo agents
+## Pipeline roles
 
 - **Parser Agent** — extracts identity, projects, experience, education, skills, and achievements while retaining source locators.
-- **Creative Director** — retrieves room patterns from the license-aware reference catalog and creates a spatial brief.
-- **World Orchestrator** — maps each source item exactly once into the two-floor Mardou museum without reintroducing coordinates from the former villa scene.
-- **World Checker** — checks content parity, collisions, click targets, room connectivity, and mobile rendering budgets.
+- **Website Profile Agent** — optionally enriches the résumé from one safely fetched public page using the same evidence contract.
+- **Creative Retrieval service** — ranks room patterns from the license-aware reference catalog and creates a stable spatial brief.
+- **World Orchestrator service** — maps each source item exactly once into the two-floor Mardou museum without reintroducing coordinates from the former villa scene.
+- **World Checker service** — checks content parity, collisions, click targets, room connectivity, and mobile rendering budgets.
 
-The renderer, database, authentication, deployment, and comment persistence remain deterministic services rather than agents.
+The Workflow engine, renderer, database, authentication, deployment, and comment persistence remain deterministic services rather than Agents.
 
 ## Stack
 
@@ -147,7 +148,8 @@ docs/
 Key implementation paths:
 
 ```text
-lib/agents/        Four-agent pipeline
+lib/agents/        Profile/website/QA model calls and deterministic pipeline steps
+lib/workflow/      Checkpointed Run state, events, cancellation, and resume
 lib/rag/           Curated reference patterns
 research/rag/      Synced repository metadata and README excerpts
 schemas/           Profile, world, and checker contracts

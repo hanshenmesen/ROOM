@@ -77,7 +77,9 @@ Existing runtime and API payloads remain compatible. The envelope is applied at 
 
 Each model call has a unique call ID and records provider, model, mode, prompt version, latency, usage when supplied, attempt, and fallback count. Events are redacted before entering the Trace Store. API keys, Authorization headers, prompt bodies, and résumé bodies are not Trace fields.
 
-Phase 1 uses an in-memory Trace Store with a final-response fallback. Durable cross-request state, cancellation, and replay are intentionally deferred to the recoverable workflow phase.
+Phase 3 adds a framework-neutral `RoomWorkflowEngine` around the deterministic Profile → Brief → World → Check path. The engine records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, and checkpoint resume. Public Run snapshots expose artifact metadata but never the source body or artifact body.
+
+The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.json` has no D1 or R2 binding. It survives requests and browser refreshes handled by the same process or Worker isolate, but not process restarts, isolate replacement, or deployment. The D1 tables and migration are present as the durable metadata contract; enabling durable recovery still requires a D1/R2 store adapter, private object retention/deletion, and run ownership checks. See [Workflow state](./WORKFLOW_STATE.md).
 
 ## Decision records
 

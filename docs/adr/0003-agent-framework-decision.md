@@ -24,3 +24,9 @@ Any candidate must run in the Cloudflare Worker/Edge environment, preserve curre
 - Phase 2 measures the current architecture instead of combining a framework migration with Prompt changes.
 - Framework vocabulary is not used to exaggerate deterministic services as Agents.
 - Phase 3 can begin with a local workflow engine and adopt a framework later without rewriting business nodes.
+
+## Phase 3 evidence — 2026-08-05
+
+The local engine now demonstrates explicit state, ordered events, Idempotency Key deduplication, cancellation, per-node attempts, artifact checkpoints, and recovery from the first incomplete node. A failure injected after `prepare_source` resumes at `extract_profile` without executing the completed node again.
+
+This evidence does not cross the adoption gate. The active store is in-memory, there is no human interrupt or branching repair graph, and the current six-node path remains simpler as typed TypeScript than as a framework graph. Re-evaluate after the durable D1/R2 adapter and a real branching or human-review requirement exist.

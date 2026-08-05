@@ -1,5 +1,13 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "entries": []
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785912746678,
+      "tag": "0000_optimal_night_nurse",
+      "breakpoints": true
+    }
+  ]
 }
