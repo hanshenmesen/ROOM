@@ -1110,22 +1110,9 @@ export function RoomStudio() {
     }
     beginMoveInDraft();
     setLoading(true);
-    setMessage("正在读取网页…");
+    setMessage("Website Research Agent 正在规划并读取公开页面…");
     try {
-      const response = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: value }),
-      });
-      const data = (await response.json()) as {
-        text?: string;
-        title?: string;
-        media?: ExtractedMedia[];
-        error?: string;
-      };
-      if (!response.ok || !data.text) throw new Error(data.error || "读取失败，请换一个公开网址。 ");
-      setMessage("Claude Profile Agent 正在理解网页内容…");
-      const profile = await parseTextWithAgent(data.text, data.title || value, "url", data.media || [], value, false);
+      const profile = await parseTextWithAgent("", value, "url", [], value, true);
       setPendingProfile(profile);
       const remembered = rememberGeneratedProfile(profile);
       setMessage(remembered

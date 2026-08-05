@@ -27,17 +27,27 @@ export function summarizeAgentRun(events: AgentRunEvent[]): AgentTrace[] {
   return stepOrder.map((step): AgentTrace => {
     const stepEvents = events.filter((event) => "step" in event && event.step === step);
     const completed = stepEvents.some((event) => event.type === "step.completed");
-    const failures = stepEvents.filter((event) => event.type === "model.failed" || event.type === "validation.failed");
+    const failures = stepEvents.filter((event) => (
+      event.type === "model.failed" || event.type === "tool.failed" || event.type === "validation.failed"
+    ));
     const calls = stepEvents
       .filter((event) => event.type === "model.completed" || event.type === "model.failed")
+      .map((event) => event.meta);
+    const toolCalls = stepEvents
+      .filter((event) => event.type === "tool.completed" || event.type === "tool.failed")
       .map((event) => event.meta);
     const artifacts = stepEvents
       .filter((event) => event.type === "artifact.created")
       .map((event) => event.name);
-    const latencyMs = calls.reduce((total, call) => total + call.latencyMs, 0);
+    const latencyMs = [
+      ...calls.map((call) => call.latencyMs),
+      ...toolCalls.map((call) => call.latencyMs),
+    ].reduce((total, latency) => total + latency, 0);
     const providers = [...new Set(calls.map((call) => `${call.provider}/${call.model}`))];
     const summary = calls.length
       ? `${calls.length} 次模型调用 · ${latencyMs} ms${providers.length ? ` · ${providers.join(", ")}` : ""}`
+      : toolCalls.length
+        ? `${toolCalls.length} 次工具调用 · ${latencyMs} ms`
       : artifacts.length
         ? `生成 ${artifacts.join("、")}`
         : completed
@@ -50,6 +60,7 @@ export function summarizeAgentRun(events: AgentRunEvent[]): AgentTrace[] {
       summary,
       artifacts,
       calls,
+      ...(toolCalls.length ? { toolCalls } : {}),
       latencyMs,
     };
   });

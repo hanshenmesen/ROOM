@@ -12,7 +12,7 @@ Every boundary after a model call uses a validated, versioned artifact. Raw mode
 flowchart LR
     A["Résumé / public portfolio"] --> B["Source preparation"]
     B --> C["Profile Agent: identity + inventory shards"]
-    B --> D["Optional public website fetch"]
+    B --> D["Bounded Website Research Tool Loop"]
     D --> E["Website Profile Agent"]
     C --> F["Profile validation + normalization"]
     E --> G["Deterministic profile merge"]
@@ -43,7 +43,9 @@ The Profile Agent runs evidence-backed identity and inventory shards. It may cho
 
 ### Website Profile Agent
 
-The current website path safely fetches one public page and applies the Profile Agent contract to its extracted content. It is not yet a multi-page Tool Agent; link selection, claim validation, and bounded research loops belong to the planned Website Research phase.
+The Website Research Agent is a hybrid Tool Agent. A deterministic control plane compares the current Profile with missing-field rules, ranks same-host links, and runs bounded `fetch_page`, `list_links`, `inspect_page`, `extract_media`, `validate_claim`, and `submit_profile` tools. The semantic Profile Agent sees only the inspected, size-bounded page corpus and must produce evidence-backed output. It never chooses an arbitrary tool name or bypasses URL policy.
+
+Résumé parsing preserves early concurrency: once the Identity shard discovers a personal homepage, ROOM prefetches only its root page. Additional pages are selected after the complete résumé Profile reveals which fields are missing. A website-only intake goes directly through the same multi-page loop. See [Website Research Agent](./WEBSITE_RESEARCH_AGENT.md).
 
 ### Bounded generative features
 
@@ -76,6 +78,8 @@ Existing runtime and API payloads remain compatible. The envelope is applied at 
 ## Observability and privacy
 
 Each model call has a unique call ID and records provider, model, mode, prompt version, latency, usage when supplied, attempt, and fallback count. Events are redacted before entering the Trace Store. API keys, Authorization headers, prompt bodies, and résumé bodies are not Trace fields.
+
+Each Website Research tool call records a unique Tool Call ID, tool name, bounded parameter summary, output counts, latency, and a generic error code. Page bodies, Claim values, evidence excerpts, API keys, and request headers are excluded from Tool Trace.
 
 Phase 3 adds a framework-neutral `RoomWorkflowEngine` around the deterministic Profile → Brief → World → Check path. The engine records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, and checkpoint resume. Public Run snapshots expose artifact metadata but never the source body or artifact body.
 

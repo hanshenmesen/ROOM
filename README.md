@@ -59,7 +59,7 @@ The demo supports:
 
 - Pasted résumé text plus PDF, image, and common text/web data uploads.
 - Hybrid PDF parsing: a fast page-aware text/link evidence pass plus Claude document vision and semantic extraction.
-- Guarded public-page extraction and automatic personal-website enrichment when the résumé names a homepage. The website Agent starts as soon as the identity shard finds that homepage and runs concurrently with the remaining résumé extraction.
+- A bounded multi-page Website Research Tool Agent with same-host link policy, missing-field planning, per-tool Trace, Claim evidence validation, and automatic enrichment. Root-page prefetch starts as soon as the résumé Identity shard finds a homepage; additional pages wait for the complete résumé Profile's missing-field plan.
 - A Mardou GLB home rendered with React Three Fiber, including a long-corridor entrance, first-person WASD movement, collision handling, and a clickable staircase.
 - A public ground-floor gallery with project islands, semantic profile objects, a visitor book, and a source archive.
 - A password-gated upper gallery for the local private diary and personal scene.
@@ -149,6 +149,7 @@ Key implementation paths:
 
 ```text
 lib/agents/        Profile/website/QA model calls and deterministic pipeline steps
+lib/agents/website/ Bounded Website Research state, policy, and atomic tools
 lib/workflow/      Checkpointed Run state, events, cancellation, and resume
 lib/rag/           Curated reference patterns
 research/rag/      Synced repository metadata and README excerpts

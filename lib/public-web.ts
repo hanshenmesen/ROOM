@@ -71,9 +71,15 @@ export function validatePublicUrl(value: string | URL) {
   return url;
 }
 
-async function readBoundedText(response: Response) {
+export type PublicWebFetchOptions = {
+  maxBytes?: number;
+  timeoutMs?: number;
+  authorizeUrl?: (url: URL) => void;
+};
+
+async function readBoundedText(response: Response, maxBytes: number) {
   const declaredSize = Number(response.headers.get("content-length") || 0);
-  if (declaredSize > MAX_SOURCE_BYTES) throw new PublicWebError("目标网页内容过大。", 413);
+  if (declaredSize > maxBytes) throw new PublicWebError("目标网页内容过大。", 413);
   if (!response.body) return "";
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -82,7 +88,7 @@ async function readBoundedText(response: Response) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_SOURCE_BYTES) {
+    if (size > maxBytes) {
       await reader.cancel();
       throw new PublicWebError("目标网页内容过大。", 413);
     }
@@ -97,10 +103,12 @@ async function readBoundedText(response: Response) {
   return new TextDecoder().decode(bytes);
 }
 
-export async function fetchPublicWebPage(value: string | URL) {
+export async function fetchPublicWebPage(value: string | URL, options: PublicWebFetchOptions = {}) {
   let url = validatePublicUrl(value);
-  const signal = AbortSignal.timeout(12_000);
+  const maxBytes = Math.min(MAX_SOURCE_BYTES, Math.max(1, options.maxBytes || MAX_SOURCE_BYTES));
+  const signal = AbortSignal.timeout(Math.min(30_000, Math.max(1, options.timeoutMs || 12_000)));
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    options.authorizeUrl?.(url);
     const response = await fetch(url, {
       redirect: "manual",
       headers: {
@@ -113,6 +121,7 @@ export async function fetchPublicWebPage(value: string | URL) {
       const location = response.headers.get("location");
       if (!location) throw new PublicWebError("网页重定向缺少目标地址。", 502);
       url = validatePublicUrl(new URL(location, url));
+      options.authorizeUrl?.(url);
       continue;
     }
     if (!response.ok) throw new PublicWebError(`目标网页返回 ${response.status}。`, 502);
@@ -123,7 +132,7 @@ export async function fetchPublicWebPage(value: string | URL) {
     return {
       url: url.href,
       contentType,
-      text: await readBoundedText(response),
+      text: await readBoundedText(response, maxBytes),
     };
   }
   throw new PublicWebError("网页重定向次数过多。", 502);

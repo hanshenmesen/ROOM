@@ -22,6 +22,17 @@ export type AgentCallResult<T> = {
   meta: AgentCallMeta;
 };
 
+export type AgentToolSummary = Record<string, string | number | boolean | null>;
+
+export type AgentToolCallMeta = {
+  toolCallId: string;
+  tool: string;
+  startedAt: string;
+  latencyMs: number;
+  inputSummary: AgentToolSummary;
+  outputSummary?: AgentToolSummary;
+};
+
 type EventBase = {
   eventId: string;
   occurredAt: string;
@@ -33,6 +44,9 @@ export type AgentRunEvent = EventBase & (
   | { type: "step.started"; step: string; attempt: number }
   | { type: "model.completed"; step: string; meta: AgentCallMeta }
   | { type: "model.failed"; step: string; meta: AgentCallMeta; errorCode: string }
+  | { type: "tool.started"; step: string; toolCallId: string; tool: string; inputSummary: AgentToolSummary }
+  | { type: "tool.completed"; step: string; meta: AgentToolCallMeta }
+  | { type: "tool.failed"; step: string; meta: AgentToolCallMeta; errorCode: string }
   | { type: "validation.failed"; step: string; errors: string[] }
   | { type: "step.retried"; step: string; attempt: number; reason: string }
   | { type: "artifact.created"; step: string; name: string; schemaVersion: string }

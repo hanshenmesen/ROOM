@@ -284,6 +284,7 @@ export interface AgentTrace {
   summary: string;
   artifacts: string[];
   calls?: import("./agent-runtime/run-types.ts").AgentCallMeta[];
+  toolCalls?: import("./agent-runtime/run-types.ts").AgentToolCallMeta[];
   latencyMs?: number;
 }
 

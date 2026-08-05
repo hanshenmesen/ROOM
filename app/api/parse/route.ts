@@ -8,12 +8,18 @@ import {
 } from "@/lib/agents/profile-agent";
 import { summarizeAgentRun } from "@/lib/agent-runtime/trace-summary";
 import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer";
-import { extractWebPage, type ExtractedMedia } from "@/lib/extract-webpage";
-import { fetchPublicWebPage, validatePublicUrl } from "@/lib/public-web";
+import type { ExtractedMedia } from "@/lib/extract-webpage";
+import { validatePublicUrl } from "@/lib/public-web";
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfiles } from "@/lib/profile-merge";
 import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
 import type { AgentProviderOverride } from "@/lib/agents/provider-config";
+import {
+  prefetchWebsiteResearchRoot,
+  publicWebsiteResearchSnapshot,
+  runWebsiteResearchAgent,
+  type WebsiteResearchPrefetch,
+} from "@/lib/agents/website/agent";
 import type { ParsedProfile } from "@/lib/types";
 
 export const runtime = "edge";
@@ -41,13 +47,21 @@ type ParseJsonBody = {
 type WebsiteAgentResult = {
   profile?: ParsedProfile;
   pageUrl?: string;
+  research?: ReturnType<typeof publicWebsiteResearchSnapshot>;
   error?: string;
+  errorStatus?: number;
 };
 
 type WebsiteAgentTask = {
   website: string;
-  result: Promise<WebsiteAgentResult>;
+  providerConfig?: AgentProviderOverride;
+  prefetch: Promise<{ value?: WebsiteResearchPrefetch; error?: string; errorStatus?: number }>;
 };
+
+function publicErrorStatus(error: unknown) {
+  if (!error || typeof error !== "object" || !("status" in error) || typeof error.status !== "number") return undefined;
+  return error.status >= 400 && error.status <= 599 ? error.status : undefined;
+}
 
 function fileExtension(name: string) {
   return name.split(".").pop()?.toLowerCase() || "";
@@ -92,35 +106,52 @@ function startWebsiteAgent(
   providerConfig: AgentProviderOverride | undefined,
   tracer: AgentTracer,
 ): WebsiteAgentTask {
-  const result = (async (): Promise<WebsiteAgentResult> => {
-    tracer.emit({ type: "step.started", step: "website.fetch", attempt: 1 });
-    let page: Awaited<ReturnType<typeof fetchPublicWebPage>>;
-    try {
-      page = await fetchPublicWebPage(website);
-    } catch (error) {
-      tracer.emit({
-        type: "validation.failed",
-        step: "website.fetch",
-        errors: [error instanceof Error ? error.name : "website_fetch_failed"],
-      });
-      throw error;
-    }
-    const extracted = page.contentType.includes("text/html")
-      ? extractWebPage(page.text, page.url)
-      : { title: new URL(page.url).hostname, text: page.text, media: [] };
-    tracer.emit({ type: "artifact.created", step: "website.fetch", name: "website-source.json", schemaVersion: "website-source.v1" });
-    tracer.emit({ type: "step.completed", step: "website.fetch" });
-    const websiteRun = await extractProfileWithAgentRun(extracted.text, {
-      type: "url",
-      label: extracted.title || page.url,
-      media: extracted.media,
-      format: "text",
-    }, { providerScope: "website", providerConfig, tracer, stepPrefix: "website" });
-    return { profile: websiteRun.profile, pageUrl: page.url };
-  })().catch((error): WebsiteAgentResult => ({
-    error: error instanceof Error ? error.message : "个人网站补充失败。",
-  }));
-  return { website, result };
+  const prefetch = prefetchWebsiteResearchRoot({ rootUrl: website, tracer }).then(
+    (value) => ({ value }),
+    (error) => ({
+      error: error instanceof Error ? error.message : "个人网站补充失败。",
+      errorStatus: publicErrorStatus(error),
+    }),
+  );
+  return { website, providerConfig, prefetch };
+}
+
+async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | undefined, tracer: AgentTracer): Promise<WebsiteAgentResult> {
+  const prefetched = await task.prefetch;
+  if (!prefetched.value) return {
+    error: prefetched.error || "个人网站补充失败。",
+    errorStatus: prefetched.errorStatus,
+  };
+  try {
+    const result = await runWebsiteResearchAgent({
+      rootUrl: task.website,
+      currentProfile: profile,
+      tracer,
+      prefetchedRoot: prefetched.value,
+      submitter: async ({ text, label, sourceId, media }) => (await extractProfileWithAgentRun(text, {
+        id: sourceId,
+        type: "url",
+        label,
+        media,
+        format: "text",
+      }, {
+        providerScope: "website",
+        providerConfig: task.providerConfig,
+        tracer,
+        stepPrefix: "website",
+      })).profile,
+    });
+    return {
+      profile: result.profile,
+      pageUrl: result.state.rootUrl,
+      research: publicWebsiteResearchSnapshot(result.state),
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "个人网站补充失败。",
+      errorStatus: publicErrorStatus(error),
+    };
+  }
 }
 
 async function enrichFromWebsite(
@@ -133,7 +164,7 @@ async function enrichFromWebsite(
 ) {
   if (!tracer) throw new ProfileAgentError("Agent Trace 未初始化。", 500);
   const task = pendingTask?.website === website ? pendingTask : startWebsiteAgent(website, providerConfig, tracer);
-  const websiteResult = await task.result;
+  const websiteResult = await runWebsiteAgent(task, profile, tracer);
   if (websiteResult.profile && websiteResult.pageUrl) {
     tracer.emit({ type: "step.started", step: "profile.merge", attempt: 1 });
     const enriched = mergeProfiles(profile, websiteResult.profile, `${originalLabel} + ${websiteResult.pageUrl}`);
@@ -141,7 +172,12 @@ async function enrichFromWebsite(
     tracer.emit({ type: "step.completed", step: "profile.merge" });
     return {
       profile: enriched,
-      enrichment: { attempted: true, succeeded: true, website: websiteResult.pageUrl },
+      enrichment: {
+        attempted: true,
+        succeeded: true,
+        website: websiteResult.pageUrl,
+        research: websiteResult.research,
+      },
     };
   }
   return {
@@ -177,6 +213,29 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
     media: body.media || [],
     format: "text",
   };
+  if (source.type === "url" && source.id) {
+    let website: string | undefined;
+    try {
+      website = validatePublicUrl(source.id).href;
+    } catch {
+      // Compatibility path: callers may supply extracted page text with a non-URL source id.
+    }
+    if (website) {
+      tracer.emit({ type: "artifact.created", step: "source.prepare", name: "website-root.json", schemaVersion: "website-root.v1" });
+      tracer.emit({ type: "step.completed", step: "source.prepare" });
+      const result = await runWebsiteAgent(startWebsiteAgent(website, providerConfig, tracer), undefined, tracer);
+      if (!result.profile) throw new ProfileAgentError(result.error || "个人网站研究失败。", result.errorStatus || 502);
+      return {
+        profile: result.profile,
+        enrichment: {
+          attempted: true,
+          succeeded: true,
+          website: result.pageUrl,
+          research: result.research,
+        },
+      };
+    }
+  }
   const shouldFollowWebsite = body.followWebsite !== false && source.type !== "url";
   let websiteTask: WebsiteAgentTask | undefined;
   tracer.emit({ type: "artifact.created", step: "source.prepare", name: "prepared-source.json", schemaVersion: "source.v1" });

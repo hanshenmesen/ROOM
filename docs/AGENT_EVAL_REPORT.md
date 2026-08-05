@@ -40,3 +40,9 @@ The first publishable accuracy report requires:
 4. Promote the model experiment to `full` only after the smoke cost and failure report is acceptable.
 
 Machine-readable sources of truth: [`evals/reports/smoke-baseline.json`](../evals/reports/smoke-baseline.json) and [`evals/reports/full-baseline.json`](../evals/reports/full-baseline.json).
+
+## Website Research comparison capability
+
+Phase 4 adds an offline comparison contract for single-page and bounded multi-page website extraction. It reports expected-title Recall, Recall delta, visited pages, downloaded bytes, Tool calls, Tool latency, model calls, and Provider token usage when supplied. The fixture proves that a root page with no projects can discover supported project and publication pages while external, local-network, and private links do not enter the plan.
+
+This is a capability test, not a production benchmark. It uses a fictional in-memory website graph and an injected deterministic submitter, so it does not claim real-model website accuracy or real-network latency. A publishable comparison still requires reviewed multi-page websites and an explicitly authorized Provider experiment.
