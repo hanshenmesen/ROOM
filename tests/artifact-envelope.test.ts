@@ -9,6 +9,7 @@ import {
 } from "../lib/agent-runtime/artifact-envelope.ts";
 import { runPipeline } from "../lib/agents/pipeline.ts";
 import { sampleResume } from "../lib/data/sample-resume.ts";
+import { mergeProfilesWithReport } from "../lib/profile-merge.ts";
 
 test("wrapArtifact assigns the current schema version without changing artifact data", () => {
   const profile = runPipeline(sampleResume).profile;
@@ -21,6 +22,15 @@ test("migrateArtifact accepts a current v1 envelope", () => {
   const world = runPipeline(sampleResume).world;
   const envelope = wrapArtifact("world", world);
   assert.deepEqual(migrateArtifact("world", structuredClone(envelope)), envelope);
+});
+
+test("Profile Merge Reports use an explicit artifact envelope version", () => {
+  const primary = runPipeline(sampleResume).profile;
+  const supplement = structuredClone(primary);
+  const report = mergeProfilesWithReport(primary, supplement, "two public sources");
+  const envelope = wrapArtifact("profile-merge-report", report);
+  assert.equal(envelope.schemaVersion, "profile-merge-report.v1");
+  assert.equal(migrateArtifact("profile-merge-report", envelope).data.reviewRequired, false);
 });
 
 test("migrateArtifact rejects unknown versions explicitly", () => {

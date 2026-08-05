@@ -22,12 +22,12 @@ Goal: convert one structured sample résumé into a walkable lobby plus one proj
 
 ## Phase 2 — Agent pipeline
 
-- [ ] Profile extraction with evidence and confidence.
+- [x] Profile extraction with evidence and confidence.
 - [ ] Room graph planning.
 - [ ] Approved asset selection.
-- [ ] Exhibit mapping without hallucinated facts.
-- [ ] Automated factual and navigation QA.
-- [ ] Human confirmation UI.
+- [x] Exhibit mapping without hallucinated facts.
+- [x] Automated factual and navigation QA.
+- [x] Human confirmation UI.
 
 ## Phase 3 — Social layer
 

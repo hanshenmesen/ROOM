@@ -4,6 +4,7 @@ import { directWorld } from "../agents/creative-director.ts";
 import { orchestrateWorld } from "../agents/orchestrator.ts";
 import { parseProfile } from "../agents/parser.ts";
 import { normalizeDisplayProfile } from "../display-copy.ts";
+import { resolveProfileMergeReview } from "../profile-merge.ts";
 import { inMemoryWorkflowStore } from "./in-memory-workflow-store.ts";
 import {
   ROOM_WORKFLOW_NODES,
@@ -12,7 +13,9 @@ import {
   type RoomWorkflowState,
   type WorkflowEvent,
   type WorkflowNodeHandlers,
+  type WorkflowNodeOutput,
   type WorkflowRecord,
+  type WorkflowReviewSubmission,
   type WorkflowSourceInput,
   type WorkflowStore,
 } from "./types.ts";
@@ -85,6 +88,14 @@ function artifactVersions(artifacts: RoomWorkflowArtifacts) {
     key,
     envelope?.schemaVersion,
   ]).filter((entry) => entry[1])) as Partial<Record<keyof RoomWorkflowArtifacts, string>>;
+}
+
+function normalizeNodeOutput(
+  output: Partial<RoomWorkflowArtifacts> | WorkflowNodeOutput | void,
+): WorkflowNodeOutput {
+  if (!output) return {};
+  if ("artifacts" in output || "review" in output) return output as WorkflowNodeOutput;
+  return { artifacts: output as Partial<RoomWorkflowArtifacts> };
 }
 
 function requireArtifact<K extends keyof RoomWorkflowArtifacts>(
@@ -175,6 +186,7 @@ export class RoomWorkflowEngine {
       artifacts: {},
       checkpoints: [],
       metrics: { nodeExecutions: 0, nodeLatencyMs: {}, resumedCount: 0 },
+      reviewHistory: [],
       createdAt: now,
       updatedAt: now,
     };
@@ -190,6 +202,9 @@ export class RoomWorkflowEngine {
     if (record.state.status === "completed") throw new WorkflowTransitionError("Completed Workflow Runs cannot be resumed.");
     if (record.state.status === "cancelled") throw new WorkflowTransitionError("Cancelled Workflow Runs cannot be resumed.");
     if (record.state.status === "running") return record.state;
+    if (record.state.status === "waiting_for_review") {
+      throw new WorkflowTransitionError("This Workflow Run needs a review decision before it can resume.");
+    }
     await this.execute(runId, true);
     return this.getState(runId);
   }
@@ -212,6 +227,35 @@ export class RoomWorkflowEngine {
   async getEvents(runId: string, afterSequence = 0) {
     const record = await this.requireRecord(runId);
     return record.events.filter((event) => event.sequence > afterSequence);
+  }
+
+  async review(runId: string, resolutions: WorkflowReviewSubmission) {
+    let record = await this.requireRecord(runId);
+    if (record.state.status !== "waiting_for_review" || !record.state.activeReview) {
+      throw new WorkflowTransitionError("This Workflow Run is not waiting for review.");
+    }
+    const activeReview = record.state.activeReview;
+    const reviewed = resolveProfileMergeReview(activeReview.report, resolutions);
+    record.state.artifacts.profile = wrapArtifact("profile", reviewed.profile);
+    const resolvedAt = new Date().toISOString();
+    record.state.reviewHistory.push({
+      type: activeReview.type,
+      node: activeReview.node,
+      resolvedAt,
+      userClaims: reviewed.userClaims,
+    });
+    record.state.activeReview = undefined;
+    record.state.status = "queued";
+    record.state.currentNode = undefined;
+    appendEvent(record, {
+      type: "review.completed",
+      node: activeReview.node,
+      resolutionCount: reviewed.userClaims.length,
+    });
+    await this.store.save(record);
+    await this.execute(runId, true);
+    record = await this.requireRecord(runId);
+    return record.state;
   }
 
   private async requireRecord(runId: string) {
@@ -246,7 +290,7 @@ export class RoomWorkflowEngine {
       await this.store.save(record);
       const started = performance.now();
       try {
-        const output = await this.handlers[node]({
+        const rawOutput = await this.handlers[node]({
           runId,
           node,
           attempt,
@@ -256,7 +300,14 @@ export class RoomWorkflowEngine {
         const latest = await this.requireRecord(runId);
         if (latest.state.status === "cancelled") return;
         record = latest;
-        if (output) record.state.artifacts = { ...record.state.artifacts, ...output };
+        const output = normalizeNodeOutput(rawOutput);
+        if (output.artifacts) record.state.artifacts = { ...record.state.artifacts, ...output.artifacts };
+        if (output.review) {
+          if (!output.review.report.reviewRequired || !output.review.report.conflicts.some((conflict) => conflict.required)) {
+            throw new WorkflowNodeError("invalid_review_request", "Workflow Review Request has no required conflicts.");
+          }
+          record.state.artifacts.mergeReport = wrapArtifact("profile-merge-report", output.review.report);
+        }
         const latencyMs = Math.max(0, Math.round((performance.now() - started) * 100) / 100);
         record.state.metrics.nodeLatencyMs[node] = latencyMs;
         if (!record.state.completedNodes.includes(node)) record.state.completedNodes.push(node);
@@ -270,6 +321,20 @@ export class RoomWorkflowEngine {
         });
         appendEvent(record, { type: "checkpoint.saved", node, checkpointId });
         appendEvent(record, { type: "node.completed", node, latencyMs });
+        if (output.review) {
+          record.state.activeReview = {
+            ...output.review,
+            node,
+            requestedAt: new Date().toISOString(),
+          };
+          record.state.status = "waiting_for_review";
+          record.state.currentNode = undefined;
+          appendEvent(record, {
+            type: "review.requested",
+            node,
+            conflictCount: output.review.report.conflicts.filter((conflict) => conflict.required).length,
+          });
+        }
         if (node === "complete") {
           record.state.status = "completed";
           record.state.currentNode = undefined;
@@ -277,7 +342,7 @@ export class RoomWorkflowEngine {
           appendEvent(record, { type: "run.completed" });
         }
         await this.store.save(record);
-        if (node === "complete") return;
+        if (node === "complete" || output.review) return;
       } catch (error) {
         record = await this.requireRecord(runId);
         if (record.state.status === "cancelled") return;

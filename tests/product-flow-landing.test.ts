@@ -6,6 +6,7 @@ const landingSource = readFileSync(new URL("../components/ProductFlowLanding.tsx
 const landingStyles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const studioSource = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
 const parseRouteSource = readFileSync(new URL("../app/api/parse/route.ts", import.meta.url), "utf8");
+const reviewSource = readFileSync(new URL("../components/ProfileReviewPanel.tsx", import.meta.url), "utf8");
 
 test("the landing is rebuilt from independently positioned PPT artwork", () => {
   for (const asset of [
@@ -91,4 +92,14 @@ test("website and resume sources wait for one explicit generate action", () => {
   assert.match(studioSource, /parseTextWithAgent\("", value, "url", \[\], value, true\)/);
   assert.doesNotMatch(studioSource.match(/async function extractUrl\(\)[\s\S]*?async function readFile/)?.[0] || "", /\/api\/extract/);
   assert.match(parseRouteSource, /source\.type === "url"[\s\S]*runWebsiteAgent\(startWebsiteAgent\(website, providerConfig, tracer\)/);
+});
+
+test("conflicting Agent claims stop at an evidence-backed human checkpoint", () => {
+  assert.match(parseRouteSource, /mergeProfilesWithReport/);
+  assert.match(parseRouteSource, /mergeReport\.reviewRequired/);
+  assert.match(studioSource, /<ProfileReviewPanel report=\{profileMergeReport\}/);
+  assert.match(studioSource, /resolveProfileMergeReview\(profileMergeReport, resolutions\)/);
+  assert.match(reviewSource, /查看证据/);
+  assert.match(reviewSource, /我来填写正确值/);
+  assert.match(reviewSource, /不公开这个字段/);
 });

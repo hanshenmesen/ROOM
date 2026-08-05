@@ -88,9 +88,9 @@
       "required": ["sourceId", "locator", "excerpt"],
       "properties": {
         "sourceId": { "type": "string" },
-        "locator": { "type": "string", "pattern": "^(line|lines|page|pages|image|char|media|img|paper-box|meta-image|profile-img|system):" },
+        "locator": { "type": "string", "pattern": "^(line|lines|page|pages|image|char|media|img|paper-box|meta-image|profile-img|system|user):" },
         "excerpt": { "type": "string" },
-        "origin": { "enum": ["source", "system-generated"] }
+        "origin": { "enum": ["source", "system-generated", "user-confirmed"] }
       }
     },
     "fieldEvidence": {

@@ -157,7 +157,7 @@ test("profile Agent extracts a normal PDF with parallel evidence-backed shards",
     assert.equal(merged.skills.includes("RAG"), true);
     assert.deepEqual(merged.foods, ["寿司", "意面"]);
     assert.deepEqual(merged.hobbies, ["摄影", "爵士乐", "徒步"]);
-    assert.equal(merged.summary, websiteProfile.summary);
+    assert.equal(merged.summary, profile.summary);
     assert.equal(merged.items.find((item) => item.title === "Beyond Detection")?.evidence.length, 2);
   } finally {
     globalThis.fetch = originalFetch;

@@ -27,6 +27,11 @@ import {
   type BrowserAgentConfig,
 } from "@/lib/browser-agent-config";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
+import {
+  resolveProfileMergeReview,
+  type ProfileMergeReport,
+  type ProfileReviewResolution,
+} from "@/lib/profile-merge";
 import { FICTIONAL_DEMO_PROFILE_ID, fictionalDemoProfile } from "@/lib/data/fictional-demo-profile";
 import {
   DIARY_STORAGE_KEY,
@@ -93,6 +98,7 @@ import { BackgroundMusicController, type BackgroundMusicControllerHandle } from 
 import { MoveInStudio, type MoveInStep } from "./MoveInStudio";
 import { PetQaPanel } from "./PetQaPanel";
 import { ProductFlowLanding } from "./ProductFlowLanding";
+import { ProfileReviewPanel } from "./ProfileReviewPanel";
 
 const WorldCanvas = dynamic(
   () => import("./WorldCanvas").then((module) => module.WorldCanvas),
@@ -501,6 +507,7 @@ export function RoomStudio() {
   const [agentRunEvents, setAgentRunEvents] = useState<AgentRunEvent[]>([]);
   const [agentRunProfileId, setAgentRunProfileId] = useState("");
   const [pendingProfile, setPendingProfile] = useState<ParsedProfile | null>(null);
+  const [profileMergeReport, setProfileMergeReport] = useState<ProfileMergeReport | null>(null);
   const [moveInStep, setMoveInStep] = useState<MoveInStep>("pet");
   const [petCustomization, setPetCustomization] = useState<PetCustomization>({ ...DEFAULT_PET_CUSTOMIZATION });
   const companionName = normalizeRoomCompanionName(petCustomization.name);
@@ -897,6 +904,7 @@ export function RoomStudio() {
     setActiveRoom("room-lobby");
     setSourceBrowserProjectId("");
     setPendingProfile(null);
+    setProfileMergeReport(null);
     setPetCustomization(profileSpace.pet);
     setPrivateFrameImages(profileSpace.frameImages);
     setPrivateFrameMessage("");
@@ -981,6 +989,35 @@ export function RoomStudio() {
     }
   }
 
+  function acceptParsedProfile(profile: ParsedProfile, mergeReport?: ProfileMergeReport) {
+    setPendingProfile(profile);
+    if (mergeReport?.reviewRequired) {
+      setProfileMergeReport(mergeReport);
+      setMessage(`Agent 发现 ${mergeReport.conflicts.filter((conflict) => conflict.required).length} 个来源冲突，请结合证据确认后继续。`);
+      return;
+    }
+    setProfileMergeReport(null);
+    const remembered = rememberGeneratedProfile(profile);
+    setMessage(remembered
+      ? "Agent 已完成解析。设置好宠物和空间照片后，就可以进入。"
+      : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
+  }
+
+  function confirmProfileReview(resolutions: ProfileReviewResolution[]) {
+    if (!profileMergeReport) return;
+    try {
+      const reviewed = resolveProfileMergeReview(profileMergeReport, resolutions);
+      setPendingProfile(reviewed.profile);
+      setProfileMergeReport(null);
+      const remembered = rememberGeneratedProfile(reviewed.profile);
+      setMessage(remembered
+        ? "冲突字段已按你的决定锁定，Agent 从检查点继续生成。"
+        : "冲突字段已确认；浏览器空间不足，本次结果仅在当前会话保留。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "无法应用这次确认，请重试。");
+    }
+  }
+
   async function parseTextWithAgent(
     text: string,
     label: string,
@@ -991,6 +1028,7 @@ export function RoomStudio() {
   ) {
     const { response, data } = await requestTrackedAgentRun<{
       profile?: ParsedProfile;
+      mergeReport?: ProfileMergeReport;
       error?: string;
       details?: string[];
       run?: AgentRunSnapshot;
@@ -1013,7 +1051,7 @@ export function RoomStudio() {
       throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
     }
     setAgentRunProfileId(data.profile.id);
-    return data.profile;
+    return { profile: data.profile, mergeReport: data.mergeReport };
   }
 
   async function requestTrackedAgentRun<T extends { run?: AgentRunSnapshot }>(
@@ -1092,6 +1130,7 @@ export function RoomStudio() {
 
   function beginMoveInDraft() {
     setPendingProfile(null);
+    setProfileMergeReport(null);
     setMoveInStep("pet");
     setPetCustomization({ ...DEFAULT_PET_CUSTOMIZATION });
     setPrivateFrameImages({});
@@ -1112,12 +1151,8 @@ export function RoomStudio() {
     setLoading(true);
     setMessage("Website Research Agent 正在规划并读取公开页面…");
     try {
-      const profile = await parseTextWithAgent("", value, "url", [], value, true);
-      setPendingProfile(profile);
-      const remembered = rememberGeneratedProfile(profile);
-      setMessage(remembered
-        ? "Agent 已完成解析。设置好宠物和空间照片后，就可以进入。"
-        : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
+      const parsed = await parseTextWithAgent("", value, "url", [], value, true);
+      acceptParsedProfile(parsed.profile, parsed.mergeReport);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "读取失败，请稍后重试。 ");
     } finally {
@@ -1144,6 +1179,7 @@ export function RoomStudio() {
       if (website) form.set("website", website);
       const { response, data } = await requestTrackedAgentRun<{
         profile?: ParsedProfile;
+        mergeReport?: ProfileMergeReport;
         error?: string;
         details?: string[];
         run?: AgentRunSnapshot;
@@ -1156,11 +1192,7 @@ export function RoomStudio() {
         throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
       }
       setAgentRunProfileId(data.profile.id);
-      setPendingProfile(data.profile);
-      const remembered = rememberGeneratedProfile(data.profile);
-      setMessage(remembered
-        ? "Agent 已完成解析。设置好宠物和空间照片后，就可以进入。"
-        : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
+      acceptParsedProfile(data.profile, data.mergeReport);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法读取这个文件。");
     } finally {
@@ -1617,9 +1649,10 @@ export function RoomStudio() {
   }
 
   if (!result && (loading || pendingProfile)) {
-    const creationReady = Boolean(pendingProfile);
+    const reviewActive = Boolean(profileMergeReport);
+    const creationReady = Boolean(pendingProfile && !reviewActive);
     return (
-      <main className={`creation-page ${creationReady ? "is-ready" : "is-parsing"}`}>
+      <main className={`creation-page ${creationReady ? "is-ready" : reviewActive ? "is-reviewing" : "is-parsing"}`}>
         <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
         <header className="minimal-header creation-header">
           <span className="wordmark">ROOM</span>
@@ -1629,31 +1662,40 @@ export function RoomStudio() {
         <section className="creation-workspace" aria-label="个人小家创建进度与入住设置">
           <section className="creation-progress" aria-live="polite">
             <span className="creation-index">ROOM / BUILD 01</span>
-            <div className={`creation-orbit ${creationReady ? "is-complete" : ""}`} aria-hidden="true"><span /></div>
-            <p className="creation-kicker">{creationReady ? "YOUR HOME IS READY" : "PROFILE AGENT IS WORKING"}</p>
-            <h1>{creationReady ? "你的小家，正在等待你的最后装扮。" : `Agent 继续搭建，你先捏一个${companionName}。`}</h1>
+            <div className={`creation-orbit ${creationReady ? "is-complete" : reviewActive ? "is-review" : ""}`} aria-hidden="true"><span /></div>
+            <p className="creation-kicker">{creationReady ? "YOUR HOME IS READY" : reviewActive ? "HUMAN CHECKPOINT" : "PROFILE AGENT IS WORKING"}</p>
+            <h1>{creationReady
+              ? "你的小家，正在等待你的最后装扮。"
+              : reviewActive
+                ? "有些信息，应该由你来定。"
+                : `Agent 继续搭建，你先捏一个${companionName}。`}</h1>
             <p className="creation-message">{agentRunMessage || message}</p>
             <ol className="creation-steps">
               <li className="is-complete"><span>01</span><div><strong>资料已接收</strong><small>简历与公开信息进入解析队列</small></div></li>
-              <li className={creationReady ? "is-complete" : "is-active"}><span>02</span><div><strong>Agent 解析与整合</strong><small>{agentRunMessage || "项目、经历和个人网站并行整理"}</small></div></li>
-              <li className={moveInStep === "pet" ? "is-active" : "is-complete"}><span>03</span><div><strong>起名、捏宠物与选性格</strong><small>调整{companionName}的名字、颜色、耳朵、花纹和回答语气</small></div></li>
-              <li className={moveInStep === "photos" ? "is-active" : ""}><span>04</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
+              <li className={loading ? "is-active" : "is-complete"}><span>02</span><div><strong>Agent 解析与整合</strong><small>{agentRunMessage || "项目、经历和个人网站并行整理"}</small></div></li>
+              <li className={reviewActive ? "is-active" : creationReady ? "is-complete" : ""}><span>03</span><div><strong>证据冲突确认</strong><small>{reviewActive ? "查看候选值、来源片段并作出决定" : "无冲突时自动通过"}</small></div></li>
+              <li className={creationReady && moveInStep === "pet" ? "is-active" : creationReady ? "is-complete" : ""}><span>04</span><div><strong>起名、捏宠物与选性格</strong><small>调整{companionName}的名字、颜色、耳朵、花纹和回答语气</small></div></li>
+              <li className={creationReady && moveInStep === "photos" ? "is-active" : ""}><span>05</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
             </ol>
           </section>
 
-          <MoveInStudio
-            step={moveInStep}
-            pet={petCustomization}
-            frameImages={privateFrameImages}
-            ready={creationReady}
-            photoMessage={privateFrameMessage}
-            onStepChange={setMoveInStep}
-            onPetChange={setPetCustomization}
-            onPhotosChange={(event) => void readMoveInPhotos(event)}
-            onFrameChange={(slot, event) => void readPrivateFrameImage(slot, event)}
-            onFrameRemove={resetPrivateFrame}
-            onEnter={enterPendingWorld}
-          />
+          {profileMergeReport ? (
+            <ProfileReviewPanel report={profileMergeReport} onConfirm={confirmProfileReview} />
+          ) : (
+            <MoveInStudio
+              step={moveInStep}
+              pet={petCustomization}
+              frameImages={privateFrameImages}
+              ready={creationReady}
+              photoMessage={privateFrameMessage}
+              onStepChange={setMoveInStep}
+              onPetChange={setPetCustomization}
+              onPhotosChange={(event) => void readMoveInPhotos(event)}
+              onFrameChange={(slot, event) => void readPrivateFrameImage(slot, event)}
+              onFrameRemove={resetPrivateFrame}
+              onEnter={enterPendingWorld}
+            />
+          )}
         </section>
 
         <footer className="minimal-footer creation-footer">

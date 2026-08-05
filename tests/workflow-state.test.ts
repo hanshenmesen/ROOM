@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { ARTIFACT_SCHEMA_VERSIONS } from "../lib/agent-runtime/artifact-envelope.ts";
+import { ARTIFACT_SCHEMA_VERSIONS, wrapArtifact } from "../lib/agent-runtime/artifact-envelope.ts";
+import { parseProfile } from "../lib/agents/parser.ts";
 import { sampleResume } from "../lib/data/sample-resume.ts";
 import { InMemoryWorkflowStore } from "../lib/workflow/in-memory-workflow-store.ts";
 import { publicWorkflowSnapshot } from "../lib/workflow/public-snapshot.ts";
+import { mergeProfilesWithReport } from "../lib/profile-merge.ts";
 import {
   defaultRoomWorkflowHandlers,
   RoomWorkflowEngine,
@@ -81,6 +83,66 @@ test("resume restarts at the failed node without rerunning completed nodes", asy
   assert.equal(extractCalls, 2);
   const events = await engine.getEvents(started.runId);
   assert.equal(events.filter((event) => event.type === "run.failed").length, 1);
+  assert.equal(events.filter((event) => event.type === "run.resumed").length, 1);
+});
+
+test("profile conflicts pause at a checkpoint and resume after evidence-backed user review", async () => {
+  const store = new InMemoryWorkflowStore();
+  await store.clear();
+  let extractCalls = 0;
+  const handlers: WorkflowNodeHandlers = {
+    ...defaultRoomWorkflowHandlers,
+    extract_profile: ({ input }) => {
+      extractCalls += 1;
+      const primary = parseProfile(input.text, { type: input.type, label: input.label });
+      const supplement = structuredClone(primary);
+      supplement.source = { ...supplement.source, id: "workflow-website", type: "url", label: "Website evidence" };
+      supplement.headline = "Conflicting Agent Role";
+      supplement.identityEvidence.headline = [{
+        sourceId: supplement.source.id,
+        locator: "line:2",
+        excerpt: "Conflicting Agent Role",
+      }];
+      const report = mergeProfilesWithReport(primary, supplement, `${input.label} + Website evidence`);
+      return {
+        artifacts: { profile: wrapArtifact("profile", report.merged) },
+        review: { type: "profile_conflict", report },
+      };
+    },
+  };
+  const engine = new RoomWorkflowEngine(store, handlers);
+  const started = await engine.start({ type: "text", label: "Review fixture", text: sampleResume });
+  assert.equal(started.state.status, "waiting_for_review");
+  assert.deepEqual(started.state.completedNodes, ["prepare_source", "extract_profile"]);
+  assert.equal(started.state.checkpoints.length, 2);
+  assert.equal(started.state.activeReview?.report.conflicts.length, 1);
+  assert.equal(started.state.artifacts.mergeReport?.schemaVersion, ARTIFACT_SCHEMA_VERSIONS["profile-merge-report"]);
+  assert.equal(
+    started.state.checkpoints.at(-1)?.artifactVersions.mergeReport,
+    ARTIFACT_SCHEMA_VERSIONS["profile-merge-report"],
+  );
+  assert.equal(extractCalls, 1);
+  await assert.rejects(engine.resume(started.runId), /needs a review decision/);
+
+  const snapshot = publicWorkflowSnapshot(started.state);
+  assert.equal(snapshot.review?.conflicts[0]?.supplement?.evidence[0]?.excerpt, "Conflicting Agent Role");
+  assert.equal("merged" in (snapshot.review || {}), false, "the public snapshot exposes conflict evidence, not the full Profile artifact");
+  const conflictId = started.state.activeReview?.report.conflicts[0]?.conflictId;
+  assert.ok(conflictId);
+  const reviewed = await engine.review(started.runId, [{
+    conflictId,
+    action: "edit",
+    value: "User Confirmed Agent Engineer",
+  }]);
+  assert.equal(reviewed.status, "completed");
+  assert.equal(reviewed.activeReview, undefined);
+  assert.equal(reviewed.reviewHistory.length, 1);
+  assert.equal(reviewed.artifacts.profile?.data.headline, "User Confirmed Agent Engineer");
+  assert.equal(reviewed.artifacts.profile?.data.identityEvidence.headline?.at(-1)?.origin, "user-confirmed");
+  assert.equal(extractCalls, 1, "the reviewed extraction checkpoint is not rerun");
+  const events = await engine.getEvents(started.runId);
+  assert.equal(events.filter((event) => event.type === "review.requested").length, 1);
+  assert.equal(events.filter((event) => event.type === "review.completed").length, 1);
   assert.equal(events.filter((event) => event.type === "run.resumed").length, 1);
 });
 

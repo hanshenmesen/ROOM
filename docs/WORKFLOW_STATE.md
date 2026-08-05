@@ -2,17 +2,18 @@
 
 ## Scope
 
-Phase 3 introduces a framework-neutral Workflow boundary without changing `/api/parse` or the existing `PipelineResult`. The new Run API currently executes the deterministic Profile → Creative Brief → World → Check path and proves the checkpoint, retry, cancellation, and observability contracts offline.
+Phase 3 introduced a framework-neutral Workflow boundary around the existing `PipelineResult`; Phase 5 adds Profile review interrupts. The Run API executes the deterministic Profile → Creative Brief → World → Check path and proves checkpoint, retry, cancellation, review, and observability contracts offline. The existing `/api/parse` success shape remains compatible and may now include an optional Merge Report.
 
 It does not yet replace the production parse request or split the live LLM Profile Agent into Identity, Research, and Career Workflow nodes. That migration should happen after durable storage is enabled so an expensive model call is never presented as recoverable while its checkpoint exists only in memory.
 
 ## State and nodes
 
-Runs use `room-workflow-state.v1` and move through:
+Runs use `room-workflow-state.v2` and move through:
 
 ```text
 queued → running → completed
             ├──→ failed → running (resume)
+            ├──→ waiting_for_review → running (review + resume)
             └──→ cancelled
 queued ─────────→ cancelled
 ```
@@ -39,10 +40,19 @@ After every completed node the engine records a checkpoint containing the comple
 | `GET` | `/api/runs/:runId/events?after=N` | Read ordered events after a sequence cursor |
 | `POST` | `/api/runs/:runId/cancel` | Cancel queued, running, or failed work |
 | `POST` | `/api/runs/:runId/resume` | Continue queued or failed work from the first incomplete node |
+| `POST` | `/api/runs/:runId/review` | Apply all required Profile conflict decisions and continue from the checkpoint |
 
 `POST /api/runs` currently accepts non-empty text up to 1 MiB. Reusing an Idempotency Key with the same source returns the original Run; reusing it with different input returns HTTP 409.
 
-Run snapshots expose source type, label, byte/line counts, SHA-256 hash, status, attempts, checkpoints, metrics, failure code, and Artifact type/version metadata. They exclude the résumé body and all Artifact bodies. Events contain lifecycle metadata only.
+Run snapshots expose source type, label, byte/line counts, SHA-256 hash, status, attempts, checkpoints, metrics, failure code, and Artifact type/version metadata. They exclude the résumé body and full Artifact bodies. While a Run is waiting, its snapshot also exposes the bounded candidate values and evidence excerpts needed for that review. Events contain lifecycle metadata only.
+
+## Human review boundary
+
+An extraction or merge node can return both Artifacts and a `profile_conflict` Review Request. The engine first completes and checkpoints that node, then emits `review.requested` and moves to `waiting_for_review`. A normal resume is rejected until every required conflict has exactly one decision.
+
+`POST /api/runs/:runId/review` accepts `primary`, `supplement`, `edit`, or `reject`. Accepted and edited values receive `user-confirmed` evidence, become the new `profile.v1` Artifact, and retain highest priority in later merges. The engine emits `review.completed`, then resumes at the first incomplete node; the extraction node is not called twice.
+
+The live `/api/parse` path uses the same Merge Report and Review UI, but it is still a request-scoped path rather than a durable Run. It holds the provisional Profile in the browser and compiles only after review. Moving expensive live model shards fully behind durable D1/R2 Workflow handlers remains part of production enablement.
 
 ## Persistence boundary
 
@@ -69,4 +79,4 @@ Before `survivesProcessRestart` can become true:
 5. Recover a Run after a real Worker restart and verify completed model nodes are not called twice.
 6. Move the live Profile Agent shards behind Workflow handlers, with bounded timeout/retry policy.
 
-LangGraph remains deferred. The local typed engine already covers the current linear graph; adoption is reconsidered when human interrupts, durable branching repair loops, or replay materially reduce implementation complexity.
+LangGraph remains deferred. The local typed engine now covers the current linear graph and Profile review interrupt; adoption is reconsidered when multiple interacting interrupts, durable branching repair loops, or replay materially reduce implementation complexity.

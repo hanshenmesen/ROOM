@@ -769,6 +769,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .creation-orbit::after { inset: 27px; background: var(--black); }
 .creation-orbit span { width: 10px; height: 10px; top: 8px; left: 34px; background: #ee7654; transform-origin: 5px 32px; animation: creation-orbit 1.6s linear infinite; }
 .creation-orbit.is-complete span { background: #2f8b62; animation: none; transform: translateY(54px); }
+.creation-orbit.is-review { border-color: rgba(189,81,53,.55); }
+.creation-orbit.is-review::after { background: #bd5135; }
+.creation-orbit.is-review span { background: #fffdf8; border: 1px solid #bd5135; animation-duration: 2.8s; }
 @keyframes creation-orbit { to { transform: rotate(360deg); } }
 .creation-kicker { margin: 0 0 13px; color: #57544f; }
 .creation-progress h1 { max-width: 620px; margin: 0; font-size: clamp(42px, 5vw, 72px); font-weight: 500; line-height: 1.01; letter-spacing: -.06em; }
@@ -787,6 +790,42 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .creation-studio-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(25,23,27,.7); }
 .creation-studio-heading h2 { max-width: 390px; margin: 8px 0 0; font-size: 26px; line-height: 1.08; letter-spacing: -.035em; }
 .creation-studio-heading > strong { font: 600 20px var(--font-geist-mono), monospace; }
+.profile-review-panel { display: flex; flex-direction: column; }
+.profile-review-intro { margin: 15px 0; color: #5b554e; font-size: 10px; line-height: 1.6; }
+.profile-review-list { display: grid; gap: 16px; }
+.profile-review-conflict { min-width: 0; margin: 0; border: 1px solid rgba(25,23,27,.3); padding: 14px; }
+.profile-review-conflict legend { padding: 0 8px 0 0; font-size: 12px; font-weight: 700; }
+.profile-review-conflict legend span { margin-right: 8px; color: #bd5135; font: 9px var(--font-geist-mono), monospace; }
+.profile-review-conflict > p { margin: 0 0 11px; color: #665f57; font-size: 9px; line-height: 1.5; }
+.profile-review-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.profile-review-claim { position: relative; display: grid; gap: 7px; min-width: 0; border: 1px solid rgba(25,23,27,.22); padding: 11px; background: #f3eee5; cursor: pointer; }
+.profile-review-claim:only-child { grid-column: 1 / -1; }
+.profile-review-claim.is-selected { border-color: #2c5f5a; box-shadow: inset 0 0 0 1px #2c5f5a; background: #e5eee9; }
+.profile-review-claim-choice { display: grid; gap: 7px; cursor: pointer; }
+.profile-review-claim-choice > input { position: absolute; top: 10px; right: 10px; accent-color: #2c5f5a; }
+.profile-review-claim-source { display: grid; gap: 2px; padding-right: 24px; }
+.profile-review-claim-source strong { color: #665f57; font: 8px var(--font-geist-mono), monospace; }
+.profile-review-claim-source small { overflow: hidden; color: #7d756c; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-review-claim-choice > b { overflow-wrap: anywhere; font-size: 12px; line-height: 1.35; }
+.profile-review-confidence { width: max-content; padding: 3px 5px; background: rgba(44,95,90,.1); color: #2c5f5a; font: 7px var(--font-geist-mono), monospace; }
+.profile-review-claim details { border-top: 1px solid rgba(25,23,27,.16); padding-top: 7px; }
+.profile-review-claim summary { color: #574f48; font-size: 8px; cursor: pointer; }
+.profile-review-claim blockquote { margin: 7px 0 0; border-left: 2px solid #bd5135; padding-left: 8px; }
+.profile-review-claim blockquote span { color: #81776d; font: 7px var(--font-geist-mono), monospace; }
+.profile-review-claim blockquote p,
+.profile-review-claim details > p { margin: 3px 0 0; color: #4f4943; font-size: 8px; line-height: 1.45; }
+.profile-review-edit { display: grid; grid-template-columns: 145px 1fr; align-items: center; gap: 9px; margin-top: 9px; border: 1px solid rgba(25,23,27,.22); padding: 8px 10px; }
+.profile-review-edit.is-selected { border-color: #2c5f5a; background: #eef4f0; }
+.profile-review-edit > span { font-size: 9px; }
+.profile-review-edit input[type="radio"],
+.profile-review-reject input { margin: 0 7px 0 0; accent-color: #2c5f5a; }
+.profile-review-edit > input { min-width: 0; border: 0; border-bottom: 1px solid rgba(25,23,27,.4); padding: 6px; background: transparent; font-size: 10px; outline: none; }
+.profile-review-edit > input:focus { border-bottom-color: #2c5f5a; }
+.profile-review-reject { display: inline-flex; align-items: center; margin-top: 9px; color: #6d655d; font-size: 8px; cursor: pointer; }
+.profile-review-submit { position: sticky; bottom: -31px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; margin: 18px -31px -31px; border-top: 1px solid rgba(25,23,27,.7); padding: 12px 18px; background: #fffdf8; }
+.profile-review-submit > span { color: #686159; font: 8px var(--font-geist-mono), monospace; }
+.profile-review-submit button { border: 0; padding: 11px 14px; background: #19171b; color: #fffdf8; font-size: 10px; cursor: pointer; }
+.profile-review-submit button:disabled { background: #d2cdc4; color: #7d756d; cursor: not-allowed; }
 .move-in-tabs { display: grid; grid-template-columns: 1fr 1fr; margin: 15px 0 18px; border: 1px solid rgba(25,23,27,.3); }
 .move-in-tabs button { border: 0; padding: 10px 12px; background: #eee8de; color: #625b53; text-align: left; font-size: 10px; cursor: pointer; }
 .move-in-tabs button + button { border-left: 1px solid rgba(25,23,27,.3); }
@@ -2050,6 +2089,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   .creation-orbit span { top: 6px; left: 27px; transform-origin: 5px 26px; }
   .creation-orbit.is-complete span { transform: translateY(42px); }
   .creation-studio { max-height: none; padding: 21px; box-shadow: 8px 8px 0 rgba(72,59,43,.16); }
+  .profile-review-options { grid-template-columns: 1fr; }
+  .profile-review-edit { grid-template-columns: 1fr; }
+  .profile-review-submit { bottom: -21px; grid-template-columns: 1fr; margin: 18px -21px -21px; }
   .move-in-pet-step { grid-template-columns: 1fr; }
   .pet-name-field { grid-template-columns: 1fr; }
   .pet-name-field small { grid-column: 1; }

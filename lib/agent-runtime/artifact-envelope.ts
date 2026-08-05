@@ -1,7 +1,9 @@
 import type { CheckReport, CreativeBrief, ParsedProfile, WorldPlan } from "../types.ts";
+import type { ProfileMergeReport } from "../profile-merge.ts";
 
 export const ARTIFACT_SCHEMA_VERSIONS = {
   profile: "profile.v1",
+  "profile-merge-report": "profile-merge-report.v1",
   "creative-brief": "creative-brief.v1",
   world: "world.v1",
   "check-report": "check-report.v1",
@@ -11,6 +13,7 @@ export type ArtifactKind = keyof typeof ARTIFACT_SCHEMA_VERSIONS;
 
 export type ArtifactDataByKind = {
   profile: ParsedProfile;
+  "profile-merge-report": ProfileMergeReport;
   "creative-brief": CreativeBrief;
   world: WorldPlan;
   "check-report": CheckReport;

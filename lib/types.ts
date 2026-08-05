@@ -25,7 +25,7 @@ export interface SourceEvidence {
   sourceId: string;
   locator: string;
   excerpt: string;
-  origin?: "source" | "system-generated";
+  origin?: "source" | "system-generated" | "user-confirmed";
 }
 
 export interface ProfileMedia {

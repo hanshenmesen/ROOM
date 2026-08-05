@@ -114,7 +114,7 @@
         "sourceId": { "type": "string" },
         "locator": { "type": "string", "pattern": "^(line|lines|char|media|img|paper-box|meta-image|profile-img|system):" },
         "excerpt": { "type": "string" },
-        "origin": { "enum": ["source", "system-generated"] }
+        "origin": { "enum": ["source", "system-generated", "user-confirmed"] }
       }
     },
     "fieldEvidence": {

@@ -11,7 +11,7 @@ import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer"
 import type { ExtractedMedia } from "@/lib/extract-webpage";
 import { validatePublicUrl } from "@/lib/public-web";
 import { preparsePdf } from "@/lib/pdf-preparse";
-import { mergeProfiles } from "@/lib/profile-merge";
+import { mergeProfilesWithReport } from "@/lib/profile-merge";
 import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
 import type { AgentProviderOverride } from "@/lib/agents/provider-config";
 import {
@@ -167,11 +167,18 @@ async function enrichFromWebsite(
   const websiteResult = await runWebsiteAgent(task, profile, tracer);
   if (websiteResult.profile && websiteResult.pageUrl) {
     tracer.emit({ type: "step.started", step: "profile.merge", attempt: 1 });
-    const enriched = mergeProfiles(profile, websiteResult.profile, `${originalLabel} + ${websiteResult.pageUrl}`);
+    const mergeReport = mergeProfilesWithReport(profile, websiteResult.profile, `${originalLabel} + ${websiteResult.pageUrl}`);
     tracer.emit({ type: "artifact.created", step: "profile.merge", name: "merged-profile.json", schemaVersion: "profile.v1" });
+    tracer.emit({
+      type: "artifact.created",
+      step: "profile.merge",
+      name: "profile-merge-report.json",
+      schemaVersion: mergeReport.schemaVersion,
+    });
     tracer.emit({ type: "step.completed", step: "profile.merge" });
     return {
-      profile: enriched,
+      profile: mergeReport.merged,
+      ...(mergeReport.reviewRequired ? { mergeReport } : {}),
       enrichment: {
         attempted: true,
         succeeded: true,

@@ -15,9 +15,12 @@ flowchart LR
     B --> D["Bounded Website Research Tool Loop"]
     D --> E["Website Profile Agent"]
     C --> F["Profile validation + normalization"]
-    E --> G["Deterministic profile merge"]
+    E --> G["Claim-aware deterministic merge"]
     F --> G
-    G --> H["ParsedProfile · profile.v1"]
+    G --> R["MergeReport · profile-merge-report.v1"]
+    R -->|"high-risk conflict"| U["Human evidence checkpoint"]
+    R -->|"no required conflict"| H["ParsedProfile · profile.v1"]
+    U --> H
     H --> I["License-aware reference ranking"]
     I --> J["CreativeBrief · creative-brief.v1"]
     H --> K["Deterministic world orchestrator"]
@@ -54,7 +57,8 @@ Portrait art generation and companion Q&A call models, but they are not pipeline
 ## Deterministic services
 
 - **Source preparation:** upload limits, URL safety, PDF pre-parsing, media extraction, and source labeling.
-- **Profile validation and merge:** schema checks, evidence normalization, deduplication, and source precedence.
+- **Profile validation and merge:** evidence-backed Claims, schema checks, deduplication, explicit source decisions, conflict detection, and user-confirmed locks. String length is not a confidence proxy.
+- **Human Review:** exposes both candidate values and their source excerpts for high-risk conflicts. User decisions are recorded as `extractionMethod: "user"` / `origin: "user-confirmed"` and cannot be overwritten by a later Agent merge.
 - **Creative Retrieval:** keyword and metadata ranking over a license-aware reference catalog. This is not currently semantic RAG or an LLM Agent.
 - **World Orchestrator:** maps validated profile content and a creative brief into stable rooms, exhibits, surfaces, and interactions.
 - **World Checker:** detects content omissions, overlap, dead interactions, navigation issues, and performance-budget violations.
@@ -69,6 +73,7 @@ Persisted baselines and future checkpoints use `VersionedArtifactEnvelope<T>` wi
 | Artifact | Version |
 | --- | --- |
 | Parsed profile | `profile.v1` |
+| Profile merge report | `profile-merge-report.v1` |
 | Creative brief | `creative-brief.v1` |
 | World plan | `world.v1` |
 | Check report | `check-report.v1` |
@@ -81,7 +86,7 @@ Each model call has a unique call ID and records provider, model, mode, prompt v
 
 Each Website Research tool call records a unique Tool Call ID, tool name, bounded parameter summary, output counts, latency, and a generic error code. Page bodies, Claim values, evidence excerpts, API keys, and request headers are excluded from Tool Trace.
 
-Phase 3 adds a framework-neutral `RoomWorkflowEngine` around the deterministic Profile → Brief → World → Check path. The engine records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, and checkpoint resume. Public Run snapshots expose artifact metadata but never the source body or artifact body.
+The framework-neutral `RoomWorkflowEngine` records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, review interrupts, and checkpoint resume. A node may return a `ProfileMergeReport`; required conflicts move the Run to `waiting_for_review`. Applying review decisions replaces only the Profile Artifact and resumes at the first incomplete node. Public Run snapshots expose Artifact metadata and only the evidence needed for an active review, never the source body or full Artifact body.
 
 The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.json` has no D1 or R2 binding. It survives requests and browser refreshes handled by the same process or Worker isolate, but not process restarts, isolate replacement, or deployment. The D1 tables and migration are present as the durable metadata contract; enabling durable recovery still requires a D1/R2 store adapter, private object retention/deletion, and run ownership checks. See [Workflow state](./WORKFLOW_STATE.md).
 

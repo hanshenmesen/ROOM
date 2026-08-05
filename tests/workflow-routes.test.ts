@@ -9,6 +9,7 @@ const routeUrls = {
   events: new URL("../app/api/runs/[runId]/events/route.ts", import.meta.url).href,
   cancel: new URL("../app/api/runs/[runId]/cancel/route.ts", import.meta.url).href,
   resume: new URL("../app/api/runs/[runId]/resume/route.ts", import.meta.url).href,
+  review: new URL("../app/api/runs/[runId]/review/route.ts", import.meta.url).href,
 };
 
 const workflowAliases: Record<string, string> = {
@@ -30,6 +31,7 @@ const getRoute = await import(routeUrls.get);
 const eventsRoute = await import(routeUrls.events);
 const cancelRoute = await import(routeUrls.cancel);
 const resumeRoute = await import(routeUrls.resume);
+const reviewRoute = await import(routeUrls.review);
 
 function context(runId: string) {
   return { params: Promise.resolve({ runId }) };
@@ -134,4 +136,27 @@ test("Workflow cancellation keeps queued work terminal and visible", async () =>
     context(created.run.runId),
   );
   assert.equal(resume.status, 409);
+});
+
+test("Workflow review route validates decisions and rejects Runs that are not waiting", async () => {
+  const createdResponse = await createRoute.POST(createRequest("Review route\nEngineer", "workflow-route-key-0004", false));
+  const created = await createdResponse.json() as { run: { runId: string } };
+  const invalid = await reviewRoute.POST(
+    new Request(`https://room.test/api/runs/${created.run.runId}/review`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resolutions: [] }),
+    }),
+    context(created.run.runId),
+  );
+  assert.equal(invalid.status, 400);
+  const notWaiting = await reviewRoute.POST(
+    new Request(`https://room.test/api/runs/${created.run.runId}/review`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resolutions: [{ conflictId: "conflict-profile-headline", action: "primary" }] }),
+    }),
+    context(created.run.runId),
+  );
+  assert.equal(notWaiting.status, 409);
 });

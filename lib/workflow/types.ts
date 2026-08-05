@@ -1,6 +1,11 @@
 import type { KnownArtifactEnvelope } from "../agent-runtime/artifact-envelope.ts";
+import type {
+  ProfileMergeReport,
+  ProfileReviewResolution,
+  UserConfirmedClaim,
+} from "../profile-merge.ts";
 
-export const ROOM_WORKFLOW_SCHEMA_VERSION = "room-workflow-state.v1" as const;
+export const ROOM_WORKFLOW_SCHEMA_VERSION = "room-workflow-state.v2" as const;
 
 export const ROOM_WORKFLOW_NODES = [
   "prepare_source",
@@ -35,6 +40,7 @@ export type PreparedWorkflowSource = {
 
 export type RoomWorkflowArtifacts = {
   profile?: KnownArtifactEnvelope<"profile">;
+  mergeReport?: KnownArtifactEnvelope<"profile-merge-report">;
   creativeBrief?: KnownArtifactEnvelope<"creative-brief">;
   world?: KnownArtifactEnvelope<"world">;
   checkReport?: KnownArtifactEnvelope<"check-report">;
@@ -54,6 +60,23 @@ export type WorkflowMetrics = {
   resumedCount: number;
 };
 
+export type WorkflowReviewRequest = {
+  type: "profile_conflict";
+  report: ProfileMergeReport;
+};
+
+export type ActiveWorkflowReview = WorkflowReviewRequest & {
+  node: RoomWorkflowNode;
+  requestedAt: string;
+};
+
+export type WorkflowReviewHistoryEntry = {
+  type: "profile_conflict";
+  node: RoomWorkflowNode;
+  resolvedAt: string;
+  userClaims: UserConfirmedClaim[];
+};
+
 export type RoomWorkflowState = {
   schemaVersion: typeof ROOM_WORKFLOW_SCHEMA_VERSION;
   runId: string;
@@ -66,6 +89,8 @@ export type RoomWorkflowState = {
   artifacts: RoomWorkflowArtifacts;
   checkpoints: WorkflowCheckpoint[];
   metrics: WorkflowMetrics;
+  activeReview?: ActiveWorkflowReview;
+  reviewHistory: WorkflowReviewHistoryEntry[];
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -90,6 +115,8 @@ export type WorkflowEvent = WorkflowEventBase & (
   | { type: "node.started"; node: RoomWorkflowNode; attempt: number }
   | { type: "checkpoint.saved"; node: RoomWorkflowNode; checkpointId: string }
   | { type: "node.completed"; node: RoomWorkflowNode; latencyMs: number }
+  | { type: "review.requested"; node: RoomWorkflowNode; conflictCount: number }
+  | { type: "review.completed"; node: RoomWorkflowNode; resolutionCount: number }
   | { type: "run.failed"; node: RoomWorkflowNode; errorCode: string }
   | { type: "run.cancelled"; atNode?: RoomWorkflowNode }
   | { type: "run.completed" }
@@ -118,8 +145,18 @@ export type WorkflowNodeContext = {
   state: Readonly<RoomWorkflowState>;
 };
 
+export type WorkflowNodeOutput = {
+  artifacts?: Partial<RoomWorkflowArtifacts>;
+  review?: WorkflowReviewRequest;
+};
+
 export type WorkflowNodeHandler = (
   context: WorkflowNodeContext,
-) => Promise<Partial<RoomWorkflowArtifacts> | void> | Partial<RoomWorkflowArtifacts> | void;
+) => Promise<Partial<RoomWorkflowArtifacts> | WorkflowNodeOutput | void>
+  | Partial<RoomWorkflowArtifacts>
+  | WorkflowNodeOutput
+  | void;
 
 export type WorkflowNodeHandlers = Record<RoomWorkflowNode, WorkflowNodeHandler>;
+
+export type WorkflowReviewSubmission = ProfileReviewResolution[];

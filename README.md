@@ -60,6 +60,7 @@ The demo supports:
 - Pasted résumé text plus PDF, image, and common text/web data uploads.
 - Hybrid PDF parsing: a fast page-aware text/link evidence pass plus Claude document vision and semantic extraction.
 - A bounded multi-page Website Research Tool Agent with same-host link policy, missing-field planning, per-tool Trace, Claim evidence validation, and automatic enrichment. Root-page prefetch starts as soon as the résumé Identity shard finds a homepage; additional pages wait for the complete résumé Profile's missing-field plan.
+- Conflict-aware Profile merging with evidence-backed Claims. Identity, date, role, URL, sensitive-phone, and low-confidence-media gates pause for an explicit user decision; user-confirmed values outrank later Agent output.
 - A Mardou GLB home rendered with React Three Fiber, including a long-corridor entrance, first-person WASD movement, collision handling, and a clickable staircase.
 - A public ground-floor gallery with project islands, semantic profile objects, a visitor book, and a source archive.
 - A password-gated upper gallery for the local private diary and personal scene.
@@ -102,7 +103,11 @@ Agents read and understand the original résumé and personal website rather tha
 Résumé / PDF ──→ page evidence + identity Agent ──→ personal homepage ──→ website Agent
       └────────→ page evidence + inventory Agent ───────────────────────────────┘
                                            ↓ concurrent join
-                                  evidence-backed profile.json
+                                  evidence-backed Merge Report
+                                           ↓ conflicts
+                                  Human evidence checkpoint
+                                           ↓
+                                  confirmed profile.json
         ↓
 Creative Retrieval + deterministic World Compiler
         ↓
@@ -118,7 +123,8 @@ Published personal world
 ## Pipeline roles
 
 - **Parser Agent** — extracts identity, projects, experience, education, skills, and achievements while retaining source locators.
-- **Website Profile Agent** — optionally enriches the résumé from one safely fetched public page using the same evidence contract.
+- **Website Research Agent** — optionally plans and inspects a bounded set of same-host public pages, then enriches the résumé through the same evidence contract.
+- **Profile Review service** — deterministically detects conflicting or unsupported Claims and pauses high-risk publication decisions for the user.
 - **Creative Retrieval service** — ranks room patterns from the license-aware reference catalog and creates a stable spatial brief.
 - **World Orchestrator service** — maps each source item exactly once into the two-floor Mardou museum without reintroducing coordinates from the former villa scene.
 - **World Checker service** — checks content parity, collisions, click targets, room connectivity, and mobile rendering budgets.
@@ -150,7 +156,7 @@ Key implementation paths:
 ```text
 lib/agents/        Profile/website/QA model calls and deterministic pipeline steps
 lib/agents/website/ Bounded Website Research state, policy, and atomic tools
-lib/workflow/      Checkpointed Run state, events, cancellation, and resume
+lib/workflow/      Checkpointed Run state, events, cancellation, review interrupts, and resume
 lib/rag/           Curated reference patterns
 research/rag/      Synced repository metadata and README excerpts
 schemas/           Profile, world, and checker contracts
