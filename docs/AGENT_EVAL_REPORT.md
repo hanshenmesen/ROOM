@@ -1,54 +1,54 @@
-# ROOM Agent Eval Report
+# ROOM Agent 评测报告
 
-## Status
+## 当前状态
 
-Phase 2 infrastructure now has a thirty-case offline breadth suite, but it is not yet evidence for Profile Agent production accuracy.
+阶段 2 已建立包含 30 个用例的离线广度评测集，但目前的结果还不能作为 Profile Agent 生产环境准确率的证据。
 
-- Datasets: `smoke` (5) and composed `full` (30)
-- Cases: 30 fictional, offline cases
-- Human-verified cases: 2
-- Runner: deterministic Pipeline baseline
-- Model or network calls: 0
-- Profile Agent experiment: blocked until a Provider is configured and model calls are explicitly allowed
-- Report schema: `profile-eval-report.v1`
+- 数据集：`smoke`（5 个）和组合数据集 `full`（30 个）
+- 用例：30 个虚构的离线用例
+- 已人工复核用例：2 个
+- 执行器：确定性 Pipeline 基线
+- 模型或网络调用：0 次
+- Profile Agent 实验：尚未运行，需先配置 Provider 并显式允许模型调用
+- 报告 Schema：`profile-eval-report.v1`
 
-## Full deterministic baseline metrics
+## 完整确定性基线指标
 
-| Metric | Result |
+| 指标 | 结果 |
 | --- | ---: |
-| Identity Accuracy | 98.9% |
-| Item Precision | 93.9% |
-| Item Recall | 95.5% |
-| Item F1 | 94.2% |
-| Structured Field Accuracy | 95.6% |
-| Evidence Coverage | 100.0% |
-| Evidence Accuracy | 100.0% |
-| Unsupported Claim Rate | 0.0% |
-| End-to-end Success | 100.0% |
+| 身份信息准确率 | 98.9% |
+| 经历条目精确率 | 93.9% |
+| 经历条目召回率 | 95.5% |
+| 经历条目 F1 | 94.2% |
+| 结构化字段准确率 | 95.6% |
+| 证据覆盖率 | 100.0% |
+| 证据准确率 | 100.0% |
+| 无证据声明率 | 0.0% |
+| 端到端成功率 | 100.0% |
 
-The suite remains **FAIL** by design. It reproduces long-Markdown fragmentation, missing achievement items, bilingual section loss, and Talk/Exhibition kind mismatches. The three historical Prompt Injection failures were removed by the Phase 6 deterministic quarantine boundary and now pass; the committed Phase 2 reports remain the pre-fix comparison baseline. These failures are deterministic parser defects, not claims about the LLM Profile Agent.
+该评测集仍按设计标记为 **未通过**。它能稳定复现长 Markdown 分段错误、成就条目丢失、双语章节丢失，以及 Talk/Exhibition 类型不匹配。历史上的 3 个提示词注入失败用例已被阶段 6 的确定性隔离边界修复，目前均已通过；仓库中保留的阶段 2 报告是修复前的对照基线。这些失败反映的是确定性解析器缺陷，不代表 LLM Profile Agent 的能力。
 
-## Interpretation
+## 结果解读
 
-The composed full suite proves that the Eval implementation can scale exact identity checks, one-to-one item matching, structured fields, source locators, unsupported claims, cost metadata, failure classification, and dataset composition to thirty reproducible cases without network access. Twenty-eight cases remain prelabeled and every new case is synthetic text, so these numbers must not be presented as model accuracy.
+组合后的完整评测集证明：在不访问网络的情况下，Eval 系统已能对 30 个可复现用例执行精确身份检查、条目一对一匹配、结构化字段校验、来源定位、无证据声明检测、成本元数据记录、失败分类和数据集组合。其中 28 个用例仍是预标注状态，所有新增用例均为合成文本，因此不能将这些数字宣传为模型准确率。
 
-The first publishable accuracy report requires:
+如需产出首份可对外发布的准确率报告，还需完成：
 
-1. If résumé accuracy will be claimed publicly, replace or supplement synthetic fixtures with at least 30 reviewed cases.
-2. Add real PDF, image, website, multi-source conflict, inaccessible-page, and partial-failure inputs; the current case schema is text-only.
-3. Configure a controlled Provider and run `npm run eval:experiment -- --dataset smoke --allow-model-calls` with Prompt, Token, latency, fallback, and cost metadata.
-4. Promote the model experiment to `full` only after the smoke cost and failure report is acceptable.
+1. 如果要公开宣称简历解析准确率，需使用至少 30 个已人工复核的真实或脱敏用例，替换或补充合成 Fixture。
+2. 加入真实 PDF、图片、网站、多来源冲突、页面不可访问和部分失败输入；当前用例 Schema 仅支持文本。
+3. 配置受控 Provider，运行 `npm run eval:experiment -- --dataset smoke --allow-model-calls`，并记录 Prompt、Token、延迟、降级路径和成本元数据。
+4. 只有当 smoke 实验的成本和失败报告可接受时，才将模型实验扩展到 `full` 数据集。
 
-Machine-readable sources of truth: [`evals/reports/smoke-baseline.json`](../evals/reports/smoke-baseline.json) and [`evals/reports/full-baseline.json`](../evals/reports/full-baseline.json).
+机器可读的权威数据源：[`evals/reports/smoke-baseline.json`](../evals/reports/smoke-baseline.json) 和 [`evals/reports/full-baseline.json`](../evals/reports/full-baseline.json)。
 
-## Website Research comparison capability
+## Website Research 对比能力
 
-Phase 4 adds an offline comparison contract for single-page and bounded multi-page website extraction. It reports expected-title Recall, Recall delta, visited pages, downloaded bytes, Tool calls, Tool latency, model calls, and Provider token usage when supplied. The fixture proves that a root page with no projects can discover supported project and publication pages while external, local-network, and private links do not enter the plan.
+阶段 4 为单页和受限多页网站抽取增加了离线对比契约。它可以报告预期标题召回率、召回率差值、已访问页面数、下载字节数、Tool 调用次数、Tool 延迟、模型调用次数，以及在有数据时的 Provider Token 用量。Fixture 证明：即使根页面不含项目，系统仍能发现受支持的项目页和发表页；外部链接、本地网络链接和私有链接不会进入执行计划。
 
-This is a capability test, not a production benchmark. It uses a fictional in-memory website graph and an injected deterministic submitter, so it does not claim real-model website accuracy or real-network latency. A publishable comparison still requires reviewed multi-page websites and an explicitly authorized Provider experiment.
+这是能力测试，不是生产环境基准测试。它使用虚构的内存网站图和注入的确定性提交器，因此不声称真实模型的网站抽取准确率或真实网络延迟。如需发布正式对比结果，仍需使用已审核的多页网站，并在明确授权后运行 Provider 实验。
 
-## Creative Retrieval Eval
+## Creative Retrieval 评测
 
-Phase 7 adds a 10-case, network-free Creative Retrieval dataset covering English and Chinese lexical matching, metadata categories, visual-inspiration policy, and quarantined implementation references. The current 13-entry catalog reaches Recall@3 100%, Precision@3 60%, nDCG 100%, license violations 0%, and Creative Brief citation integrity 100%.
+阶段 7 增加了一个包含 10 个用例、无需网络的 Creative Retrieval 数据集，覆盖中英文词汇匹配、元数据分类、视觉灵感使用策略和隔离状态实现参考。当前素材库共 13 条，评测结果为：Recall@3 100%、Precision@3 60%、nDCG 100%、许可证策略违规率 0%、Creative Brief 引用完整率 100%。
 
-These labels are prelabeled, and citation integrity proves catalog provenance rather than causal design quality. The report therefore supports regression and licensing decisions, not a claim that users prefer the selected aesthetic. Because the catalog is below 200 entries and lexical Recall is above threshold, the evaluated decision is not to introduce embeddings or a vector database. Machine-readable source: [`evals/reports/creative-retrieval-v1.json`](../evals/reports/creative-retrieval-v1.json).
+这些标签尚处于预标注状态，引用完整率只能证明参考素材来源可追溯，不能证明检索结果必然提升设计质量。因此，该报告可用于回归检查和许可证策略决策，但不能用来宣称用户更喜欢所选美术风格。由于素材库少于 200 条，且词汇检索 Recall 高于门槛，本次评测的结论是：**当前不引入 Embedding 或向量数据库**。机器可读数据源：[`evals/reports/creative-retrieval-v1.json`](../evals/reports/creative-retrieval-v1.json)。
