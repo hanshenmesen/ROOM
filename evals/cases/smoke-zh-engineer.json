@@ -2,8 +2,8 @@
   "schemaVersion": "profile-eval-case.v1",
   "id": "smoke-zh-engineer",
   "dataset": "smoke",
-  "reviewStatus": "prelabeled",
-  "tags": ["zh", "engineer", "structured-fields"],
+  "reviewStatus": "human-verified",
+  "tags": ["zh", "engineer", "structured-fields", "markdown", "long-form", "placeholder-safety"],
   "source": {
     "type": "text",
     "path": "../sources/smoke-zh-engineer.txt",
@@ -12,7 +12,11 @@
   "expected": {
     "identity": {
       "name": "林遥",
-      "headline": "AI 应用工程师"
+      "headline": {
+        "value": "AI 应用工程师 / AI Application Engineer",
+        "aliases": ["AI 应用工程师", "AI Application Engineer"]
+      },
+      "personalWebsite": "https://example.com/linyao"
     },
     "items": [
       {
@@ -21,23 +25,100 @@
         "canonicalTitle": "证据简历助手",
         "timeRange": "2025-03 - 2025-07",
         "role": "核心开发者",
-        "techStack": ["TypeScript", "Claude API"],
+        "techStack": ["TypeScript", "Claude API", "Node.js", "React", "JSON Schema"],
         "projectUrl": "https://example.com/evidence-resume",
-        "expectedEvidence": ["为每个提取字段保存原文证据"]
+        "expectedEvidence": ["为每个提取字段建立 `source_span` 与 `evidence_text`"]
+      },
+      {
+        "id": "structured-document-demo",
+        "kind": "project",
+        "canonicalTitle": "智能文档结构化解析 Demo",
+        "timeRange": "2025-01 - 2025-02",
+        "role": "独立开发者",
+        "techStack": ["TypeScript", "Node.js", "Claude API", "Markdown", "JSON Schema"],
+        "expectedEvidence": ["将非结构化 Markdown、纯文本说明文档转换为标准化 JSON 数据"]
+      },
+      {
+        "id": "agent-eval-case-manager",
+        "kind": "project",
+        "canonicalTitle": "Agent 评测样本管理工具",
+        "timeRange": "2024-11 - 2025-01",
+        "role": "项目开发者",
+        "techStack": ["React", "TypeScript", "Node.js", "SQLite"],
+        "expectedEvidence": ["用于管理智能体评测任务的小型内部工具"]
       },
       {
         "id": "galaxy-lab",
         "kind": "experience",
-        "canonicalTitle": "星河实验室 AI 工程实习生",
-        "expectedEvidence": ["构建结构化信息抽取和自动评测流水线"]
+        "canonicalTitle": "星河实验室",
+        "aliases": ["星河实验室 AI 工程实习生"],
+        "timeRange": "2024-06 - 2024-12",
+        "role": "AI 工程实习生",
+        "expectedEvidence": ["参与构建结构化信息抽取和自动评测流水线"]
       },
       {
         "id": "northshore-university",
         "kind": "education",
-        "canonicalTitle": "北岸大学 计算机科学学士"
+        "canonicalTitle": "北岸大学",
+        "aliases": ["北岸大学 计算机科学学士"],
+        "timeRange": "2021 - 2025",
+        "expectedEvidence": ["毕业设计方向为“面向可信生成的文档证据追踪系统”"]
+      },
+      {
+        "id": "text-classification-summary",
+        "kind": "project",
+        "canonicalTitle": "课程项目：文本分类与摘要系统",
+        "aliases": ["文本分类与摘要系统"],
+        "timeRange": "2023-10 - 2023-12",
+        "role": "开发者",
+        "techStack": ["Python", "Flask", "scikit-learn", "Vue"],
+        "expectedEvidence": ["使用 TF-IDF 与传统机器学习模型完成分类实验"]
+      },
+      {
+        "id": "prompt-template-manager",
+        "kind": "project",
+        "canonicalTitle": "个人项目：Prompt 模板管理器",
+        "aliases": ["Prompt 模板管理器"],
+        "timeRange": "2024-03 - 2024-05",
+        "role": "独立开发",
+        "techStack": ["TypeScript", "React", "LocalStorage"],
+        "expectedEvidence": ["支持模板变量替换，例如 `{role}`、`{input}`、`{format}`"]
       }
     ],
-    "skills": ["TypeScript", "Agent Evaluation", "Information Extraction"],
-    "forbiddenClaims": []
+    "skills": [
+      "TypeScript",
+      "JavaScript",
+      "Python",
+      "SQL",
+      "Claude API",
+      "LLM Prompt Engineering",
+      "RAG",
+      "Agent Workflow",
+      "结构化抽取",
+      "字段对齐",
+      "证据溯源",
+      "结果校验",
+      "自动化评测",
+      "样本集构建",
+      "错误分类",
+      "指标分析",
+      "REST API",
+      "Node.js",
+      "React",
+      "Vite",
+      "JSON Schema",
+      "Git",
+      "Docker",
+      "Postman",
+      "Notion",
+      "Linear",
+      "VS Code"
+    ],
+    "forbiddenClaims": [
+      "2024 年 北岸大学软件设计竞赛 二等奖",
+      "2024 年 校级优秀课程项目：《基于 LLM 的文档结构化助手》",
+      "2023 年 全国大学生程序设计校内选拔赛 优秀奖",
+      "通过 CET-6"
+    ]
   }
 }

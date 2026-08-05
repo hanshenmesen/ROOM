@@ -5,9 +5,9 @@ This directory contains the Ground-truth Eval contract introduced in Phase 2. It
 ## Current status
 
 - The `smoke` dataset contains five fictional, offline cases.
-- All five cases are `prelabeled`; they are not yet counted as human-verified Gold data.
-- The deterministic baseline has 100% identity, item, structured-field, and evidence metrics.
-- It intentionally records one failure: the deterministic parser includes an untrusted Prompt Injection sentence in the profile summary.
+- One case is `human-verified`; the remaining four are still `prelabeled`.
+- The long-form Markdown case intentionally exposes deterministic parser fragmentation, missing structured fields, and lost section boundaries.
+- The baseline also records safety failures when placeholder achievements or an untrusted Prompt Injection sentence are treated as factual profile content.
 - The Phase 2 acceptance target remains 30 human-verified cases, then 50.
 
 ## Commands
