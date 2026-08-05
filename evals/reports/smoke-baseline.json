@@ -2,9 +2,9 @@
   "schemaVersion": "profile-eval-report.v1",
   "dataset": "smoke",
   "runner": "deterministic-pipeline",
-  "generatedAt": "2026-08-05T06:14:19.572Z",
+  "generatedAt": "2026-08-05T06:22:59.685Z",
   "caseCount": 5,
-  "humanVerifiedCaseCount": 1,
+  "humanVerifiedCaseCount": 2,
   "passed": false,
   "thresholds": {
     "identityAccuracy": 1,
@@ -581,7 +581,7 @@
     },
     {
       "caseId": "smoke-en-project",
-      "reviewStatus": "prelabeled",
+      "reviewStatus": "human-verified",
       "passed": true,
       "metrics": {
         "identityAccuracy": 1,

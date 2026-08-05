@@ -6,7 +6,7 @@ Phase 2 infrastructure is active, but the dataset is not yet large enough for r√
 
 - Dataset: `smoke`
 - Cases: 5 fictional, offline cases
-- Human-verified cases: 1
+- Human-verified cases: 2
 - Runner: deterministic Pipeline baseline
 - Model or network calls: 0
 - Report schema: `profile-eval-report.v1`
@@ -29,11 +29,11 @@ The suite remains **FAIL**. The human-verified Markdown case exposes parser frag
 
 ## Interpretation
 
-The smoke suite proves that the Eval implementation can measure exact identity fields, one-to-one item precision and recall, structured fields, source locators, unsupported claims, cost metadata, and regressions without network access. It now includes one human-verified case, but does not yet establish Profile Agent production accuracy because four cases remain prelabeled and the runner is deterministic.
+The smoke suite proves that the Eval implementation can measure exact identity fields, one-to-one item precision and recall, structured fields, source locators, unsupported claims, cost metadata, and regressions without network access. It now includes two human-verified cases, but does not yet establish Profile Agent production accuracy because three cases remain prelabeled and the runner is deterministic.
 
 The first publishable accuracy report requires:
 
-1. Human review of the remaining four smoke cases.
+1. Human review of the remaining three smoke cases.
 2. Expansion to at least 30 reviewed cases across PDF, image, multilingual, research, engineering, portfolio, conflict, injection, and partial-failure sources.
 3. A controlled `profile-agent` run with Provider, Prompt version, Token, latency, fallback, and cost metadata.
 4. A baseline-versus-candidate comparison with failure-level evidence.

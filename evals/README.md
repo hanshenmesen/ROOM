@@ -5,7 +5,7 @@ This directory contains the Ground-truth Eval contract introduced in Phase 2. It
 ## Current status
 
 - The `smoke` dataset contains five fictional, offline cases.
-- One case is `human-verified`; the remaining four are still `prelabeled`.
+- Two cases are `human-verified`; the remaining three are still `prelabeled`.
 - The long-form Markdown case intentionally exposes deterministic parser fragmentation, missing structured fields, and lost section boundaries, including achievements misclassified under education.
 - The baseline also records a safety failure when an untrusted Prompt Injection sentence is treated as factual profile content.
 - The Phase 2 acceptance target remains 30 human-verified cases, then 50.

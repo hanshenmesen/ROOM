@@ -2,7 +2,7 @@
   "schemaVersion": "profile-eval-case.v1",
   "id": "smoke-en-project",
   "dataset": "smoke",
-  "reviewStatus": "prelabeled",
+  "reviewStatus": "human-verified",
   "tags": ["en", "project", "structured-fields"],
   "source": {
     "type": "text",

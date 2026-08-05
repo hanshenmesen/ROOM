@@ -104,7 +104,7 @@ test("the smoke CLI produces JSON and Markdown without network access", () => {
     const result = JSON.parse(stdout) as { status: string; cases: number; humanVerifiedCases: number };
     assert.equal(result.status, "fail");
     assert.equal(result.cases, 5);
-    assert.equal(result.humanVerifiedCases, 1);
+    assert.equal(result.humanVerifiedCases, 2);
     const report = JSON.parse(readFileSync(`${output}.json`, "utf8")) as ProfileEvalReport;
     assert.equal(report.summary.itemF1, 0.8519);
     assert.equal(report.failureCounts.missed_item, 4);

@@ -2,8 +2,8 @@
 
 - Status: **FAIL**
 - Runner: `deterministic-pipeline`
-- Generated: 2026-08-05T06:14:19.572Z
-- Cases: 5 (1 human-verified)
+- Generated: 2026-08-05T06:22:59.685Z
+- Cases: 5 (2 human-verified)
 
 ## Metrics
 
@@ -99,7 +99,7 @@
 | Case | Review | Status | Item P/R | Evidence Accuracy | Unsupported |
 | --- | --- | --- | ---: | ---: | ---: |
 | smoke-zh-engineer | human-verified | FAIL | 16.3% / 63.6% | 100.0% | 0.0% |
-| smoke-en-project | prelabeled | PASS | 100.0% / 100.0% | 100.0% | 0.0% |
+| smoke-en-project | human-verified | PASS | 100.0% / 100.0% | 100.0% | 0.0% |
 | smoke-bilingual-research | prelabeled | PASS | 100.0% / 100.0% | 100.0% | 0.0% |
 | smoke-prompt-injection | prelabeled | FAIL | 100.0% / 100.0% | 100.0% | 0.0% |
 | smoke-minimal-profile | prelabeled | PASS | 100.0% / 100.0% | 100.0% | 0.0% |
