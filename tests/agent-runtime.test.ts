@@ -3,6 +3,7 @@ import test from "node:test";
 import { summarizeAgentRun } from "../lib/agent-runtime/trace-summary.ts";
 import { createAgentTracer } from "../lib/agent-runtime/tracer.ts";
 import { inMemoryTraceStore } from "../lib/agent-runtime/in-memory-trace-store.ts";
+import { agentTraceEventView, inspectAgentTrace } from "../lib/agent-runtime/trace-inspector.ts";
 import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
 
 const identity = {
@@ -111,4 +112,28 @@ test("trace redaction removes secrets from validation and failure events", () =>
   const serialized = JSON.stringify(tracer.snapshot());
   assert.doesNotMatch(serialized, /abcdefghijk|secretvalue123/);
   assert.match(serialized, /REDACTED/);
+});
+
+test("Trace inspector summarizes model, tool, retry, token, cost, and planner events", () => {
+  inMemoryTraceStore.clear();
+  const tracer = createAgentTracer("trace-inspector-run");
+  tracer.emit({ type: "step.started", step: "website.plan", attempt: 1 });
+  tracer.emit({
+    type: "planner.decision",
+    step: "website.plan",
+    action: "continue",
+    nextUrl: "https://portfolio.example/projects",
+    reason: "补齐项目证据",
+    source: "model",
+  });
+  tracer.emit({ type: "step.retried", step: "website.plan", attempt: 2, reason: "invalid_plan" });
+  tracer.emit({ type: "artifact.created", step: "website.plan", name: "plan.json", schemaVersion: "plan.v1" });
+  tracer.complete();
+  const events = tracer.snapshot()!.events;
+  const overview = inspectAgentTrace(events);
+  assert.equal(overview.status, "completed");
+  assert.equal(overview.retries, 1);
+  assert.equal(overview.artifacts, 1);
+  const decision = events.find((event) => event.type === "planner.decision")!;
+  assert.match(agentTraceEventView(decision).title, /继续研究/);
 });

@@ -17,6 +17,7 @@ import {
   type WebsiteResearchBudget,
   type WebsiteResearchCandidate,
   type WebsiteResearchClaim,
+  type WebsiteResearchMissingField,
   type WebsiteResearchResult,
   type WebsiteResearchState,
   type WebsiteSourceRange,
@@ -27,6 +28,7 @@ import { inspectPageTool } from "./tools/inspect-page.ts";
 import { listLinksTool } from "./tools/list-links.ts";
 import { composeWebsiteSource, submitProfileTool, type WebsiteProfileSubmitter } from "./tools/submit-profile.ts";
 import { validateClaimTool } from "./tools/validate-claim.ts";
+import type { WebsiteResearchPlanner } from "./planner.ts";
 
 const RESEARCH_STEP = "website.tool-research";
 
@@ -46,6 +48,7 @@ export type WebsiteResearchOptions = {
   approvedHosts?: string[];
   budget?: Partial<WebsiteResearchBudget>;
   signal?: AbortSignal;
+  planner?: WebsiteResearchPlanner;
 };
 
 function positiveInteger(value: number | undefined, fallback: number, maximum: number) {
@@ -156,6 +159,64 @@ function addCandidates(state: WebsiteResearchState, candidates: WebsiteResearchC
   }
 }
 
+async function chooseNextResearchAction(
+  state: WebsiteResearchState,
+  tracer: AgentTracer,
+  planner?: WebsiteResearchPlanner,
+) {
+  const fallback = selectNextCandidate(state.pendingUrls);
+  if (!fallback) return undefined;
+  const observation = {
+    iteration: state.plannerDecisions.length + 1,
+    rootUrl: state.rootUrl,
+    missingFields: state.missingFields,
+    visitedPages: state.pages.map((page) => ({ url: page.url, title: page.title, depth: page.depth })),
+    candidates: state.pendingUrls.slice(0, 12),
+    budgetRemaining: {
+      pages: Math.max(0, state.budget.maxPages - state.visitedUrls.length),
+      steps: Math.max(0, state.budget.maxSteps - state.steps),
+      bytes: Math.max(0, state.budget.maxTotalBytes - state.downloadedBytes),
+    },
+  };
+  let planned: Awaited<ReturnType<WebsiteResearchPlanner>> | undefined;
+  let source: "model" | "deterministic" | "deterministic-fallback" = planner ? "model" : "deterministic";
+  if (planner) {
+    if (!state.plannerDecisions.length) tracer.emit({ type: "step.started", step: "website.plan", attempt: 1 });
+    try {
+      planned = await planner(observation);
+    } catch {
+      source = "deterministic-fallback";
+    }
+  }
+  const targetFields = fallback.reasons.filter((field): field is WebsiteResearchMissingField => (
+    state.missingFields.includes(field as WebsiteResearchMissingField)
+  ));
+  const decision = {
+    iteration: observation.iteration,
+    action: planned?.action || "continue" as const,
+    ...(planned?.action === "continue" && planned.nextUrl
+      ? { nextUrl: planned.nextUrl }
+      : !planned ? { nextUrl: fallback.url } : {}),
+    reason: planned?.reason || `按缺失字段与链接相关性选择 ${fallback.url}`,
+    targetFields: planned?.targetFields || targetFields,
+    source,
+  };
+  state.plannerDecisions.push(decision);
+  const sources = new Set(state.plannerDecisions.map((entry) => entry.source));
+  state.plannerMode = sources.size > 1 || sources.has("deterministic-fallback")
+    ? "mixed"
+    : sources.has("model") ? "model" : "deterministic";
+  tracer.emit({
+    type: "planner.decision",
+    step: "website.plan",
+    action: decision.action,
+    reason: decision.reason,
+    ...(decision.nextUrl ? { nextUrl: decision.nextUrl } : {}),
+    source,
+  });
+  return decision;
+}
+
 function fitInputBudget(page: WebsiteInspectedPage, existing: WebsiteInspectedPage[], budget: number) {
   const used = composeWebsiteSource(existing).text.length;
   const reserved = page.url.length + page.title.length + 80;
@@ -258,6 +319,8 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
     pendingUrls: [{ url: root.href, depth: 0, discoveredFrom: root.href, score: 100, reasons: ["root"] }],
     pages: [],
     claims: [],
+    plannerMode: options.planner ? "model" : "deterministic",
+    plannerDecisions: [],
     steps: options.prefetchedRoot ? 1 : 0,
     downloadedBytes: 0,
     modelInputCharacters: 0,
@@ -266,11 +329,15 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
   };
   const inspectedPages: WebsiteInspectedPage[] = [];
   const collectedMedia = new Map<string, ReturnType<typeof extractMediaTool>[number]>();
+  let preferredCandidateUrl: string | undefined;
   options.tracer.emit({ type: "step.started", step: RESEARCH_STEP, attempt: 1 });
 
   while (state.pendingUrls.length && state.visitedUrls.length < budget.maxPages) {
     if (!canCallTool(state)) break;
-    const candidate = selectNextCandidate(state.pendingUrls);
+    const candidate = preferredCandidateUrl
+      ? state.pendingUrls.find((entry) => entry.url === preferredCandidateUrl) || selectNextCandidate(state.pendingUrls)
+      : selectNextCandidate(state.pendingUrls);
+    preferredCandidateUrl = undefined;
     if (!candidate) break;
     state.pendingUrls = state.pendingUrls.filter((entry) => entry.url !== candidate.url);
     let page: WebsiteFetchedPage;
@@ -365,6 +432,14 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
       state.stopReason ||= "sufficient_evidence";
       break;
     }
+    if (state.pendingUrls.length) {
+      const decision = await chooseNextResearchAction(state, options.tracer, options.planner);
+      if (decision?.action === "submit") {
+        state.stopReason ||= "planner_submitted";
+        break;
+      }
+      preferredCandidateUrl = decision?.nextUrl;
+    }
   }
 
   if (!inspectedPages.length) throw new WebsiteResearchError("no_pages", "Website Research Agent found no inspectable page.");
@@ -394,6 +469,9 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
   state.claims = await collectValidatedClaims(submitted.profile, submitted.ranges, state, options.tracer);
   state.completedAt = new Date().toISOString();
   if (state.stopReason === "no_candidates") state.stopReason = "submitted";
+  if (options.planner && state.plannerDecisions.length) {
+    options.tracer.emit({ type: "step.completed", step: "website.plan" });
+  }
   options.tracer.emit({
     type: "artifact.created",
     step: RESEARCH_STEP,
@@ -412,6 +490,8 @@ export function publicWebsiteResearchSnapshot(state: WebsiteResearchState) {
     visitedUrls: state.visitedUrls,
     pages: state.pages,
     claimCount: state.claims.length,
+    plannerMode: state.plannerMode,
+    plannerDecisions: state.plannerDecisions,
     steps: state.steps,
     downloadedBytes: state.downloadedBytes,
     modelInputCharacters: state.modelInputCharacters,

@@ -18,6 +18,7 @@ import {
 import { compileProfile } from "@/lib/agents/pipeline";
 import { latestAgentRunMessage } from "@/lib/agent-runtime/events";
 import type { AgentRunEvent, AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
+import { AgentTracePanel } from "@/components/AgentTracePanel";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
   BROWSER_AGENT_SESSION_KEY,
@@ -1677,6 +1678,7 @@ export function RoomStudio() {
               <li className={creationReady && moveInStep === "pet" ? "is-active" : creationReady ? "is-complete" : ""}><span>04</span><div><strong>起名、捏宠物与选性格</strong><small>调整{companionName}的名字、颜色、耳朵、花纹和回答语气</small></div></li>
               <li className={creationReady && moveInStep === "photos" ? "is-active" : ""}><span>05</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
             </ol>
+            <AgentTracePanel events={agentRunEvents} />
           </section>
 
           {profileMergeReport ? (

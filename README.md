@@ -59,7 +59,8 @@ The demo supports:
 
 - Pasted résumé text plus PDF, image, and common text/web data uploads.
 - Hybrid PDF parsing: a fast page-aware text/link evidence pass plus Claude document vision and semantic extraction.
-- A bounded multi-page Website Research Tool Agent with same-host link policy, missing-field planning, per-tool Trace, Claim evidence validation, and automatic enrichment. Root-page prefetch starts as soon as the résumé Identity shard finds a homepage; additional pages wait for the complete résumé Profile's missing-field plan.
+- A bounded multi-page Website Research Tool Agent with a model-driven Plan→Tool→Observation→Replan loop. The model can select only policy-approved candidate URLs; invalid plans fall back to deterministic ranking. Root-page prefetch still starts as soon as the résumé Identity shard finds a homepage.
+- A live, expandable Agent Trace timeline for model calls, tool calls, planner decisions, retries, validation, artifacts, latency, Token usage, and estimated cost. Sensitive values are redacted before storage.
 - Conflict-aware Profile merging with evidence-backed Claims. Identity, date, role, URL, sensitive-phone, and low-confidence-media gates pause for an explicit user decision; user-confirmed values outrank later Agent output.
 - A Mardou GLB home rendered with React Three Fiber, including a long-corridor entrance, first-person WASD movement, collision handling, and a clickable staircase.
 - A public ground-floor gallery with project islands, semantic profile objects, a visitor book, and a source archive.

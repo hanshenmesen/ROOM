@@ -2,9 +2,9 @@
 
 ## Boundary
 
-ROOM's Website Research Agent is a hybrid Tool Agent: deterministic code owns tool selection policy, URL authorization, budgets, stopping, and evidence validation; the existing Profile LLM owns semantic extraction from the inspected corpus. This prevents untrusted page text from naming tools, expanding scope, or changing the stopping policy.
+ROOM's Website Research Agent is a hybrid Tool Agent: a model planner chooses the next page from an exact allowlisted candidate set or decides to submit, while deterministic code owns URL authorization, tool dispatch, budgets, evidence validation, and fallback. The existing Profile LLM owns semantic extraction from the inspected corpus. This prevents untrusted page text from naming tools, expanding scope, or changing hard stopping policy.
 
-The implementation deliberately does not describe link ranking, HTML inspection, or Claim validation as LLM Agents. They are atomic tools controlled by one bounded research loop.
+The implementation deliberately does not describe link ranking, HTML inspection, or Claim validation as LLM Agents. They are atomic tools controlled by one bounded research loop. If planning fails or selects a URL outside the supplied candidates, the loop records `deterministic-fallback` and uses missing-field ranking.
 
 ## Plan → Tool → Observe loop
 
@@ -14,8 +14,9 @@ compare current Profile with missing-field rules
   → list_links(root)
   → inspect_page(root)
   → extract_media(root)
-  → rank same-host candidates for missing fields
-  → repeat bounded page tools
+  → build bounded Observation from same-host candidates
+  → model chooses continue(exact candidate) or submit
+  → execute bounded page tools and replan from the new Observation
   → submit_profile(inspected corpus)
   → validate_claim(Profile evidence)
   → return Profile + redacted Research snapshot
@@ -55,6 +56,7 @@ Callers may lower these limits for an experiment but cannot raise them above the
 - Additional navigation is restricted to the root hostname and its canonical `www` counterpart unless a server-side caller explicitly approves another hostname. The product route does not currently approve any other host.
 - External, local-network, login, admin, account, private, feed, archive, and binary candidates are excluded from the plan.
 - Page instructions are untrusted data. They never reach the tool dispatcher or policy configuration.
+- Model planning receives no page body or arbitrary tool list. It sees bounded page metadata and can return only `continue` with an exact candidate URL or `submit`.
 - Failed tools expose a generic error code in Trace; sibling candidates may still be inspected.
 
 DNS-over-HTTPS preflight closes deterministic DNS-to-private cases, but Cloudflare's Edge `fetch` API does not expose or pin the resolved peer IP. A target can still change DNS answers between preflight and connection. High-assurance deployment for arbitrary domains therefore still requires a controlled fetch proxy or platform capability that validates and pins the destination.

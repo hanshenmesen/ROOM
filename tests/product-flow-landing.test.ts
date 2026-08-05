@@ -7,6 +7,7 @@ const landingStyles = readFileSync(new URL("../app/globals.css", import.meta.url
 const studioSource = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
 const parseRouteSource = readFileSync(new URL("../app/api/parse/route.ts", import.meta.url), "utf8");
 const reviewSource = readFileSync(new URL("../components/ProfileReviewPanel.tsx", import.meta.url), "utf8");
+const tracePanelSource = readFileSync(new URL("../components/AgentTracePanel.tsx", import.meta.url), "utf8");
 
 test("the landing is rebuilt from independently positioned PPT artwork", () => {
   for (const asset of [
@@ -102,4 +103,16 @@ test("conflicting Agent claims stop at an evidence-backed human checkpoint", () 
   assert.match(reviewSource, /查看证据/);
   assert.match(reviewSource, /我来填写正确值/);
   assert.match(reviewSource, /不公开这个字段/);
+});
+
+test("Agent runs expose an expandable redacted Trace timeline in the creation experience", () => {
+  assert.match(studioSource, /<AgentTracePanel events=\{agentRunEvents\}/);
+  assert.match(tracePanelSource, /AGENT TRACE \/ LIVE/);
+  assert.match(tracePanelSource, /查看完整运行时间线/);
+  assert.match(tracePanelSource, /overview\.modelCalls/);
+  assert.match(tracePanelSource, /overview\.toolCalls/);
+  assert.match(tracePanelSource, /overview\.latencyMs/);
+  assert.match(tracePanelSource, /overview\.artifacts/);
+  assert.match(tracePanelSource, /overview\.estimatedCost/);
+  assert.match(landingStyles, /\.agent-trace-details > ol \{[^}]*max-height: 300px;[^}]*overflow-y: auto;/);
 });

@@ -10,6 +10,7 @@ const STEP_NAMES: Record<string, string> = {
   "profile.validate": "档案验证",
   "website.fetch": "网站读取",
   "website.tool-research": "网站研究工具循环",
+  "website.plan": "网站研究规划 Agent",
   "website.identity": "网站身份 Agent",
   "website.items": "网站内容 Agent",
   "website.research": "网站研究 Agent",
@@ -37,6 +38,11 @@ export function latestAgentRunMessage(events: AgentRunEvent[]) {
     return `${agentStepName(event.step)}完成 ${event.meta.tool} · ${event.meta.latencyMs} ms`;
   }
   if (event.type === "tool.failed") return `${agentStepName(event.step)}的 ${event.meta.tool} 调用失败，正在调整计划…`;
+  if (event.type === "planner.decision") {
+    return event.action === "continue"
+      ? `${agentStepName(event.step)}已选择下一页证据…`
+      : `${agentStepName(event.step)}决定提交当前证据。`;
+  }
   if (event.type === "validation.failed") return `${agentStepName(event.step)}发现需要修复的数据…`;
   if (event.type === "step.retried") return `${agentStepName(event.step)}正在进行第 ${event.attempt} 次尝试…`;
   if (event.type === "step.completed") return `${agentStepName(event.step)}已完成。`;

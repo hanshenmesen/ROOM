@@ -110,7 +110,7 @@ test("the smoke CLI produces JSON and Markdown without network access", () => {
     assert.equal(report.failureCounts.missed_item, 4);
     assert.equal(report.failureCounts.forbidden_claim || 0, 0);
     const markdown = readFileSync(`${output}.md`, "utf8");
-    assert.match(markdown, /smoke-prompt-injection[^\n]*PASS/);
+    assert.match(markdown, /smoke-prompt-injection[^\n]*通过/);
     assert.doesNotMatch(markdown, /Forbidden claim appeared/);
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -151,30 +151,42 @@ test("generated fixtures stay current and compose a thirty-case full dataset", (
 });
 
 test("the Profile Agent experiment preflight never exposes or calls provider secrets", () => {
-  const stdout = execFileSync(process.execPath, [
-    "scripts/profile-eval-experiment.mjs",
-    "--dataset",
-    "smoke",
-    "--preflight",
-  ], {
-    cwd: new URL("../", import.meta.url),
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      MAAS_API_KEY: "",
-      MAAS_API_KEY_FALLBACK: "",
-      WEBSITE_AGENT_API_KEY: "",
-      WEBSITE_AGENT_API_KEY_FALLBACK: "",
-    },
-  });
-  const result = JSON.parse(stdout) as {
-    status: string;
-    provider: string;
-    secretsExposed: boolean;
-    requiresAllowModelCalls: boolean;
-  };
-  assert.equal(result.status, "blocked");
-  assert.equal(result.provider, "not-configured");
-  assert.equal(result.secretsExposed, false);
-  assert.equal(result.requiresAllowModelCalls, true);
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "room-provider-preflight-"));
+  const output = join(temporaryDirectory, "smoke");
+  try {
+    const stdout = execFileSync(process.execPath, [
+      "scripts/profile-eval-experiment.mjs",
+      "--dataset",
+      "smoke",
+      "--preflight",
+      "--write",
+      "--ignore-local-env",
+      "--output",
+      output,
+    ], {
+      cwd: new URL("../", import.meta.url),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        MAAS_API_KEY: "",
+        MAAS_API_KEY_FALLBACK: "",
+        WEBSITE_AGENT_API_KEY: "",
+        WEBSITE_AGENT_API_KEY_FALLBACK: "",
+      },
+    });
+    const result = JSON.parse(stdout) as {
+      status: string;
+      provider: string;
+      secretsExposed: boolean;
+      requiresAllowModelCalls: boolean;
+    };
+    assert.equal(result.status, "blocked");
+    assert.equal(result.provider, "not-configured");
+    assert.equal(result.secretsExposed, false);
+    assert.equal(result.requiresAllowModelCalls, true);
+    assert.match(readFileSync(`${output}-preflight.md`, "utf8"), /未执行任何模型调用/);
+    assert.doesNotMatch(readFileSync(`${output}-preflight.json`, "utf8"), /api.?key|authorization/i);
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
 });

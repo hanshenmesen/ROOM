@@ -8,6 +8,7 @@ import {
 } from "../lib/agents/website/agent.ts";
 import type { WebsitePageFetcher } from "../lib/agents/website/tools/fetch-page.ts";
 import { WEBSITE_TOOL_NAMES, WEBSITE_TOOL_SCHEMAS } from "../lib/agents/website/tools/schemas.ts";
+import { createWebsiteResearchModelPlanner } from "../lib/agents/website/planner.ts";
 import { compareWebsiteResearch } from "../lib/evals/website-research-comparison.ts";
 import { fetchPublicWebPage } from "../lib/public-web.ts";
 import type { ParsedProfile, ProfileItem, SourceEvidence } from "../lib/types.ts";
@@ -186,6 +187,102 @@ test("Website Research Agent selects relevant same-host pages from missing field
   const serializedTrace = JSON.stringify(events);
   assert.doesNotMatch(serializedTrace, /internal_admin|TEST_PRIVATE_VALUE|CEO of OpenAI/);
   assert.doesNotMatch(calls.join("\n"), /evil\.example|127\.0\.0\.1|private/);
+});
+
+test("Website Research Agent replans from each observation and follows the model-selected candidate", async () => {
+  const observations: string[][] = [];
+  const { result, calls, events } = await execute({
+    planner: async (observation) => {
+      observations.push(observation.candidates.map((candidate) => candidate.url));
+      const research = observation.candidates.find((candidate) => candidate.url.endsWith("/research"));
+      const next = research || observation.candidates[0];
+      return {
+        action: "continue",
+        nextUrl: next.url,
+        reason: research ? "先补齐研究经历" : "继续补齐项目经历",
+        targetFields: research ? ["research"] : ["projects"],
+      };
+    },
+  });
+  assert.deepEqual(calls, [ROOT, "https://portfolio.example.com/research", "https://portfolio.example.com/projects"]);
+  assert.equal(observations.length, 2);
+  assert.equal(result.state.plannerMode, "model");
+  assert.deepEqual(result.state.plannerDecisions.map((decision) => decision.source), ["model", "model"]);
+  assert.ok(events.some((event) => event.type === "planner.decision" && event.nextUrl?.endsWith("/research")));
+});
+
+test("Website Research Agent falls back to the deterministic policy when model planning fails", async () => {
+  const { result, calls, events } = await execute({
+    planner: async () => {
+      throw new Error("planner unavailable");
+    },
+  });
+  assert.deepEqual(calls, [ROOT, "https://portfolio.example.com/projects", "https://portfolio.example.com/research"]);
+  assert.equal(result.state.plannerMode, "mixed");
+  assert.ok(result.state.plannerDecisions.every((decision) => decision.source === "deterministic-fallback"));
+  assert.ok(events.some((event) => event.type === "planner.decision" && event.source === "deterministic-fallback"));
+});
+
+test("Website model planner uses forced tool output and only accepts an observed candidate URL", async () => {
+  inMemoryTraceStore.clear();
+  const originalFetch = globalThis.fetch;
+  const tracer = createAgentTracer(`website-planner-${crypto.randomUUID()}`);
+  let requestBody: Record<string, unknown> | undefined;
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body));
+    return Response.json({
+      choices: [{
+        finish_reason: "tool_calls",
+        message: {
+          tool_calls: [{
+            function: {
+              name: "choose_website_research_action",
+              arguments: JSON.stringify({
+                action: "continue",
+                nextUrl: "https://portfolio.example.com/research",
+                reason: "研究经历仍缺失",
+                targetFields: ["research"],
+              }),
+            },
+          }],
+        },
+      }],
+      usage: { prompt_tokens: 120, completion_tokens: 30 },
+    });
+  }) as typeof fetch;
+  try {
+    const planner = createWebsiteResearchModelPlanner({
+      tracer,
+      providerConfig: {
+        websiteApiKey: "test-key",
+        websiteBaseUrl: "https://provider.example/v1",
+        websiteModel: "planner-model",
+        websiteMode: "tool",
+      },
+    });
+    assert.ok(planner);
+    const decision = await planner({
+      iteration: 1,
+      rootUrl: ROOT,
+      missingFields: ["projects", "research"],
+      visitedPages: [{ url: ROOT, title: "Avery Chen", depth: 0 }],
+      candidates: [
+        { url: "https://portfolio.example.com/projects", depth: 1, discoveredFrom: ROOT, score: 38, reasons: ["projects"] },
+        { url: "https://portfolio.example.com/research", depth: 1, discoveredFrom: ROOT, score: 38, reasons: ["research"] },
+      ],
+      budgetRemaining: { pages: 4, steps: 70, bytes: 2_900_000 },
+    });
+    assert.equal(decision.nextUrl, "https://portfolio.example.com/research");
+    assert.deepEqual(decision.targetFields, ["research"]);
+    assert.ok(Array.isArray(requestBody?.tools));
+    assert.ok(tracer.snapshot()?.events.some((event) => (
+      event.type === "model.completed"
+      && event.meta.agent === "website-research-planner"
+      && event.meta.inputTokens === 120
+    )));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("Website Research Agent stops on the page budget and returns the researched partial profile", async () => {

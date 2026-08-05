@@ -12,7 +12,7 @@ Every boundary after a model call uses a validated, versioned artifact. Raw mode
 flowchart LR
     A["Résumé / public portfolio"] --> B["Source preparation"]
     B --> C["Profile Agent: identity + inventory shards"]
-    B --> D["Bounded Website Research Tool Loop"]
+    B --> D["Model Planner + bounded Website Tool Loop"]
     D --> E["Website Profile Agent"]
     C --> F["Profile validation + normalization"]
     E --> G["Claim-aware deterministic merge"]
@@ -36,6 +36,7 @@ flowchart LR
     I -.-> T
     K -.-> T
     M -.-> T
+    D -.-> T
 ```
 
 ## LLM Agent boundaries
@@ -46,7 +47,7 @@ The Profile Agent runs evidence-backed identity and inventory shards. It may cho
 
 ### Website Profile Agent
 
-The Website Research Agent is a hybrid Tool Agent. A deterministic control plane compares the current Profile with missing-field rules, ranks same-host links, and runs bounded `fetch_page`, `list_links`, `inspect_page`, `extract_media`, `validate_claim`, and `submit_profile` tools. The semantic Profile Agent sees only the inspected, size-bounded page corpus and must produce evidence-backed output. It never chooses an arbitrary tool name or bypasses URL policy.
+The Website Research Agent is a hybrid Tool Agent. After each inspected page, a model planner receives a bounded Observation and chooses either an exact policy-approved candidate URL or `submit`. This creates a Plan→Tool→Observation→Replan loop without allowing the model to invent tool names, URLs, hosts, or budgets. Invalid output and Provider failure fall back to deterministic missing-field ranking. The control plane runs bounded `fetch_page`, `list_links`, `inspect_page`, `extract_media`, `validate_claim`, and `submit_profile` tools. The semantic Profile Agent sees only the inspected, size-bounded page corpus and must produce evidence-backed output.
 
 Résumé parsing preserves early concurrency: once the Identity shard discovers a personal homepage, ROOM prefetches only its root page. Additional pages are selected after the complete résumé Profile reveals which fields are missing. A website-only intake goes directly through the same multi-page loop. See [Website Research Agent](./WEBSITE_RESEARCH_AGENT.md).
 
@@ -86,6 +87,8 @@ Each model call has a unique call ID and records provider, model, mode, prompt v
 
 Each Website Research tool call records a unique Tool Call ID, tool name, bounded parameter summary, output counts, latency, and a generic error code. Page bodies, Claim values, evidence excerpts, API keys, and request headers are excluded from Tool Trace.
 
+The creation UI polls the redacted Run every 500 ms and exposes an expandable Trace timeline. Its summary includes model/tool counts, retries, tokens, latency, artifacts, and estimated cost; event details show only bounded metadata. See [Agent observability](./AGENT_OBSERVABILITY.md).
+
 The framework-neutral `RoomWorkflowEngine` records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, review interrupts, and checkpoint resume. A node may return a `ProfileMergeReport`; required conflicts move the Run to `waiting_for_review`. Applying review decisions replaces only the Profile Artifact and resumes at the first incomplete node. Public Run snapshots expose Artifact metadata and only the evidence needed for an active review, never the source body or full Artifact body.
 
 Profile model shards share one pre-call budget for model calls, estimated input tokens, reserved output tokens, estimated cost, and wall-clock duration. The same Run also shares a Provider circuit breaker and bounded backoff state. Incoming request cancellation is combined with Provider and webpage timeouts. Budget exhaustion is a redacted Trace event and cannot silently start another fallback call.
@@ -101,3 +104,4 @@ The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.j
 - [ADR 0003: Agent framework decision](./adr/0003-agent-framework-decision.md)
 - [Agent security, reliability, and cost boundary](./AGENT_SECURITY.md)
 - [ADR 0004: Creative Retrieval vector gate](./adr/0004-creative-retrieval-vector-gate.md)
+- [Agent Tool Loop, Trace, and Provider Eval](./AGENT_OBSERVABILITY.md)

@@ -23,6 +23,7 @@ import {
 } from "@/lib/agents/website/agent";
 import type { ParsedProfile } from "@/lib/types";
 import { privacySafeRequestKey, tryAcquireConcurrencyLease } from "@/lib/agent-runtime/concurrency-limiter";
+import { createWebsiteResearchModelPlanner } from "@/lib/agents/website/planner";
 
 export const runtime = "edge";
 
@@ -147,6 +148,11 @@ async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | 
       tracer,
       prefetchedRoot: prefetched.value,
       signal: task.signal,
+      planner: createWebsiteResearchModelPlanner({
+        providerConfig: task.providerConfig,
+        tracer,
+        signal: task.signal,
+      }),
       submitter: async ({ text, label, sourceId, media }) => (await extractProfileWithAgentRun(text, {
         id: sourceId,
         type: "url",

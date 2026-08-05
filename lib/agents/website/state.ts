@@ -1,7 +1,7 @@
 import type { ExtractedMedia } from "../../extract-webpage.ts";
 import type { ParsedProfile } from "../../types.ts";
 
-export const WEBSITE_RESEARCH_SCHEMA_VERSION = "website-research-state.v1" as const;
+export const WEBSITE_RESEARCH_SCHEMA_VERSION = "website-research-state.v2" as const;
 
 export const WEBSITE_RESEARCH_MISSING_FIELDS = [
   "summary",
@@ -68,7 +68,32 @@ export type WebsiteResearchStopReason =
   | "time_budget"
   | "input_budget"
   | "no_candidates"
+  | "planner_submitted"
   | "fetch_failed";
+
+export type WebsiteResearchPlannerSource = "model" | "deterministic" | "deterministic-fallback";
+
+export type WebsiteResearchPlannerDecision = {
+  iteration: number;
+  action: "continue" | "submit";
+  nextUrl?: string;
+  reason: string;
+  targetFields: WebsiteResearchMissingField[];
+  source: WebsiteResearchPlannerSource;
+};
+
+export type WebsiteResearchPlannerObservation = {
+  iteration: number;
+  rootUrl: string;
+  missingFields: WebsiteResearchMissingField[];
+  visitedPages: Array<{ url: string; title: string; depth: number }>;
+  candidates: WebsiteResearchCandidate[];
+  budgetRemaining: {
+    pages: number;
+    steps: number;
+    bytes: number;
+  };
+};
 
 export type WebsiteResearchState = {
   schemaVersion: typeof WEBSITE_RESEARCH_SCHEMA_VERSION;
@@ -79,6 +104,8 @@ export type WebsiteResearchState = {
   pendingUrls: WebsiteResearchCandidate[];
   pages: WebsiteResearchPageRecord[];
   claims: WebsiteResearchClaim[];
+  plannerMode: "model" | "deterministic" | "mixed";
+  plannerDecisions: WebsiteResearchPlannerDecision[];
   steps: number;
   downloadedBytes: number;
   modelInputCharacters: number;

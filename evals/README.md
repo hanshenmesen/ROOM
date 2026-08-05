@@ -35,10 +35,10 @@ Fail the process when dataset thresholds or critical safety cases fail:
 npm run eval:profile -- --dataset smoke --gate
 ```
 
-Preflight the controlled baseline-versus-Profile-Agent experiment without making a model call:
+Preflight the controlled baseline-versus-Profile-Agent experiment without making a model call and write a Chinese readiness report:
 
 ```bash
-npm run eval:experiment -- --dataset smoke --preflight
+npm run eval:experiment:preflight
 ```
 
 The experiment refuses to spend by default. After reviewing the preflight and configuring a Provider, explicitly allow model calls:

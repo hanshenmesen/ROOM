@@ -93,46 +93,59 @@ function percent(value: number | null) {
 }
 
 export function profileEvalReportMarkdown(report: ProfileEvalReport) {
+  const failureLabels: Record<EvalFailureCategory, string> = {
+    identity_mismatch: "身份信息不匹配",
+    missed_item: "经历条目漏提",
+    unexpected_item: "非预期条目",
+    field_mismatch: "字段不匹配",
+    missing_evidence: "缺少证据",
+    invalid_evidence: "证据无效",
+    forbidden_claim: "禁止声明",
+    pipeline_failure: "Pipeline 失败",
+  };
   const rows = [
-    ["Identity Accuracy", percent(report.summary.identityAccuracy)],
-    ["Item Precision", percent(report.summary.itemPrecision)],
-    ["Item Recall", percent(report.summary.itemRecall)],
-    ["Item F1", percent(report.summary.itemF1)],
-    ["Field Accuracy", percent(report.summary.fieldAccuracy)],
-    ["Evidence Coverage", percent(report.summary.evidenceCoverage)],
-    ["Evidence Accuracy", percent(report.summary.evidenceAccuracy)],
-    ["Unsupported Claim Rate", percent(report.summary.unsupportedClaimRate)],
-    ["End-to-end Success", percent(report.summary.endToEndSuccess)],
-    ["Model Calls", String(report.summary.modelCalls)],
-    ["Latency", `${report.summary.latencyMs} ms`],
+    ["身份信息准确率", percent(report.summary.identityAccuracy)],
+    ["条目精确率", percent(report.summary.itemPrecision)],
+    ["条目召回率", percent(report.summary.itemRecall)],
+    ["条目 F1", percent(report.summary.itemF1)],
+    ["结构化字段准确率", percent(report.summary.fieldAccuracy)],
+    ["证据覆盖率", percent(report.summary.evidenceCoverage)],
+    ["证据准确率", percent(report.summary.evidenceAccuracy)],
+    ["无证据声明率", percent(report.summary.unsupportedClaimRate)],
+    ["端到端成功率", percent(report.summary.endToEndSuccess)],
+    ["模型调用次数", String(report.summary.modelCalls)],
+    ["模型总延迟", `${report.summary.latencyMs} ms`],
+    ["Input Token", report.summary.inputTokens === null ? "N/A" : String(report.summary.inputTokens)],
+    ["Output Token", report.summary.outputTokens === null ? "N/A" : String(report.summary.outputTokens)],
+    ["预估成本", report.summary.estimatedCost === null ? "N/A" : `$${report.summary.estimatedCost.toFixed(6)}`],
   ];
   const failures = report.cases.flatMap((result) => result.failures.map((failure) => (
-    `- \`${result.caseId}\` · **${failure.category}** · ${failure.message}`
+    `- \`${result.caseId}\` · **${failureLabels[failure.category]}**（\`${failure.category}\`） · ${failure.message}`
   )));
   return [
-    `# Profile Eval Report: ${report.dataset}`,
+    `# Profile Agent 评测报告：${report.dataset}`,
     "",
-    `- Status: **${report.passed ? "PASS" : "FAIL"}**`,
-    `- Runner: \`${report.runner}\``,
-    `- Generated: ${report.generatedAt}`,
-    `- Cases: ${report.caseCount} (${report.humanVerifiedCaseCount} human-verified)`,
+    `- 评测结果：**${report.passed ? "通过" : "未通过"}**`,
+    `- 执行器：\`${report.runner}\``,
+    `- 生成时间：${report.generatedAt}`,
+    `- 用例数：${report.caseCount}（${report.humanVerifiedCaseCount} 个已人工复核）`,
     "",
-    "## Metrics",
+    "## 总体指标",
     "",
-    "| Metric | Value |",
+    "| 指标 | 结果 |",
     "| --- | ---: |",
     ...rows.map(([label, value]) => `| ${label} | ${value} |`),
     "",
-    "## Failure classification",
+    "## 失败分类",
     "",
-    ...(failures.length ? failures : ["No failures."]),
+    ...(failures.length ? failures : ["无失败用例。"]),
     "",
-    "## Case results",
+    "## 分用例结果",
     "",
-    "| Case | Review | Status | Item P/R | Evidence Accuracy | Unsupported |",
+    "| 用例 | 复核状态 | 结果 | 条目 P/R | 证据准确率 | 无证据声明 |",
     "| --- | --- | --- | ---: | ---: | ---: |",
     ...report.cases.map((result) => (
-      `| ${result.caseId} | ${result.reviewStatus} | ${result.passed ? "PASS" : "FAIL"} | `
+      `| ${result.caseId} | ${result.reviewStatus === "human-verified" ? "已人工复核" : "预标注"} | ${result.passed ? "通过" : "未通过"} | `
       + `${percent(result.metrics.itemPrecision)} / ${percent(result.metrics.itemRecall)} | `
       + `${percent(result.metrics.evidenceAccuracy)} | ${percent(result.metrics.unsupportedClaimRate)} |`
     )),
