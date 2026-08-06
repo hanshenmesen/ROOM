@@ -6,6 +6,7 @@ import {
   DEFAULT_BROWSER_AGENT_CONFIG,
   browserAgentProviderPreset,
   browserAgentProviderPresetId,
+  requiresMaasUserEmail,
   type BrowserAgentConfig,
   type BrowserAgentProviderPresetId,
 } from "@/lib/browser-agent-config";
@@ -128,6 +129,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
       baseUrl: draft.maas.baseUrl.trim(),
       model: draft.maas.model.trim(),
       mode: draft.maas.mode,
+      userEmail: draft.maas.userEmail.trim(),
     };
     onSave({
       maas,
@@ -137,6 +139,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
             baseUrl: draft.website.baseUrl.trim(),
             model: draft.website.model.trim(),
             mode: draft.website.mode,
+            userEmail: draft.website.userEmail.trim(),
           }
         : { ...maas, apiKey: "" },
       image: customImageProvider
@@ -152,6 +155,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
             baseUrl: draft.petQa.baseUrl.trim(),
             model: draft.petQa.model.trim(),
             mode: draft.petQa.mode,
+            userEmail: draft.petQa.userEmail.trim(),
           }
         : { ...maas, apiKey: "" },
     });
@@ -226,6 +230,22 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                   autoComplete="off"
                 />
               </label>
+              {requiresMaasUserEmail(draft.maas.baseUrl) ? (
+                <label>
+                  <span>企业邮箱</span>
+                  <input
+                    type="email"
+                    required
+                    value={draft.maas.userEmail}
+                    onChange={(event) => setDraft((current) => ({
+                      ...current,
+                      maas: { ...current.maas, userEmail: event.target.value },
+                    }))}
+                    placeholder="you@xiaohongshu.com"
+                    autoComplete="off"
+                  />
+                </label>
+              ) : null}
               <small>用于简历解析、个人网页理解和宠物问答；抽象肖像默认复用这个 Key。</small>
             </fieldset>
 
@@ -264,6 +284,19 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                       <label><span>Base URL</span><input type="url" required value={draft.website.baseUrl} onChange={(event) => setDraft((current) => ({ ...current, website: { ...current.website, baseUrl: event.target.value } }))} /></label>
                       <label><span>Model</span><input required value={draft.website.model} onChange={(event) => setDraft((current) => ({ ...current, website: { ...current.website, model: event.target.value } }))} /></label>
                     </div>
+                    {requiresMaasUserEmail(draft.website.baseUrl) ? (
+                      <label>
+                        <span>企业邮箱</span>
+                        <input
+                          type="email"
+                          required
+                          value={draft.website.userEmail}
+                          onChange={(event) => setDraft((current) => ({ ...current, website: { ...current.website, userEmail: event.target.value } }))}
+                          placeholder="you@xiaohongshu.com"
+                          autoComplete="off"
+                        />
+                      </label>
+                    ) : null}
                   </fieldset>
                 ) : null}
 
@@ -300,6 +333,18 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                       <label><span>Base URL</span><input type="url" required value={draft.petQa.baseUrl} onChange={(event) => setDraft((current) => ({ ...current, petQa: { ...current.petQa, baseUrl: event.target.value } }))} /></label>
                       <label><span>Model</span><input required value={draft.petQa.model} onChange={(event) => setDraft((current) => ({ ...current, petQa: { ...current.petQa, model: event.target.value } }))} /></label>
                     </div>
+                    {requiresMaasUserEmail(draft.petQa.baseUrl) ? (
+                      <label>
+                        <span>企业邮箱（可选）</span>
+                        <input
+                          type="email"
+                          value={draft.petQa.userEmail}
+                          onChange={(event) => setDraft((current) => ({ ...current, petQa: { ...current.petQa, userEmail: event.target.value } }))}
+                          placeholder="留空则复用主服务邮箱"
+                          autoComplete="off"
+                        />
+                      </label>
+                    ) : null}
                   </fieldset>
                 ) : null}
               </div>

@@ -8,6 +8,7 @@ import {
   isDeepSeekProvider,
   type AgentProviderOverride,
 } from "../provider-config.ts";
+import { buildToolCallRequest } from "../provider-request.ts";
 import { estimateCallCostUsd } from "../provider-pricing.ts";
 import { providerErrorDetail } from "../provider-errors.ts";
 import { IDENTITY_DRAFT_SCHEMA, type ProfileDraftSchema } from "./schemas.ts";
@@ -41,10 +42,10 @@ function responseText(payload: unknown) {
   const message = choices[0] && typeof choices[0] === "object"
     ? (choices[0] as Record<string, unknown>).message
     : undefined;
-  const content = message && typeof message === "object"
-    ? (message as Record<string, unknown>).content
-    : undefined;
-  if (typeof content === "string") return content;
+  // OpenAI Chat Completions function calling (used by the xhs-maas gateway):
+  // tool_calls must be checked before content. On a tool-call response the
+  // gateway sends content as an empty string (not null), so checking
+  // content first would return "" and hide the real tool_calls payload.
   const toolCalls = message && typeof message === "object" && Array.isArray((message as Record<string, unknown>).tool_calls)
     ? (message as Record<string, unknown>).tool_calls as Array<Record<string, unknown>>
     : [];
@@ -55,6 +56,10 @@ function responseText(payload: unknown) {
     return cleanString(fn?.arguments);
   }).filter(Boolean);
   if (toolArguments.length) return toolArguments.join("\n");
+  const content = message && typeof message === "object"
+    ? (message as Record<string, unknown>).content
+    : undefined;
+  if (typeof content === "string" && content) return content;
   if (Array.isArray(content)) {
     return content.map((part) => {
       if (!part || typeof part !== "object") return "";
@@ -185,7 +190,6 @@ export async function callProfileModel<T>(input: {
   if (!websiteApiKeys.length && !maasApiKeys.length) {
     throw new ProfileAgentError("服务端尚未配置 Profile Agent API key。", 503);
   }
-  const messagesBaseUrl = (baseUrl: string) => /\/v1$/i.test(baseUrl) ? baseUrl : `${baseUrl}/v1`;
   const maasModels = [...new Set([
     providerConfig.maas.model,
     // The Bedrock fallback is a second Claude route on the MAAS gateway; it
@@ -195,16 +199,20 @@ export async function callProfileModel<T>(input: {
       : []),
   ])];
   const websiteProviders = websiteApiKeys.length ? [{
-    baseUrl: messagesBaseUrl(providerConfig.website.baseUrl),
+    baseUrl: providerConfig.website.baseUrl,
     apiKeys: websiteApiKeys,
     models: [providerConfig.website.model || DEFAULT_WEBSITE_AGENT_MODEL],
     mode: providerConfig.website.mode,
+    protocol: providerConfig.website.protocol,
+    userEmail: providerConfig.website.userEmail,
   }] : [];
   const maasProviders = maasApiKeys.length ? [{
-    baseUrl: messagesBaseUrl(providerConfig.maas.baseUrl),
+    baseUrl: providerConfig.maas.baseUrl,
     apiKeys: maasApiKeys,
     models: maasModels,
     mode: providerConfig.maas.mode,
+    protocol: providerConfig.maas.protocol,
+    userEmail: providerConfig.maas.userEmail,
   }] : [];
   const providers = input.providerScope === "website"
     ? [...websiteProviders, ...maasProviders]
@@ -220,15 +228,17 @@ export async function callProfileModel<T>(input: {
     const providerLabel = providerName(provider.baseUrl);
     const deepSeek = isDeepSeekProvider(provider.baseUrl);
     if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue;
-    // DeepSeek's Anthropic endpoint supports Tool Use but ignores the JSON
-    // schema part of output_config. Retrying an empty Tool response through
-    // json-schema only adds another slow request that cannot satisfy ROOM's
-    // structured-output contract.
-    const modes = deepSeek
-      ? ["tool"] as const
+    // The xhs-maas protocol always uses OpenAI function calling; there is no
+    // Anthropic-style output_config.format equivalent to fall back to.
+    // DeepSeek's official Anthropic endpoint supports Tool Use but ignores
+    // the JSON schema part of output_config, so retrying an empty Tool
+    // response through json-schema only adds another slow request that
+    // cannot satisfy ROOM's structured-output contract.
+    const modes: readonly ("tool" | "json-schema")[] = provider.protocol === "xhs-maas" || deepSeek
+      ? ["tool"]
       : provider.mode === "json-schema"
-      ? ["json-schema", "tool"] as const
-      : ["tool", "json-schema"] as const;
+      ? ["json-schema", "tool"]
+      : ["tool", "json-schema"];
     for (const mode of modes) {
       for (const model of provider.models) {
         for (const apiKey of provider.apiKeys) {
@@ -245,43 +255,27 @@ export async function callProfileModel<T>(input: {
           });
           let result: { response: Response; payload: unknown };
           try {
-            const response = await fetch(`${provider.baseUrl}/messages`, {
+            const request = buildToolCallRequest({
+              protocol: provider.protocol,
+              baseUrl: provider.baseUrl,
+              apiKey,
+              userEmail: provider.userEmail,
+              model,
+              system: input.system,
+              userContent: input.content,
+              temperature: 0,
+              maxOutputTokens,
+              toolName: "submit_profile_result",
+              toolDescription: "Submit the complete evidence-backed profile extraction result.",
+              toolSchema: input.schema,
+              jsonSchemaMode: mode === "json-schema",
+              jsonSchemaEffort: PROFILE_AGENT_EFFORT,
+              disableThinking: deepSeek,
+            });
+            const response = await fetch(request.url, {
               method: "POST",
-              headers: {
-                authorization: `Bearer ${apiKey}`,
-                "x-api-key": apiKey,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-              },
-              body: JSON.stringify({
-                model,
-                system: input.system,
-                messages: [{ role: "user", content: input.content }],
-                temperature: 0,
-                max_tokens: maxOutputTokens,
-                // DeepSeek V4 defaults to thinking. Dense website/profile
-                // extraction can spend the full request window on reasoning
-                // and return no final tool_use block. This task is extraction,
-                // so disable thinking and reserve the output for the Artifact.
-                ...(deepSeek ? { thinking: { type: "disabled" } } : {}),
-                ...(mode === "tool" ? {
-                  tools: [{
-                    name: "submit_profile_result",
-                    description: "Submit the complete evidence-backed profile extraction result.",
-                    input_schema: input.schema,
-                  }],
-                  // `any` forces a tool call without naming the tool: with a
-                  // single tool it is equivalent to pinning it, and DeepSeek's
-                  // thinking mode rejects the named form ("Thinking mode does
-                  // not support this tool_choice").
-                  tool_choice: { type: "any" },
-                } : {
-                  output_config: {
-                    effort: PROFILE_AGENT_EFFORT,
-                    format: { type: "json_schema", schema: input.schema },
-                  },
-                }),
-              }),
+              headers: request.headers,
+              body: JSON.stringify(request.body),
               signal: input.runtimeControls.requestSignal(120_000),
             });
             const payload = await response.json().catch(() => null) as unknown;

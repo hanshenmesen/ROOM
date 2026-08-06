@@ -13,9 +13,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose a provider preset. The default preset is **DeepSeek** (`deepseek-v4-pro` via the Anthropic-compatible endpoint); MAAS and Zhizengzeng presets remain available. Each dropdown option supplies its compatible Base URL, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
+Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose a provider preset. The default preset is **DeepSeek** (`deepseek-v4-pro` via its official Anthropic-compatible endpoint), reachable without any internal-network access. **小红书内网 MAAS** reaches the same `deepseek-v4-pro` model over Xiaohongshu's internal gateway instead (OpenAI Chat Completions with an `api-key` / `x-maas-user-email` / `x-maas-app-id` header set, not Anthropic Messages); selecting it reveals an enterprise-email field required by the gateway. MAAS and Zhizengzeng presets remain available too. Each dropdown option supplies its compatible Base URL, protocol, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
 
-> Boundary note: DeepSeek's Anthropic endpoint does not accept image/document content blocks, so PDF-vision and image uploads require a multimodal provider (e.g. MAAS). Text and Markdown résumés, text-layer PDFs, and website research work fully on DeepSeek.
+> Boundary note: neither DeepSeek endpoint accepts image/document content blocks, so PDF-vision and image uploads require a multimodal provider (e.g. MAAS). Text and Markdown résumés, text-layer PDFs, and website research work fully on both DeepSeek routes.
 
 Advanced settings can enable an independent concurrent Website Agent with a second key and its own provider dropdown. Once the résumé identity pass discovers a personal homepage, that Agent starts immediately while the remaining résumé extraction continues.
 
@@ -52,6 +52,8 @@ NEXT_PUBLIC_PET_TTS_MAX_NEW_TOKENS=1024
 ```
 
 Only one valid API key is required. `MAAS_BASE_URL`, `MAAS_MODEL`, `WEBSITE_AGENT_BASE_URL`, and `WEBSITE_AGENT_MODEL` have working defaults, while a dedicated Website Agent key is optional.
+
+To use Xiaohongshu's internal MAAS gateway instead of the official DeepSeek endpoint, set `MAAS_BASE_URL=https://maas.devops.xiaohongshu.com` and `MAAS_USER_EMAIL=you@xiaohongshu.com` (also `WEBSITE_AGENT_USER_EMAIL` / `PET_QA_USER_EMAIL` for those slots). See [`lib/agents/provider-request.ts`](./lib/agents/provider-request.ts) for the two supported wire protocols.
 
 The entrance checks `/api/config` for deployment-level readiness and opens the in-browser configuration form when neither a session key nor a server key is available. A browser session configuration overrides server providers for that user's parse requests without exposing any server-side secret.
 

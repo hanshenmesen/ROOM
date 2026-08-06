@@ -6,6 +6,7 @@ import {
   isDeepSeekProvider,
   type AgentProviderOverride,
 } from "../provider-config.ts";
+import { buildToolCallRequest } from "../provider-request.ts";
 import { estimateCallCostUsd } from "../provider-pricing.ts";
 import { providerErrorDetail } from "../provider-errors.ts";
 import type {
@@ -61,10 +62,6 @@ function providerName(baseUrl: string) {
   } catch {
     return "custom-provider";
   }
-}
-
-function messagesBaseUrl(baseUrl: string) {
-  return /\/v1$/i.test(baseUrl) ? baseUrl : `${baseUrl}/v1`;
 }
 
 function responseText(payload: unknown) {
@@ -209,7 +206,7 @@ export function createWebsiteResearchModelPlanner(input: {
     for (const provider of providers) {
       const providerLabel = providerName(provider.baseUrl);
       const deepSeek = isDeepSeekProvider(provider.baseUrl);
-      const modes = deepSeek
+      const modes = provider.protocol === "xhs-maas" || deepSeek
         ? ["tool"] as const
         : provider.mode === "tool"
         ? ["tool", "json-schema"] as const
@@ -226,38 +223,27 @@ export function createWebsiteResearchModelPlanner(input: {
             estimatedCostUsd: estimatedCost(provider.baseUrl, inputTokenEstimate, MAX_OUTPUT_TOKENS),
           });
           try {
-            const response = await fetch(`${messagesBaseUrl(provider.baseUrl)}/messages`, {
+            const request = buildToolCallRequest({
+              protocol: provider.protocol,
+              baseUrl: provider.baseUrl,
+              apiKey,
+              userEmail: provider.userEmail,
+              model: provider.model,
+              system,
+              userContent: content,
+              temperature: 0,
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
+              toolName: "choose_website_research_action",
+              toolDescription: "Choose the next bounded website research action.",
+              toolSchema: DECISION_SCHEMA,
+              jsonSchemaMode: mode === "json-schema",
+              jsonSchemaEffort: "low",
+              disableThinking: deepSeek,
+            });
+            const response = await fetch(request.url, {
               method: "POST",
-              headers: {
-                authorization: `Bearer ${apiKey}`,
-                "x-api-key": apiKey,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-              },
-              body: JSON.stringify({
-                model: provider.model,
-                system,
-                messages: [{ role: "user", content }],
-                temperature: 0,
-                max_tokens: MAX_OUTPUT_TOKENS,
-                // Navigation is a small schema decision. Disabling DeepSeek's
-                // default thinking avoids spending the 30-second planner
-                // window without producing the required tool call.
-                ...(deepSeek ? { thinking: { type: "disabled" } } : {}),
-                ...(mode === "tool" ? {
-                  tools: [{
-                    name: "choose_website_research_action",
-                    description: "Choose the next bounded website research action.",
-                    input_schema: DECISION_SCHEMA,
-                  }],
-                  // Single-tool setup: `any` pins the call without naming it,
-                  // which DeepSeek's thinking mode accepts (it 400s the named
-                  // form).
-                  tool_choice: { type: "any" },
-                } : {
-                  output_config: { effort: "low", format: { type: "json_schema", schema: DECISION_SCHEMA } },
-                }),
-              }),
+              headers: request.headers,
+              body: JSON.stringify(request.body),
               signal: controls.requestSignal(30_000),
             });
             const payload = await response.json().catch(() => null) as unknown;

@@ -11,6 +11,13 @@ export const BROWSER_AGENT_PROVIDER_PRESETS = [
     mode: "tool" as const,
   },
   {
+    id: "xhs-maas",
+    label: "小红书内网 MAAS",
+    baseUrl: "https://maas.devops.xiaohongshu.com",
+    model: "deepseek-v4-pro",
+    mode: "tool" as const,
+  },
+  {
     id: "maas",
     label: "MAAS",
     baseUrl: "https://maas.devops.rednote.life/hackson",
@@ -30,11 +37,30 @@ const ZHIZENGZENG_PRESET = BROWSER_AGENT_PROVIDER_PRESETS.find((preset) => prese
 
 export type BrowserAgentProviderPresetId = (typeof BROWSER_AGENT_PROVIDER_PRESETS)[number]["id"];
 
+/**
+ * True for provider hosts that require the Xiaohongshu internal MAAS
+ * gateway's OpenAI Chat Completions protocol (api-key / x-maas-user-email /
+ * x-maas-app-id) instead of Anthropic Messages. Kept as a small predicate
+ * here (rather than importing the server-side provider-request module into
+ * client bundles) since the UI only needs to know whether to show the
+ * enterprise-email field.
+ */
+export function requiresMaasUserEmail(baseUrl: string) {
+  try {
+    const candidate = baseUrl.includes("://") ? baseUrl : `https://${baseUrl}`;
+    return new URL(candidate).hostname === "maas.devops.xiaohongshu.com";
+  } catch {
+    return false;
+  }
+}
+
 type BrowserAgentProviderConfig = {
   apiKey: string;
   baseUrl: string;
   model: string;
   mode: BrowserAgentProviderMode;
+  /** Required by the Xiaohongshu internal MAAS gateway (x-maas-user-email). */
+  userEmail: string;
 };
 
 type BrowserPortraitArtProviderConfig = {
@@ -48,6 +74,7 @@ type BrowserPetQaProviderConfig = {
   baseUrl: string;
   model: string;
   mode: BrowserAgentProviderMode;
+  userEmail: string;
 };
 
 export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
@@ -56,12 +83,14 @@ export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
     baseUrl: BROWSER_AGENT_PROVIDER_PRESETS[0].baseUrl,
     model: BROWSER_AGENT_PROVIDER_PRESETS[0].model,
     mode: BROWSER_AGENT_PROVIDER_PRESETS[0].mode,
+    userEmail: "",
   },
   website: {
     apiKey: "",
     baseUrl: ZHIZENGZENG_PRESET.baseUrl,
     model: ZHIZENGZENG_PRESET.model,
     mode: ZHIZENGZENG_PRESET.mode,
+    userEmail: "",
   },
   image: {
     apiKey: "",
@@ -73,6 +102,7 @@ export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
     baseUrl: BROWSER_AGENT_PROVIDER_PRESETS[0].baseUrl,
     model: BROWSER_AGENT_PROVIDER_PRESETS[0].model,
     mode: BROWSER_AGENT_PROVIDER_PRESETS[0].mode,
+    userEmail: "",
   },
 };
 
@@ -89,6 +119,7 @@ export function browserAgentProviderPreset(id: BrowserAgentProviderPresetId) {
 
 export function browserAgentProviderPresetId(provider: Pick<BrowserAgentProviderConfig, "baseUrl">): BrowserAgentProviderPresetId {
   if (provider.baseUrl.includes("api.deepseek.com")) return "deepseek";
+  if (requiresMaasUserEmail(provider.baseUrl)) return "xhs-maas";
   if (provider.baseUrl.includes("api.zhizengzeng.com")) return "zhizengzeng";
   return "maas";
 }
@@ -107,6 +138,7 @@ export function normalizeBrowserAgentConfig(value: unknown): BrowserAgentConfig 
       baseUrl,
       model: typeof provider?.model === "string" && provider.model ? provider.model : inferredPreset.model,
       mode: provider?.mode === "tool" || provider?.mode === "json-schema" ? provider.mode : inferredPreset.mode,
+      userEmail: typeof provider?.userEmail === "string" ? provider.userEmail : "",
     };
   };
   const normalized = {
@@ -133,10 +165,12 @@ const HEADERS = {
   maasBaseUrl: "x-room-maas-base-url",
   maasModel: "x-room-maas-model",
   maasMode: "x-room-maas-mode",
+  maasUserEmail: "x-room-maas-user-email",
   websiteApiKey: "x-room-website-api-key",
   websiteBaseUrl: "x-room-website-base-url",
   websiteModel: "x-room-website-model",
   websiteMode: "x-room-website-mode",
+  websiteUserEmail: "x-room-website-user-email",
 } as const;
 
 const PORTRAIT_ART_HEADERS = {
@@ -150,6 +184,7 @@ const PET_QA_HEADERS = {
   baseUrl: "x-room-pet-qa-base-url",
   model: "x-room-pet-qa-model",
   mode: "x-room-pet-qa-mode",
+  userEmail: "x-room-pet-qa-user-email",
 } as const;
 
 export function browserAgentConfigHeaders(config: BrowserAgentConfig | null): Record<string, string> {
@@ -159,10 +194,12 @@ export function browserAgentConfigHeaders(config: BrowserAgentConfig | null): Re
     [HEADERS.maasBaseUrl]: config.maas.baseUrl.trim(),
     [HEADERS.maasModel]: config.maas.model.trim(),
     [HEADERS.maasMode]: config.maas.mode,
+    [HEADERS.maasUserEmail]: config.maas.userEmail.trim(),
     [HEADERS.websiteApiKey]: config.website.apiKey.trim(),
     [HEADERS.websiteBaseUrl]: config.website.baseUrl.trim(),
     [HEADERS.websiteModel]: config.website.model.trim(),
     [HEADERS.websiteMode]: config.website.mode,
+    [HEADERS.websiteUserEmail]: config.website.userEmail.trim(),
   };
 }
 
@@ -175,10 +212,12 @@ export function readBrowserAgentConfigHeaders(headers: Headers) {
     maasBaseUrl: headers.get(HEADERS.maasBaseUrl)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.maas.baseUrl,
     maasModel: headers.get(HEADERS.maasModel)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.maas.model,
     maasMode: headers.get(HEADERS.maasMode) === "tool" ? "tool" as const : "json-schema" as const,
+    maasUserEmail: headers.get(HEADERS.maasUserEmail)?.trim() || "",
     websiteApiKey,
     websiteBaseUrl: headers.get(HEADERS.websiteBaseUrl)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.website.baseUrl,
     websiteModel: headers.get(HEADERS.websiteModel)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.website.model,
     websiteMode: headers.get(HEADERS.websiteMode) === "json-schema" ? "json-schema" as const : "tool" as const,
+    websiteUserEmail: headers.get(HEADERS.websiteUserEmail)?.trim() || "",
   };
 }
 
@@ -198,6 +237,7 @@ export function browserPetQaConfigHeaders(config: BrowserAgentConfig | null): Re
     [PET_QA_HEADERS.baseUrl]: (config.petQa.baseUrl || config.maas.baseUrl).trim(),
     [PET_QA_HEADERS.model]: (config.petQa.model || config.maas.model).trim(),
     [PET_QA_HEADERS.mode]: config.petQa.mode || config.maas.mode,
+    [PET_QA_HEADERS.userEmail]: (config.petQa.userEmail || config.maas.userEmail).trim(),
   };
 }
 
@@ -219,5 +259,6 @@ export function readBrowserPetQaConfigHeaders(headers: Headers) {
     petQaBaseUrl: headers.get(PET_QA_HEADERS.baseUrl)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.petQa.baseUrl,
     petQaModel: headers.get(PET_QA_HEADERS.model)?.trim() || DEFAULT_BROWSER_AGENT_CONFIG.petQa.model,
     petQaMode: headers.get(PET_QA_HEADERS.mode) === "tool" ? "tool" as const : "json-schema" as const,
+    petQaUserEmail: headers.get(PET_QA_HEADERS.userEmail)?.trim() || "",
   };
 }

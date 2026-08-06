@@ -6,6 +6,7 @@ import {
 } from "../profile-space-customization.ts";
 import { normalizeRoomCompanionName } from "../room-companion.ts";
 import { getAgentProviderConfig, isDeepSeekProvider, type AgentProviderOverride } from "./provider-config.ts";
+import { buildToolCallRequest } from "./provider-request.ts";
 import { estimateCallCostUsd } from "./provider-pricing.ts";
 import { providerErrorDetail } from "./provider-errors.ts";
 import { AgentRunControls, type AgentRunBudgetLimits } from "../agent-runtime/run-controls.ts";
@@ -133,13 +134,13 @@ function compactProfile(profile: ParsedProfile) {
   }).slice(0, MAX_PET_QA_PROFILE_CHARACTERS);
 }
 
-function messagesBaseUrl(baseUrl: string) {
+function assertSafePetQaBaseUrl(baseUrl: string) {
   const normalized = baseUrl.trim().replace(/\/+$/, "");
   const url = validatePublicUrl(normalized);
   if (url.protocol !== "https:" || url.search || url.hash) {
     throw new PetQaError("宠物 QA Base URL 必须是公开的 HTTPS 地址。", 400);
   }
-  return /\/v1$/i.test(normalized) ? normalized : `${normalized}/v1`;
+  return normalized;
 }
 
 function responseText(payload: unknown) {
@@ -149,12 +150,28 @@ function responseText(payload: unknown) {
   const message = choices[0] && typeof choices[0] === "object"
     ? (choices[0] as Record<string, unknown>).message
     : undefined;
+  // OpenAI Chat Completions function calling (used by the xhs-maas gateway):
+  // the structured answer lives in tool_calls[].function.arguments, not
+  // content, which is typically null on a tool-call response.
+  const toolCalls = message && typeof message === "object" && Array.isArray((message as Record<string, unknown>).tool_calls)
+    ? (message as Record<string, unknown>).tool_calls as Array<Record<string, unknown>>
+    : [];
+  const toolArguments = toolCalls.map((call) => {
+    const fn = call.function && typeof call.function === "object" ? call.function as Record<string, unknown> : undefined;
+    return cleanString(fn?.arguments);
+  }).filter(Boolean);
+  if (toolArguments.length) return toolArguments.join("\n");
   const content = message && typeof message === "object"
     ? (message as Record<string, unknown>).content
     : undefined;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
-    return content.map((part) => part && typeof part === "object" ? cleanString((part as Record<string, unknown>).text) : "").join("\n");
+    return content.map((part) => {
+      if (!part || typeof part !== "object") return "";
+      const block = part as Record<string, unknown>;
+      if (block.input && typeof block.input === "object") return JSON.stringify(block.input);
+      return cleanString(block.text);
+    }).filter(Boolean).join("\n");
   }
   if (Array.isArray(record.content)) {
     return record.content.map((part) => {
@@ -269,6 +286,7 @@ export async function answerPetQaQuestion(
     budget: { maxModelCalls: 3, maxOutputTokens: 9_000, ...runtimeOptions.budget },
   });
   const deepSeek = isDeepSeekProvider(config.baseUrl);
+  const safeBaseUrl = assertSafePetQaBaseUrl(config.baseUrl);
   let lastResult: { response: Response; payload: unknown } | undefined;
   for (const apiKey of config.apiKeys) {
     const inputTokens = Math.ceil((system.length + content.length) / 4);
@@ -279,39 +297,26 @@ export async function answerPetQaQuestion(
       outputTokens: 4_000,
       estimatedCostUsd: estimateCallCostUsd(config.baseUrl, inputTokens, 4_000),
     });
-    const response = await fetch(`${messagesBaseUrl(config.baseUrl)}/messages`, {
+    const request = buildToolCallRequest({
+      protocol: config.protocol,
+      baseUrl: safeBaseUrl,
+      apiKey,
+      userEmail: config.userEmail,
+      model: config.model,
+      system,
+      userContent: content,
+      temperature: 0,
+      maxOutputTokens: 4_000,
+      toolName: "submit_pet_qa_answer",
+      toolDescription: "Submit the profile-grounded pet QA answer.",
+      toolSchema: PET_QA_SCHEMA,
+      jsonSchemaMode: config.mode === "json-schema",
+      disableThinking: deepSeek,
+    });
+    const response = await fetch(request.url, {
       method: "POST",
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        system,
-        messages: [{ role: "user", content }],
-        temperature: 0,
-        max_tokens: 4_000,
-        // A quick, profile-grounded answer does not need DeepSeek's default
-        // thinking pass; disabling it keeps the fixed 4k budget for the
-        // actual answer instead of reasoning.
-        ...(deepSeek ? { thinking: { type: "disabled" } } : {}),
-        ...(config.mode === "tool" ? {
-          tools: [{
-            name: "submit_pet_qa_answer",
-            description: "Submit the profile-grounded pet QA answer.",
-            input_schema: PET_QA_SCHEMA,
-          }],
-          // `any` forces the single tool without naming it; DeepSeek's
-          // thinking mode rejects the named tool_choice form.
-          tool_choice: { type: "any" },
-        } : {
-          output_config: {
-            format: { type: "json_schema", schema: PET_QA_SCHEMA },
-          },
-        }),
-      }),
+      headers: request.headers,
+      body: JSON.stringify(request.body),
       signal: runtimeControls.requestSignal(60_000),
     });
     const payload = await response.json().catch(() => null) as unknown;

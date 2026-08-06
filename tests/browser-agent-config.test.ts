@@ -4,6 +4,7 @@ import {
   BROWSER_AGENT_PROVIDER_PRESETS,
   DEFAULT_BROWSER_AGENT_CONFIG,
   browserAgentProviderPreset,
+  browserAgentProviderPresetId,
   browserAgentConfigHeaders,
   browserPetQaConfigHeaders,
   browserPortraitArtConfigHeaders,
@@ -11,6 +12,7 @@ import {
   readBrowserAgentConfigHeaders,
   readBrowserPetQaConfigHeaders,
   readBrowserPortraitArtConfigHeaders,
+  requiresMaasUserEmail,
 } from "../lib/browser-agent-config.ts";
 
 test("browser Agent config ships with the DeepSeek defaults", () => {
@@ -25,9 +27,20 @@ test("browser Agent config ships with the DeepSeek defaults", () => {
   assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.petQa.model, "deepseek-v4-pro");
 });
 
-test("provider presets resolve ids from base urls across all three providers", () => {
+test("provider presets resolve ids from base urls across all four providers", () => {
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 4);
   assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].id, "deepseek");
   assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].mode, "tool");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.xiaohongshu.com" }), "xhs-maas");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.deepseek.com/anthropic" }), "deepseek");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.zhizengzeng.com/v1" }), "zhizengzeng");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.rednote.life/hackson" }), "maas");
+});
+
+test("requiresMaasUserEmail identifies only the internal gateway host", () => {
+  assert.equal(requiresMaasUserEmail("https://maas.devops.xiaohongshu.com"), true);
+  assert.equal(requiresMaasUserEmail("https://api.deepseek.com/anthropic"), false);
+  assert.equal(requiresMaasUserEmail("https://maas.devops.rednote.life/hackson"), false);
 });
 
 test("browser Agent config crosses the parsing boundary without using a URL query", () => {
@@ -37,12 +50,14 @@ test("browser Agent config crosses the parsing boundary without using a URL quer
       baseUrl: DEFAULT_BROWSER_AGENT_CONFIG.maas.baseUrl,
       model: DEFAULT_BROWSER_AGENT_CONFIG.maas.model,
       mode: DEFAULT_BROWSER_AGENT_CONFIG.maas.mode,
+      userEmail: "",
     },
     website: {
       apiKey: "website-session-key",
       baseUrl: DEFAULT_BROWSER_AGENT_CONFIG.website.baseUrl,
       model: DEFAULT_BROWSER_AGENT_CONFIG.website.model,
       mode: DEFAULT_BROWSER_AGENT_CONFIG.website.mode,
+      userEmail: "",
     },
     image: {
       apiKey: "image-session-key",
@@ -54,6 +69,7 @@ test("browser Agent config crosses the parsing boundary without using a URL quer
       baseUrl: DEFAULT_BROWSER_AGENT_CONFIG.petQa.baseUrl,
       model: DEFAULT_BROWSER_AGENT_CONFIG.petQa.model,
       mode: DEFAULT_BROWSER_AGENT_CONFIG.petQa.mode,
+      userEmail: "",
     },
   }));
   const parsed = readBrowserAgentConfigHeaders(headers);
@@ -64,6 +80,23 @@ test("browser Agent config crosses the parsing boundary without using a URL quer
   assert.equal(parsed?.websiteModel, DEFAULT_BROWSER_AGENT_CONFIG.website.model);
   assert.equal(parsed?.maasMode, "tool");
   assert.equal(parsed?.websiteMode, "tool");
+  assert.equal(parsed?.maasUserEmail, "");
+});
+
+test("the internal MAAS gateway's user email crosses the parsing boundary alongside the key", () => {
+  const headers = new Headers(browserAgentConfigHeaders({
+    ...DEFAULT_BROWSER_AGENT_CONFIG,
+    maas: {
+      apiKey: "sk-internal-test-key",
+      baseUrl: "https://maas.devops.xiaohongshu.com",
+      model: "deepseek-v4-pro",
+      mode: "tool",
+      userEmail: "someone@xiaohongshu.com",
+    },
+  }));
+  const parsed = readBrowserAgentConfigHeaders(headers);
+  assert.equal(parsed?.maasBaseUrl, "https://maas.devops.xiaohongshu.com");
+  assert.equal(parsed?.maasUserEmail, "someone@xiaohongshu.com");
 });
 
 test("browser pet QA config crosses only the pet request boundary", () => {
@@ -75,6 +108,7 @@ test("browser pet QA config crosses only the pet request boundary", () => {
       baseUrl: "https://pet.example.test/v1",
       model: "pet-model",
       mode: "tool",
+      userEmail: "",
     },
   }));
   const parsed = readBrowserPetQaConfigHeaders(headers);
@@ -84,18 +118,21 @@ test("browser pet QA config crosses only the pet request boundary", () => {
     petQaBaseUrl: "https://pet.example.test/v1",
     petQaModel: "pet-model",
     petQaMode: "tool",
+    petQaUserEmail: "",
   });
   assert.equal(headers.has("x-room-maas-api-key"), false);
   assert.equal(headers.has("x-room-image-api-key"), false);
 });
 
-test("pet QA requests reuse the primary session key when no dedicated key is set", () => {
+test("pet QA requests reuse the primary session key and user email when no dedicated ones are set", () => {
   const headers = new Headers(browserPetQaConfigHeaders({
     ...DEFAULT_BROWSER_AGENT_CONFIG,
-    maas: { ...DEFAULT_BROWSER_AGENT_CONFIG.maas, apiKey: "shared-key" },
+    maas: { ...DEFAULT_BROWSER_AGENT_CONFIG.maas, apiKey: "shared-key", userEmail: "shared@xiaohongshu.com" },
   }));
 
-  assert.equal(readBrowserPetQaConfigHeaders(headers)?.petQaApiKey, "shared-key");
+  const parsed = readBrowserPetQaConfigHeaders(headers);
+  assert.equal(parsed?.petQaApiKey, "shared-key");
+  assert.equal(parsed?.petQaUserEmail, "shared@xiaohongshu.com");
 });
 
 test("browser portrait-art config crosses only the image request boundary", () => {
@@ -138,17 +175,31 @@ test("stored v1 browser config gains safe portrait-art defaults", () => {
   assert.deepEqual(normalized?.petQa, DEFAULT_BROWSER_AGENT_CONFIG.petQa);
 });
 
+test("a stored config missing userEmail (pre-xhs-maas schema) normalizes to an empty string", () => {
+  const normalized = normalizeBrowserAgentConfig({
+    maas: { apiKey: "legacy-key", baseUrl: "https://api.deepseek.com/anthropic", model: "deepseek-v4-pro", mode: "tool" },
+  });
+  assert.equal(normalized?.maas.userEmail, "");
+});
+
 test("empty browser keys preserve the server-environment fallback", () => {
   const headers = new Headers(browserAgentConfigHeaders(DEFAULT_BROWSER_AGENT_CONFIG));
   assert.equal(readBrowserAgentConfigHeaders(headers), undefined);
 });
 
 test("the provider dropdown maps every Base URL to its compatible request mode", () => {
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 3);
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 4);
   assert.deepEqual(browserAgentProviderPreset("deepseek"), {
     id: "deepseek",
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com/anthropic",
+    model: "deepseek-v4-pro",
+    mode: "tool",
+  });
+  assert.deepEqual(browserAgentProviderPreset("xhs-maas"), {
+    id: "xhs-maas",
+    label: "小红书内网 MAAS",
+    baseUrl: "https://maas.devops.xiaohongshu.com",
     model: "deepseek-v4-pro",
     mode: "tool",
   });
