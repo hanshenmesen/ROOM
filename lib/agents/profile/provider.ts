@@ -1,6 +1,7 @@
 import type { AgentCallMeta, AgentCallResult } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import type { AgentRunControls } from "../../agent-runtime/run-controls.ts";
+import { diagnosticDump } from "../../agent-runtime/diagnostics.ts";
 import {
   DEFAULT_WEBSITE_AGENT_MODEL,
   FALLBACK_MAAS_MODEL,
@@ -323,14 +324,13 @@ export async function callProfileModel<T>(input: {
                 }
                 invalidOutputDetails.push(`${input.shard} 分片结构不完整 · model=${model} · mode=${mode} · ${structuralErrors.join("; ")}`);
                 input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "invalid_structure" });
-                // The trace only stores the structural-error summary; log the
-                // actual parsed tool-call arguments server-side so a shape
-                // the schema validator rejects (e.g. wrong key names, nested
-                // under an unexpected wrapper) can be diagnosed without
-                // guessing.
-                console.error(
+                // The trace only stores the structural-error summary; dump
+                // the parsed tool-call arguments server-side (structural
+                // summary by default, raw only behind the diagnostics flag)
+                // so shape mismatches can be diagnosed without guessing.
+                diagnosticDump(
                   `[profile-agent] invalid structure from ${providerLabel}/${model} (${mode}, ${input.shard}):`,
-                  JSON.stringify(value).slice(0, 2000),
+                  value,
                 );
               } catch {
                 const stopReason = responseStopReason(result.payload);
@@ -354,10 +354,11 @@ export async function callProfileModel<T>(input: {
             // A 200 with no extractable text usually means the provider
             // returned a shape responseText() doesn't recognize yet (e.g. a
             // thinking-only response, or content blocks in an unexpected
-            // position). Log the raw shape server-side to diagnose it.
-            console.error(
+            // position). Dump the shape server-side (structural summary by
+            // default) to diagnose it.
+            diagnosticDump(
               `[profile-agent] empty response from ${providerLabel}/${model} (${mode}):`,
-              JSON.stringify(result.payload).slice(0, 2000),
+              result.payload,
             );
             fallbackCount += 1;
             continue;

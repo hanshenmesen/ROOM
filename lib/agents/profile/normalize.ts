@@ -1,3 +1,4 @@
+import { diagnosticDump } from "../../agent-runtime/diagnostics.ts";
 import type { ContentFamily, ParsedProfile, ProfileItem, ProfileMedia, SourceEvidence } from "../../types.ts";
 import { validateProfile } from "../../validate.ts";
 import { inventoryExpectations } from "./shard-planner.ts";
@@ -141,26 +142,20 @@ export function normalizeProfileDraft(value: unknown, text: string, source: Prof
       : lines.length;
   const validationErrors = draftErrors(value, sourceCount, source.format, text);
   if (validationErrors.length) {
-    // The trace only stores the validation-error summary (validationErrors);
-    // log the raw evidenceLines/fieldEvidence shapes server-side so a model
-    // that fails this cross-field contract (e.g. wrong line-number type or
-    // scheme, or omitting fieldEvidence for a populated optional field) can
-    // be diagnosed without guessing at its exact output shape.
+    // Validation messages and sourceCount are structural (safe) context, so
+    // they go in the label; the model's evidence shapes may carry PII and go
+    // through the summarizing diagnostic dump instead of a raw JSON log.
     const items = Array.isArray(rawDraft?.items) ? rawDraft.items : [];
-    console.error(
-      "[profile-agent] draft failed evidence validation:",
-      JSON.stringify({
-        sourceCount,
-        errors: validationErrors.slice(0, 6),
-        items: items.slice(0, 3).map((item: Record<string, unknown>) => ({
-          title: item?.title,
-          timeRange: item?.timeRange,
-          role: item?.role,
-          techStack: item?.techStack,
-          evidenceLines: item?.evidenceLines,
-          fieldEvidence: item?.fieldEvidence,
-        })),
-      }).slice(0, 2000),
+    diagnosticDump(
+      `[profile-agent] draft failed evidence validation (sourceCount=${sourceCount}): ${validationErrors.slice(0, 3).join("; ")}`,
+      items.slice(0, 3).map((item: Record<string, unknown>) => ({
+        title: item?.title,
+        timeRange: item?.timeRange,
+        role: item?.role,
+        techStack: item?.techStack,
+        evidenceLines: item?.evidenceLines,
+        fieldEvidence: item?.fieldEvidence,
+      })),
     );
     throw new ProfileAgentError("Agent 返回的数据未通过验证。", 502, validationErrors);
   }
