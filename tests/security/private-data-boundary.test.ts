@@ -4,6 +4,7 @@ import { answerPetQaQuestion } from "../../lib/agents/pet-qa.ts";
 import type { ParsedProfile } from "../../lib/types.ts";
 import {
   clearConcurrencyLeasesForTests,
+  concurrencyLeaseMetrics,
   privacySafeRequestKey,
   tryAcquireConcurrencyLease,
 } from "../../lib/agent-runtime/concurrency-limiter.ts";
@@ -57,4 +58,29 @@ test("per-client concurrency keys are hashed and leases are bounded", async () =
   assert.ok(replacement);
   replacement();
   second();
+});
+
+test("unreleased leases lapse after their TTL instead of leaking slots", () => {
+  clearConcurrencyLeasesForTests();
+  // Simulate a crashed isolate: acquire without ever releasing, with a TTL
+  // already in the past on the next acquisition check.
+  const ttlMs = 50;
+  const first = tryAcquireConcurrencyLease("ttl-client", 2, ttlMs);
+  const second = tryAcquireConcurrencyLease("ttl-client", 2, ttlMs);
+  assert.ok(first && second);
+  assert.equal(tryAcquireConcurrencyLease("ttl-client", 2, ttlMs), undefined);
+
+  return new Promise<void>((resolvePromise) => {
+    setTimeout(() => {
+      // Both leaked leases have lapsed: no release() calls happened, yet the
+      // slot is available again.
+      const replacement = tryAcquireConcurrencyLease("ttl-client", 2, ttlMs);
+      assert.ok(replacement);
+      replacement!();
+      const metrics = concurrencyLeaseMetrics();
+      assert.equal(metrics.activeLeases, 0);
+      assert.equal(metrics.rejectedTotal, 1);
+      resolvePromise();
+    }, ttlMs + 20);
+  });
 });

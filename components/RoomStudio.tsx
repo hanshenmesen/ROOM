@@ -1075,12 +1075,25 @@ export function RoomStudio() {
       }
     };
     const pollTimer = window.setInterval(() => void poll(), 500);
+    // A 429 means this client's earlier Agent task is still running (slow
+    // thinking-mode providers can hold a slot for a minute or two). Back off
+    // and retry instead of failing the click outright.
+    const maxConcurrencyRetries = 3;
     try {
-      const response = await fetch(input, { ...init, headers });
-      const data = await response.json() as T;
-      if (data.run) setAgentRunEvents(data.run.events);
-      else await poll();
-      return { response, data };
+      for (let attempt = 0; ; attempt += 1) {
+        const response = await fetch(input, { ...init, headers });
+        if (response.status !== 429 || attempt >= maxConcurrencyRetries) {
+          const data = await response.json() as T;
+          if (data.run) setAgentRunEvents(data.run.events);
+          else await poll();
+          return { response, data };
+        }
+        const retryAfterSeconds = Number(response.headers.get("retry-after")) || 2 * (attempt + 1);
+        setMessage(`上一个 Agent 任务仍在运行，${retryAfterSeconds} 秒后自动重试（${attempt + 1}/${maxConcurrencyRetries}）…`);
+        await new Promise((resolvePromise) => {
+          window.setTimeout(resolvePromise, retryAfterSeconds * 1_000);
+        });
+      }
     } finally {
       window.clearInterval(pollTimer);
     }

@@ -55,7 +55,10 @@ export async function POST(request: Request) {
   const requestKey = await privacySafeRequestKey(request);
   const releaseLease = tryAcquireConcurrencyLease(`pet-qa:${requestKey}`, 3);
   if (!releaseLease) {
-    return NextResponse.json({ error: "当前 Companion 请求较多，请稍后重试。" }, { status: 429 });
+    return NextResponse.json({ error: "当前 Companion 请求较多，请稍后重试。" }, {
+      status: 429,
+      headers: { "retry-after": "3" },
+    });
   }
   try {
     const providerOverride = await requestProviderConfig(request);

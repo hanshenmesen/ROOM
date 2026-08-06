@@ -390,7 +390,10 @@ export async function POST(request: Request) {
   const requestKey = await privacySafeRequestKey(request);
   const releaseLease = tryAcquireConcurrencyLease(`parse:${requestKey}`, 2);
   if (!releaseLease) {
-    return NextResponse.json({ error: "当前 Agent 任务较多，请稍后重试。" }, { status: 429 });
+    return NextResponse.json({ error: "当前 Agent 任务较多，请稍后重试。" }, {
+      status: 429,
+      headers: { "retry-after": "3" },
+    });
   }
   const tracer = createAgentTracer(requestedRunId(request));
   try {
