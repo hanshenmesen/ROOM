@@ -14,12 +14,20 @@ export type AgentRunBudgetUsage = {
   elapsedMs: number;
 };
 
+// Generating a full 16k-token structured extraction through a proxied
+// gateway (e.g. Xiaohongshu's internal MAAS gateway) has been observed to
+// take well past 120s for the denser "items" shard alone. Rather than tune
+// a fragile threshold against an unconfirmed P99, the profile agent's
+// per-request timeout is a generous 20 minutes (see
+// PROFILE_AGENT_REQUEST_TIMEOUT_MS in lib/agents/profile/provider.ts), so
+// this wall-clock budget must be at least 2x that to leave room for one
+// slow attempt plus one full retry.
 export const DEFAULT_AGENT_RUN_BUDGET: AgentRunBudgetLimits = {
   maxModelCalls: 16,
   maxInputTokens: 600_000,
   maxOutputTokens: 160_000,
   maxEstimatedCostUsd: 20,
-  maxDurationMs: 240_000,
+  maxDurationMs: 40 * 60_000,
 };
 
 export type AgentBudgetReason = "model_calls" | "input_tokens" | "output_tokens" | "estimated_cost" | "duration";

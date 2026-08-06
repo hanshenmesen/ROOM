@@ -23,6 +23,15 @@ import { shardOutputErrors } from "./validation.ts";
 const IDENTITY_MAX_OUTPUT_TOKENS = 8_000;
 const ITEMS_MAX_OUTPUT_TOKENS = 16_000;
 const PROFILE_AGENT_EFFORT = "low";
+// Per-request abort timeout, shared by every shard. A 120s cap was observed
+// aborting healthy in-flight "items" shard calls (16k-token structured
+// extraction through Xiaohongshu's internal MAAS gateway can legitimately
+// take well past 120s), which then forced a retry that blew through the
+// overall run budget. Rather than tune a fragile per-shard threshold against
+// an unconfirmed P99, use one generous ceiling; DEFAULT_AGENT_RUN_BUDGET's
+// maxDurationMs is sized to allow one slow attempt plus one full retry at
+// this timeout.
+const PROFILE_AGENT_REQUEST_TIMEOUT_MS = 20 * 60_000;
 
 function estimatedTokens(input: string | MaasContentBlock[]) {
   const characters = typeof input === "string"
@@ -276,7 +285,7 @@ export async function callProfileModel<T>(input: {
               method: "POST",
               headers: request.headers,
               body: JSON.stringify(request.body),
-              signal: input.runtimeControls.requestSignal(120_000),
+              signal: input.runtimeControls.requestSignal(PROFILE_AGENT_REQUEST_TIMEOUT_MS),
             });
             const payload = await response.json().catch(() => null) as unknown;
             result = { response, payload };
