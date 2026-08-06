@@ -1,5 +1,8 @@
 const activeRequests = new Map<string, number>();
 
+let acquiredTotal = 0;
+let rejectedTotal = 0;
+
 export async function privacySafeRequestKey(request: Request) {
   const forwarded = request.headers.get("cf-connecting-ip")
     || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -14,7 +17,11 @@ export async function privacySafeRequestKey(request: Request) {
 
 export function tryAcquireConcurrencyLease(key: string, maximum: number) {
   const active = activeRequests.get(key) || 0;
-  if (active >= maximum) return undefined;
+  if (active >= maximum) {
+    rejectedTotal += 1;
+    return undefined;
+  }
+  acquiredTotal += 1;
   activeRequests.set(key, active + 1);
   let released = false;
   return () => {
@@ -26,6 +33,22 @@ export function tryAcquireConcurrencyLease(key: string, maximum: number) {
   };
 }
 
+/**
+ * Process-local lease counters for the metrics endpoint. Client keys are
+ * never exposed: only aggregate counts, so the view stays free of
+ * per-client identifiers.
+ */
+export function concurrencyLeaseMetrics() {
+  return {
+    activeLeases: [...activeRequests.values()].reduce((total, count) => total + count, 0),
+    distinctClients: activeRequests.size,
+    acquiredTotal,
+    rejectedTotal,
+  };
+}
+
 export function clearConcurrencyLeasesForTests() {
   activeRequests.clear();
+  acquiredTotal = 0;
+  rejectedTotal = 0;
 }

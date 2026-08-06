@@ -18,6 +18,7 @@ import {
 import { compileProfile } from "@/lib/agents/pipeline";
 import { latestAgentRunMessage } from "@/lib/agent-runtime/events";
 import type { AgentRunEvent, AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
+import { AgentMetricsPanel } from "@/components/AgentMetricsPanel";
 import { AgentTracePanel } from "@/components/AgentTracePanel";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
@@ -1679,6 +1680,7 @@ export function RoomStudio() {
               <li className={creationReady && moveInStep === "photos" ? "is-active" : ""}><span>05</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
             </ol>
             <AgentTracePanel events={agentRunEvents} />
+            <AgentMetricsPanel />
           </section>
 
           {profileMergeReport ? (

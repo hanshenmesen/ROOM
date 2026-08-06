@@ -45,6 +45,21 @@ export class InMemoryTraceStore {
     };
   }
 
+  /** Bounded snapshot window (most recent runs first) for cross-run aggregation. */
+  list(): AgentRunSnapshot[] {
+    return [...sharedState().entries()].reverse().map(([runId, events]) => {
+      const started = events.find((event) => event.type === "run.started");
+      const completed = [...events].reverse().find((event) => event.type === "run.completed" || event.type === "run.failed");
+      return {
+        runId,
+        status: statusFor(events),
+        startedAt: started?.occurredAt,
+        completedAt: completed?.occurredAt,
+        events: structuredClone(events),
+      };
+    });
+  }
+
   clear() {
     sharedState().clear();
   }
