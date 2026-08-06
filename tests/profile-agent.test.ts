@@ -512,10 +512,10 @@ test("profile Agent uses forced tool output for the primary compatible provider"
     assert.equal(String(input), "https://provider.example/v1/messages");
     const body = JSON.parse(String(init?.body)) as {
       tools?: Array<{ input_schema: { properties: Record<string, unknown> } }>;
-      tool_choice?: { name?: string };
+      tool_choice?: { type?: string };
     };
     calls += 1;
-    assert.equal(body.tool_choice?.name, "submit_profile_result");
+    assert.equal(body.tool_choice?.type, "any");
     const result = resultForProperties(body.tools?.[0]?.input_schema.properties || {});
     return Response.json({
       content: [{ type: "tool_use", name: "submit_profile_result", input: result }],
@@ -591,11 +591,11 @@ test("profile Agent supports the tool-compatible provider as the primary dropdow
     const body = JSON.parse(String(init?.body)) as {
       model: string;
       tools?: Array<{ input_schema: { properties: Record<string, unknown> } }>;
-      tool_choice?: { name: string };
+      tool_choice?: { type: string };
       output_config?: unknown;
     };
     assert.equal(body.model, "claude-sonnet-5");
-    assert.equal(body.tool_choice?.name, "submit_profile_result");
+    assert.equal(body.tool_choice?.type, "any");
     assert.equal(body.output_config, undefined);
     calls += 1;
     const result = resultForProperties(body.tools?.[0]?.input_schema.properties || {});

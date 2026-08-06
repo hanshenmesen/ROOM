@@ -298,7 +298,9 @@ export async function answerPetQaQuestion(
             description: "Submit the profile-grounded pet QA answer.",
             input_schema: PET_QA_SCHEMA,
           }],
-          tool_choice: { type: "tool", name: "submit_pet_qa_answer" },
+          // `any` forces the single tool without naming it; DeepSeek's
+          // thinking mode rejects the named tool_choice form.
+          tool_choice: { type: "any" },
         } : {
           output_config: {
             format: { type: "json_schema", schema: PET_QA_SCHEMA },

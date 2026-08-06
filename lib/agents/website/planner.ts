@@ -239,7 +239,10 @@ export function createWebsiteResearchModelPlanner(input: {
                     description: "Choose the next bounded website research action.",
                     input_schema: DECISION_SCHEMA,
                   }],
-                  tool_choice: { type: "tool", name: "choose_website_research_action" },
+                  // Single-tool setup: `any` pins the call without naming it,
+                  // which DeepSeek's thinking mode accepts (it 400s the named
+                  // form).
+                  tool_choice: { type: "any" },
                 } : {
                   output_config: { effort: "low", format: { type: "json_schema", schema: DECISION_SCHEMA } },
                 }),

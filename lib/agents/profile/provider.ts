@@ -256,7 +256,11 @@ export async function callProfileModel<T>(input: {
                     description: "Submit the complete evidence-backed profile extraction result.",
                     input_schema: input.schema,
                   }],
-                  tool_choice: { type: "tool", name: "submit_profile_result" },
+                  // `any` forces a tool call without naming the tool: with a
+                  // single tool it is equivalent to pinning it, and DeepSeek's
+                  // thinking mode rejects the named form ("Thinking mode does
+                  // not support this tool_choice").
+                  tool_choice: { type: "any" },
                 } : {
                   output_config: {
                     effort: PROFILE_AGENT_EFFORT,

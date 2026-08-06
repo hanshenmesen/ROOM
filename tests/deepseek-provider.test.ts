@@ -80,7 +80,9 @@ test("the default DeepSeek route calls /anthropic/v1/messages with tool-mode str
       assert.equal(request.url, "https://api.deepseek.com/anthropic/v1/messages");
       const tools = request.body.tools as Array<Record<string, unknown>>;
       assert.equal(tools[0].name, "submit_profile_result");
-      assert.deepEqual(request.body.tool_choice, { type: "tool", name: "submit_profile_result" });
+      // DeepSeek's thinking mode rejects the named tool_choice form; `any`
+      // forces the single tool equivalently.
+      assert.deepEqual(request.body.tool_choice, { type: "any" });
       assert.equal("output_config" in request.body, false);
     }
 
