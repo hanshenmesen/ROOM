@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compareProfileEvalReports } from "../lib/evals/report.ts";
+import { summarizeCaseCostDistribution } from "../lib/evals/cost-metrics.ts";
 import { getAgentProviderConfig } from "../lib/agents/provider-config.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -34,6 +35,26 @@ function providerReadiness() {
     mode: selected.mode,
     secretsExposed: false,
   };
+}
+
+function distributionMarkdown(candidate) {
+  const distribution = summarizeCaseCostDistribution(candidate.cases);
+  const value = (number, suffix = "") => typeof number === "number" ? `${number}${suffix}` : "N/A";
+  const cost = (number) => typeof number === "number" ? `$${number.toFixed(6)}` : "N/A";
+  return [
+    "## 单用例延迟与成本分布（Profile Agent）",
+    "",
+    "聚合总数会掩盖尾部行为；以下分位数按单用例统计，Token 与成本仅覆盖 Provider 返回 usage 的用例。",
+    "",
+    "| 指标 | p50 | p95 | 最大值 | 总计 | 覆盖用例 |",
+    "| --- | ---: | ---: | ---: | ---: | ---: |",
+    `| 模型延迟 | ${value(distribution.perCaseLatencyMs.p50, " ms")} | ${value(distribution.perCaseLatencyMs.p95, " ms")} | ${value(distribution.perCaseLatencyMs.max, " ms")} | ${value(distribution.perCaseLatencyMs.total, " ms")} | ${distribution.perCaseLatencyMs.samples}/${distribution.caseCount} |`,
+    `| 模型调用 | ${value(distribution.perCaseModelCalls.p50)} | ${value(distribution.perCaseModelCalls.p95)} | ${value(distribution.perCaseModelCalls.max)} | ${value(distribution.perCaseModelCalls.total)} | ${distribution.perCaseModelCalls.samples}/${distribution.caseCount} |`,
+    `| Input Token | ${value(distribution.perCaseInputTokens.p50)} | ${value(distribution.perCaseInputTokens.p95)} | ${value(distribution.perCaseInputTokens.max)} | ${value(distribution.perCaseInputTokens.total)} | ${distribution.perCaseInputTokens.measuredCases}/${distribution.caseCount} |`,
+    `| Output Token | ${value(distribution.perCaseOutputTokens.p50)} | ${value(distribution.perCaseOutputTokens.p95)} | ${value(distribution.perCaseOutputTokens.max)} | ${value(distribution.perCaseOutputTokens.total)} | ${distribution.perCaseOutputTokens.measuredCases}/${distribution.caseCount} |`,
+    `| 预估成本 | ${cost(distribution.perCaseEstimatedCost.p50)} | ${cost(distribution.perCaseEstimatedCost.p95)} | ${cost(distribution.perCaseEstimatedCost.max)} | ${cost(distribution.perCaseEstimatedCost.total)} | ${distribution.perCaseEstimatedCost.measuredCases}/${distribution.caseCount} |`,
+    "",
+  ].join("\n");
 }
 
 function comparisonMarkdown(comparison, baseline, candidate) {
@@ -71,6 +92,7 @@ function comparisonMarkdown(comparison, baseline, candidate) {
     "| ---: | ---: | ---: | ---: | ---: |",
     "| " + candidate.summary.modelCalls + " | " + value(candidate.summary.inputTokens) + " | " + value(candidate.summary.outputTokens) + " | " + candidate.summary.latencyMs + " ms | " + (candidate.summary.estimatedCost === null ? "N/A" : "$" + candidate.summary.estimatedCost.toFixed(6)) + " |",
     "",
+    distributionMarkdown(candidate),
     "## 回归项",
     "",
     ...(comparison.regressions.length ? comparison.regressions.map((value) => "- `" + value + "`") : ["未发现回归。"]),
@@ -173,6 +195,10 @@ await writeFile(outputBase + "-manifest.json", JSON.stringify({
   environment: preflight.environment,
   outputs: preflight.expectedOutputs,
   metrics: candidate.summary,
+  caseDistribution: {
+    deterministic: summarizeCaseCostDistribution(baseline.cases),
+    profileAgent: summarizeCaseCostDistribution(candidate.cases),
+  },
 }, null, 2) + "\n", "utf8");
 console.log(JSON.stringify({
   status: comparison.passed ? "pass" : "regression",
