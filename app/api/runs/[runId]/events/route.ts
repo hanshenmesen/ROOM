@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { WorkflowNotFoundError } from "@/lib/workflow/room-workflow";
-import { roomWorkflowEngine } from "@/lib/workflow/singleton";
+import { getRoomWorkflowEngine } from "@/lib/workflow/singleton";
 
 export const runtime = "edge";
 
@@ -17,7 +17,8 @@ export async function GET(
   const after = Number(rawAfter);
   if (!Number.isSafeInteger(after)) return NextResponse.json({ error: "Invalid event cursor." }, { status: 400 });
   try {
-    const events = await roomWorkflowEngine.getEvents(runId, after);
+    const engine = await getRoomWorkflowEngine();
+    const events = await engine.getEvents(runId, after);
     return NextResponse.json({
       runId,
       events,

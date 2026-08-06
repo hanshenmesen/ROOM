@@ -129,12 +129,20 @@ export type WorkflowRecord = {
   idempotencyKey?: string;
 };
 
+/** Describes how durable a Workflow store backend is for public snapshots. */
+export type WorkflowStorePersistence = {
+  mode: "in-memory" | "durable-d1-r2";
+  survivesProcessRestart: boolean;
+};
+
 export type WorkflowStore = {
   create(record: WorkflowRecord): Promise<void>;
   get(runId: string): Promise<WorkflowRecord | undefined>;
   save(record: WorkflowRecord): Promise<void>;
   findRunIdByIdempotencyKey(key: string): Promise<string | undefined>;
   clear?(): Promise<void>;
+  /** Optional durability descriptor exposed through public Run snapshots. */
+  readonly persistence?: WorkflowStorePersistence;
 };
 
 export type WorkflowNodeContext = {

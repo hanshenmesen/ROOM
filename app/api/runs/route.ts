@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { publicWorkflowSnapshot } from "@/lib/workflow/public-snapshot";
 import { WorkflowIdempotencyConflictError } from "@/lib/workflow/room-workflow";
-import { roomWorkflowEngine } from "@/lib/workflow/singleton";
+import { getRoomWorkflowEngine } from "@/lib/workflow/singleton";
 
 export const runtime = "edge";
 
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
     if (idempotencyKey && !validIdempotencyKey(idempotencyKey)) {
       return NextResponse.json({ error: "Invalid Idempotency Key." }, { status: 400 });
     }
-    const result = await roomWorkflowEngine.start({
+    const engine = await getRoomWorkflowEngine();
+    const result = await engine.start({
       type: "text",
       label,
       text: source.text,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({
       reused: result.reused,
-      run: publicWorkflowSnapshot(result.state),
+      run: publicWorkflowSnapshot(result.state, engine.persistence),
     }, {
       status: result.reused ? 200 : 201,
       headers: { "cache-control": "no-store" },

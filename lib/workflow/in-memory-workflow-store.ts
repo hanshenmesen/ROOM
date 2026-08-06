@@ -19,6 +19,8 @@ function clone(record: WorkflowRecord) {
 }
 
 export class InMemoryWorkflowStore implements WorkflowStore {
+  readonly persistence = { mode: "in-memory", survivesProcessRestart: false } as const;
+
   async create(record: WorkflowRecord) {
     const current = state();
     if (current.runs.has(record.state.runId)) throw new Error(`Workflow run already exists: ${record.state.runId}.`);

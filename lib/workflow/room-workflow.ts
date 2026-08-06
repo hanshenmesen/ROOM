@@ -18,6 +18,7 @@ import {
   type WorkflowReviewSubmission,
   type WorkflowSourceInput,
   type WorkflowStore,
+  type WorkflowStorePersistence,
 } from "./types.ts";
 
 type WorkflowEventDraft = WorkflowEvent extends infer Event
@@ -156,6 +157,11 @@ export class RoomWorkflowEngine {
     this.handlers = handlers;
   }
 
+  /** Durability descriptor of the underlying store, for public snapshots. */
+  get persistence(): WorkflowStorePersistence {
+    return this.store.persistence ?? { mode: "in-memory", survivesProcessRestart: false };
+  }
+
   async start(input: WorkflowSourceInput, options: StartWorkflowOptions = {}): Promise<StartWorkflowResult> {
     const sourceHash = await sha256(`${input.type}\n${input.label}\n${input.text}`);
     const idempotencyKey = options.idempotencyKey?.trim();
@@ -204,6 +210,9 @@ export class RoomWorkflowEngine {
     if (record.state.status === "running") return record.state;
     if (record.state.status === "waiting_for_review") {
       throw new WorkflowTransitionError("This Workflow Run needs a review decision before it can resume.");
+    }
+    if (!record.input.text.trim()) {
+      throw new WorkflowTransitionError("This Workflow Run's source text has been deleted by the retention policy and it can no longer be resumed.");
     }
     await this.execute(runId, true);
     return this.getState(runId);

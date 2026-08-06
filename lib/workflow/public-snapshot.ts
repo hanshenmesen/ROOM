@@ -1,6 +1,14 @@
-import type { RoomWorkflowState } from "./types.ts";
+import type { RoomWorkflowState, WorkflowStorePersistence } from "./types.ts";
 
-export function publicWorkflowSnapshot(state: RoomWorkflowState) {
+const DEFAULT_PERSISTENCE: WorkflowStorePersistence = {
+  mode: "in-memory",
+  survivesProcessRestart: false,
+};
+
+export function publicWorkflowSnapshot(
+  state: RoomWorkflowState,
+  persistence: WorkflowStorePersistence = DEFAULT_PERSISTENCE,
+) {
   return {
     schemaVersion: state.schemaVersion,
     runId: state.runId,
@@ -38,9 +46,6 @@ export function publicWorkflowSnapshot(state: RoomWorkflowState) {
       node: state.failure.node,
       code: state.failure.code,
     } : undefined,
-    persistence: {
-      mode: "in-memory",
-      survivesProcessRestart: false,
-    },
+    persistence,
   };
 }

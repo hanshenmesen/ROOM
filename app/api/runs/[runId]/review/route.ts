@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { ProfileReviewResolution } from "@/lib/profile-merge";
 import { publicWorkflowSnapshot } from "@/lib/workflow/public-snapshot";
 import { WorkflowNotFoundError, WorkflowTransitionError } from "@/lib/workflow/room-workflow";
-import { roomWorkflowEngine } from "@/lib/workflow/singleton";
+import { getRoomWorkflowEngine } from "@/lib/workflow/singleton";
 
 export const runtime = "edge";
 
@@ -38,7 +38,8 @@ export async function POST(
     if (!validResolutions(body.resolutions)) {
       return NextResponse.json({ error: "Invalid Profile Review resolutions." }, { status: 400 });
     }
-    return NextResponse.json({ run: publicWorkflowSnapshot(await roomWorkflowEngine.review(runId, body.resolutions)) }, {
+    const engine = await getRoomWorkflowEngine();
+    return NextResponse.json({ run: publicWorkflowSnapshot(await engine.review(runId, body.resolutions), engine.persistence) }, {
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {

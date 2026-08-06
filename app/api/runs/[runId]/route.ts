@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { publicWorkflowSnapshot } from "@/lib/workflow/public-snapshot";
 import { WorkflowNotFoundError } from "@/lib/workflow/room-workflow";
-import { roomWorkflowEngine } from "@/lib/workflow/singleton";
+import { getRoomWorkflowEngine } from "@/lib/workflow/singleton";
 
 export const runtime = "edge";
 
@@ -14,7 +14,8 @@ export async function GET(
     return NextResponse.json({ error: "Invalid Workflow Run ID." }, { status: 400 });
   }
   try {
-    return NextResponse.json({ run: publicWorkflowSnapshot(await roomWorkflowEngine.getState(runId)) }, {
+    const engine = await getRoomWorkflowEngine();
+    return NextResponse.json({ run: publicWorkflowSnapshot(await engine.getState(runId), engine.persistence) }, {
       headers: { "cache-control": "no-store" },
     });
   } catch (error) {
