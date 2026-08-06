@@ -6,13 +6,15 @@ import { buildAgentMetricsView, type AgentMetricsResponse } from "@/lib/agent-ru
 const POLL_INTERVAL_MS = 5_000;
 
 /**
- * Cross-run Agent metrics (latency percentiles, measured tokens, estimated
- * cost, planner fallback rate, concurrency leases) over the process-local
- * Trace window. Hidden until at least one run exists; renders as a collapsed
- * details block so it stays an opt-in operational view.
+ * Cross-run Agent metrics (run counts, average latencies, measured tokens,
+ * estimated cost, planner fallback rate, concurrency leases) over the
+ * process-local Trace window. Hidden until at least one run exists; renders
+ * as a collapsed details block so it stays an opt-in operational view. The
+ * reset action clears the in-memory window (e.g. before a demo).
  */
 export function AgentMetricsPanel() {
   const [metrics, setMetrics] = useState<AgentMetricsResponse | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,6 +35,21 @@ export function AgentMetricsPanel() {
       clearInterval(timer);
     };
   }, []);
+
+  async function resetMetrics() {
+    if (resetting) return;
+    setResetting(true);
+    try {
+      const response = await fetch("/api/agent-runs/metrics/reset", { method: "POST" });
+      // The window is empty now; hide the panel until the next run instead of
+      // waiting up to one poll interval for the empty snapshot to arrive.
+      if (response.ok) setMetrics(null);
+    } catch {
+      // A failed reset leaves the window untouched; the next poll re-syncs.
+    } finally {
+      setResetting(false);
+    }
+  }
 
   if (!metrics || metrics.runs.total === 0) return null;
   const view = buildAgentMetricsView(metrics);
@@ -63,7 +80,17 @@ export function AgentMetricsPanel() {
           ))}
         </ul>
       ) : null}
-      <footer>{view.footerNote}</footer>
+      <footer>
+        <span>{view.footerNote}</span>
+        <button
+          type="button"
+          className="agent-metrics-reset"
+          onClick={resetMetrics}
+          disabled={resetting}
+        >
+          {resetting ? "重置中…" : "重置统计"}
+        </button>
+      </footer>
     </details>
   );
 }

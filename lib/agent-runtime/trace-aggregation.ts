@@ -18,6 +18,7 @@ import type { AgentRunEvent, AgentRunSnapshot } from "./run-types.ts";
 
 export type LatencyPercentiles = {
   samples: number;
+  mean?: number;
   p50?: number;
   p95?: number;
   max?: number;
@@ -80,6 +81,7 @@ export function percentile(values: number[], p: number): number | undefined {
 function latencyPercentiles(latencies: number[]): LatencyPercentiles {
   return {
     samples: latencies.length,
+    mean: latencies.length ? round6(latencies.reduce((total, value) => total + value, 0) / latencies.length) : undefined,
     p50: percentile(latencies, 50),
     p95: percentile(latencies, 95),
     max: latencies.length ? Math.max(...latencies) : undefined,

@@ -813,7 +813,10 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .agent-metrics-providers li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .agent-metrics-providers span { font: 7px var(--font-geist-mono), monospace; color: #57534d; }
 .agent-metrics-providers small { color: #817a72; font-size: 7px; }
-.agent-metrics-panel > footer { padding: 7px 12px 9px; border-top: 1px solid rgba(25,23,27,.22); color: #817a72; font-size: 7px; }
+.agent-metrics-panel > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px 9px; border-top: 1px solid rgba(25,23,27,.22); color: #817a72; font-size: 7px; }
+.agent-metrics-reset { border: 1px solid rgba(25,23,27,.28); background: transparent; color: #57534d; font: 7px var(--font-geist-mono), monospace; letter-spacing: .09em; padding: 3px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.agent-metrics-reset:hover:not(:disabled) { background: rgba(25,23,27,.08); }
+.agent-metrics-reset:disabled { opacity: .5; cursor: default; }
 .agent-trace-metrics { display: grid; grid-template-columns: repeat(7,1fr); margin: 0; }
 .agent-trace-metrics > div { display: grid; gap: 3px; padding: 8px 10px; border-right: 1px solid rgba(25,23,27,.16); }
 .agent-trace-metrics > div:last-child { border-right: 0; }

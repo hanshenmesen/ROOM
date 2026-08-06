@@ -29,6 +29,7 @@ registerHooks({
 });
 
 const metricsRoute = await import(new URL("../app/api/agent-runs/metrics/route.ts", import.meta.url).href);
+const metricsResetRoute = await import(new URL("../app/api/agent-runs/metrics/reset/route.ts", import.meta.url).href);
 const eventsRoute = await import(new URL("../app/api/agent-runs/[runId]/events/route.ts", import.meta.url).href);
 
 let sequence = 0;
@@ -210,6 +211,7 @@ test("metrics route aggregates the bounded in-memory window", async () => {
   assert.equal(body.runs.completed, 1);
   assert.equal(body.runs.successRate, 1);
   assert.equal(body.modelCalls.total, 1);
+  assert.equal(body.modelCalls.latencyMs.mean, 200);
   assert.equal(body.modelCalls.latencyMs.p50, 200);
   assert.equal(body.modelCalls.measuredUsageCalls, 1);
   assert.equal(body.store.mode, "in-memory");
@@ -217,6 +219,21 @@ test("metrics route aggregates the bounded in-memory window", async () => {
 
   const serialized = JSON.stringify(body);
   assert.doesNotMatch(serialized, /authorization|api[-_]?key|cookie/i);
+});
+
+test("metrics reset route clears the in-memory window", async () => {
+  inMemoryTraceStore.append(event("reset-run-1", "run.started"));
+  inMemoryTraceStore.append(event("reset-run-1", "run.completed"));
+
+  const before = await (await metricsRoute.GET()).json();
+  assert.equal(before.runs.total, 1);
+
+  const response = await metricsResetRoute.POST();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, windowRuns: 0 });
+
+  const after = await (await metricsRoute.GET()).json();
+  assert.equal(after.runs.total, 0);
 });
 
 test("metrics route exposes aggregate concurrency counters without client keys", async () => {

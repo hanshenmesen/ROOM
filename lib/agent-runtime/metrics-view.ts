@@ -52,31 +52,48 @@ function formatPercent(value?: number) {
 
 export function buildAgentMetricsView(metrics: AgentMetricsResponse): AgentMetricsView {
   const finished = metrics.runs.completed + metrics.runs.failed;
-  const successRate = metrics.runs.successRate;
-  const statusTone = successRate === undefined
-    ? "muted"
-    : successRate >= 0.9 ? "good" : "warn";
-  const statusLabel = successRate === undefined
-    ? (metrics.runs.running > 0 ? "运行中" : "暂无完结 Run")
-    : `${(successRate * 100).toFixed(1)}% 完成率`;
+  // The panel deliberately reports run counts and averages only -- no
+  // completion-rate judgement. Debugging sessions otherwise dominate the
+  // window and the rate keeps punishing the viewer long after a fix lands.
+  const statusTone = "muted" as const;
+  const statusLabel = metrics.runs.running > 0
+    ? `${metrics.runs.total} 轮 · ${metrics.runs.running} 运行中`
+    : `${metrics.runs.total} 轮`;
 
   const measuredTotal = metrics.modelCalls.measuredUsageCalls;
+  const measuredTokens = metrics.modelCalls.inputTokens + metrics.modelCalls.outputTokens;
   const tokenHint = metrics.modelCalls.total > 0
     ? `${measuredTotal}/${metrics.modelCalls.total} 次返回 usage`
     : undefined;
 
   const cells: AgentMetricCell[] = [
     {
-      label: "任务完成率",
-      value: formatPercent(successRate),
-      hint: finished > 0 ? `${metrics.runs.completed}/${finished} 完结` : `${metrics.runs.running} 个运行中`,
+      label: "运行轮数",
+      value: String(metrics.runs.total),
+      hint: [
+        `${metrics.runs.completed} 完成`,
+        `${metrics.runs.failed} 失败`,
+        metrics.runs.running > 0 ? `${metrics.runs.running} 运行中` : "",
+      ].filter(Boolean).join(" · "),
     },
-    { label: "模型 p50", value: formatLatency(metrics.modelCalls.latencyMs.p50) },
-    { label: "模型 p95", value: formatLatency(metrics.modelCalls.latencyMs.p95) },
-    { label: "工具 p95", value: formatLatency(metrics.toolCalls.latencyMs.p95) },
+    {
+      label: "模型平均耗时",
+      value: formatLatency(metrics.modelCalls.latencyMs.mean),
+      hint: metrics.modelCalls.total > 0 ? `${metrics.modelCalls.total} 次调用` : undefined,
+    },
+    {
+      label: "工具平均耗时",
+      value: formatLatency(metrics.toolCalls.latencyMs.mean),
+      hint: metrics.toolCalls.total > 0 ? `${metrics.toolCalls.total} 次调用` : undefined,
+    },
+    {
+      label: "平均 Token/轮",
+      value: finished > 0 ? formatTokens(Math.round(measuredTokens / finished)) : "—",
+      hint: finished > 0 ? `按 ${finished} 个完结 Run` : "暂无完结 Run",
+    },
     {
       label: "实测 Token",
-      value: formatTokens(metrics.modelCalls.inputTokens + metrics.modelCalls.outputTokens),
+      value: formatTokens(measuredTokens),
       hint: tokenHint,
     },
     {
