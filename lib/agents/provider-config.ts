@@ -1,4 +1,4 @@
-import { providerProtocolForBaseUrl, type ProviderProtocol } from "./provider-request.ts";
+import { isXhsMaasGatewayProvider, providerProtocolForBaseUrl, type ProviderProtocol } from "./provider-request.ts";
 
 // The primary provider slot defaults to DeepSeek's official Anthropic-
 // compatible endpoint: every ROOM model path (profile shards, website
@@ -56,6 +56,20 @@ export function isDeepSeekProvider(value: string) {
 }
 
 export { isXhsMaasGatewayProvider } from "./provider-request.ts";
+
+/**
+ * Whether a provider host serves deepseek-v4-pro through a route that
+ * defaults reasoning ("thinking") on. This is true both for DeepSeek's
+ * official Anthropic-compatible endpoint and for Xiaohongshu's internal
+ * MAAS gateway (an OpenAI Chat Completions proxy in front of the same
+ * model) -- production traces showed the MAAS gateway also spending the
+ * full output-token budget on reasoning for dense extractions when this
+ * was left enabled, so both hosts must disable it.
+ */
+export function shouldDisableThinking(baseUrl: string, model = "") {
+  return isDeepSeekProvider(baseUrl)
+    || (isXhsMaasGatewayProvider(baseUrl) && /^deepseek(?:-|$)/i.test(model.trim()));
+}
 
 /**
  * Normalizes a base URL and picks the default request protocol/mode. Users

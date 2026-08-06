@@ -108,6 +108,14 @@ export function buildToolCallRequest(input: ToolCallRequestInput): ProviderReque
         stream: false,
         temperature: input.temperature,
         max_tokens: input.maxOutputTokens,
+        // The internal gateway proxies the same deepseek-v4-pro model as the
+        // Anthropic-format endpoints and defaults to thinking mode on too:
+        // observed in production spending the entire max_tokens budget on
+        // reasoning for a dense "items" extraction (8-10 min calls, finish
+        // reason "length", truncated JSON) with this field omitted. Passing
+        // the same `thinking: {type: "disabled"}` shape used on the
+        // Anthropic protocol disables it here as well.
+        ...(input.disableThinking ? { thinking: { type: "disabled" } } : {}),
         tools: [{
           type: "function",
           function: {

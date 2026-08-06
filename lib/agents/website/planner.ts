@@ -4,6 +4,7 @@ import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import {
   getAgentProviderConfig,
   isDeepSeekProvider,
+  shouldDisableThinking,
   type AgentProviderOverride,
 } from "../provider-config.ts";
 import { buildToolCallRequest } from "../provider-request.ts";
@@ -238,7 +239,7 @@ export function createWebsiteResearchModelPlanner(input: {
               toolSchema: DECISION_SCHEMA,
               jsonSchemaMode: mode === "json-schema",
               jsonSchemaEffort: "low",
-              disableThinking: deepSeek,
+              disableThinking: shouldDisableThinking(provider.baseUrl, provider.model),
             });
             const response = await fetch(request.url, {
               method: "POST",

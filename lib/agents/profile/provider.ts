@@ -6,6 +6,7 @@ import {
   FALLBACK_MAAS_MODEL,
   getAgentProviderConfig,
   isDeepSeekProvider,
+  shouldDisableThinking,
   type AgentProviderOverride,
 } from "../provider-config.ts";
 import { buildToolCallRequest } from "../provider-request.ts";
@@ -279,7 +280,7 @@ export async function callProfileModel<T>(input: {
               toolSchema: input.schema,
               jsonSchemaMode: mode === "json-schema",
               jsonSchemaEffort: PROFILE_AGENT_EFFORT,
-              disableThinking: deepSeek,
+              disableThinking: shouldDisableThinking(provider.baseUrl, model),
             });
             const response = await fetch(request.url, {
               method: "POST",
@@ -322,6 +323,15 @@ export async function callProfileModel<T>(input: {
                 }
                 invalidOutputDetails.push(`${input.shard} 分片结构不完整 · model=${model} · mode=${mode} · ${structuralErrors.join("; ")}`);
                 input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "invalid_structure" });
+                // The trace only stores the structural-error summary; log the
+                // actual parsed tool-call arguments server-side so a shape
+                // the schema validator rejects (e.g. wrong key names, nested
+                // under an unexpected wrapper) can be diagnosed without
+                // guessing.
+                console.error(
+                  `[profile-agent] invalid structure from ${providerLabel}/${model} (${mode}, ${input.shard}):`,
+                  JSON.stringify(value).slice(0, 2000),
+                );
               } catch {
                 const stopReason = responseStopReason(result.payload);
                 const likelyTruncated = ["max_tokens", "length"].includes(stopReason)

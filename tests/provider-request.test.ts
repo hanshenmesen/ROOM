@@ -69,6 +69,24 @@ test("buildToolCallRequest builds the xhs-maas OpenAI Chat Completions request",
   assert.equal("output_config" in request.body, false);
 });
 
+test("buildToolCallRequest disables thinking on the xhs-maas protocol when asked", () => {
+  const request = buildToolCallRequest({
+    protocol: "xhs-maas",
+    baseUrl: "https://maas.devops.xiaohongshu.com",
+    apiKey: "sk-internal-test-key",
+    model: "deepseek-v4-pro",
+    system: "sys",
+    userContent: "hi",
+    temperature: 0,
+    maxOutputTokens: 4_096,
+    toolName: "submit_answer",
+    toolDescription: "Submit the answer.",
+    toolSchema: SCHEMA,
+    disableThinking: true,
+  });
+  assert.deepEqual(request.body.thinking, { type: "disabled" });
+});
+
 test("buildToolCallRequest defaults a missing user email to an empty header rather than throwing", () => {
   const request = buildToolCallRequest({
     protocol: "xhs-maas",

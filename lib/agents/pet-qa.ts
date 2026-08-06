@@ -5,7 +5,7 @@ import {
   type PetPersonality,
 } from "../profile-space-customization.ts";
 import { normalizeRoomCompanionName } from "../room-companion.ts";
-import { getAgentProviderConfig, isDeepSeekProvider, type AgentProviderOverride } from "./provider-config.ts";
+import { getAgentProviderConfig, shouldDisableThinking, type AgentProviderOverride } from "./provider-config.ts";
 import { buildToolCallRequest } from "./provider-request.ts";
 import { estimateCallCostUsd } from "./provider-pricing.ts";
 import { providerErrorDetail } from "./provider-errors.ts";
@@ -285,7 +285,6 @@ export async function answerPetQaQuestion(
     signal: runtimeOptions.signal,
     budget: { maxModelCalls: 3, maxOutputTokens: 9_000, ...runtimeOptions.budget },
   });
-  const deepSeek = isDeepSeekProvider(config.baseUrl);
   const safeBaseUrl = assertSafePetQaBaseUrl(config.baseUrl);
   let lastResult: { response: Response; payload: unknown } | undefined;
   for (const apiKey of config.apiKeys) {
@@ -311,7 +310,7 @@ export async function answerPetQaQuestion(
       toolDescription: "Submit the profile-grounded pet QA answer.",
       toolSchema: PET_QA_SCHEMA,
       jsonSchemaMode: config.mode === "json-schema",
-      disableThinking: deepSeek,
+      disableThinking: shouldDisableThinking(config.baseUrl, config.model),
     });
     const response = await fetch(request.url, {
       method: "POST",

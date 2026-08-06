@@ -116,7 +116,12 @@ test("profile extraction on the xhs-maas gateway calls /v1/chat/completions with
       assert.equal(request.headers.get("x-maas-app-id"), "qs-api");
       assert.equal(request.headers.get("authorization"), null);
       assert.equal(request.body.stream, false);
-      assert.equal("thinking" in request.body, false);
+      // The internal gateway proxies the same deepseek-v4-pro model as the
+      // Anthropic-format endpoints and was observed in production also
+      // defaulting to thinking mode on, exhausting the entire max_tokens
+      // budget on reasoning for the dense "items" shard. Thinking must be
+      // disabled here too, not just on the Anthropic protocol.
+      assert.deepEqual(request.body.thinking, { type: "disabled" });
       assert.equal("output_config" in request.body, false);
       const tools = request.body.tools as Array<{ type: string }>;
       assert.equal(tools[0].type, "function");
@@ -182,7 +187,7 @@ test("the website planner on the xhs-maas gateway uses OpenAI function calling",
     assert.equal(requests[0].headers.get("api-key"), "sk-internal-test-key");
     assert.equal(requests[0].headers.get("x-maas-user-email"), "zhanghanshuo@xiaohongshu.com");
     assert.equal(requests[0].headers.get("x-maas-app-id"), "qs-api");
-    assert.equal("thinking" in requests[0].body, false);
+    assert.deepEqual(requests[0].body.thinking, { type: "disabled" });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -229,7 +234,7 @@ test("pet QA on the xhs-maas gateway uses OpenAI function calling with the inter
     assert.equal(request!.headers.get("api-key"), "sk-internal-test-key");
     assert.equal(request!.headers.get("x-maas-user-email"), "zhanghanshuo@xiaohongshu.com");
     assert.equal(request!.headers.get("x-maas-app-id"), "qs-api");
-    assert.equal("thinking" in request!.body, false);
+    assert.deepEqual(request!.body.thinking, { type: "disabled" });
   } finally {
     globalThis.fetch = originalFetch;
   }

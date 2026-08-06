@@ -9,6 +9,7 @@ import {
   DEFAULT_WEBSITE_AGENT_MODEL,
   getAgentProviderConfig,
   getPublicAgentConfigStatus,
+  shouldDisableThinking,
 } from "../lib/agents/provider-config.ts";
 
 const ENV_NAMES = [
@@ -156,6 +157,12 @@ test("a browser override never mixes with server-side provider keys", () => {
   assert.equal(config.maas.baseUrl, "https://browser-provider.example/v1");
   assert.equal(config.maas.model, "browser-model");
   assert.equal(config.maas.mode, "tool");
+});
+
+test("thinking is disabled only for DeepSeek routes, not Qwen on the same internal gateway", () => {
+  assert.equal(shouldDisableThinking("https://api.deepseek.com/anthropic", "deepseek-v4-pro"), true);
+  assert.equal(shouldDisableThinking("https://maas.devops.xiaohongshu.com", "deepseek-v4-pro"), true);
+  assert.equal(shouldDisableThinking("https://maas.devops.xiaohongshu.com", "qwen3.5-397b-a17b"), false);
 });
 
 test("a browser pet QA override falls back to the browser MAAS key when no dedicated QA key is set", () => {
