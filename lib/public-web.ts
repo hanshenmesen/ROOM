@@ -86,9 +86,15 @@ export const resolvePublicHostWithDoh: PublicHostResolver = async (hostname, sig
     const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`;
     const response = await fetch(url, {
       headers: { accept: "application/dns-json" },
-      redirect: "error",
+      // Edge runtimes (workerd) only implement redirect "follow" | "manual";
+      // "error" throws a TypeError there. Manual plus an explicit 3xx check
+      // keeps the same redirect-rejecting security contract everywhere.
+      redirect: "manual",
       signal,
     });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      throw new PublicWebError("公开 DNS 校验服务返回了重定向。", 502);
+    }
     if (!response.ok) throw new PublicWebError("公开 DNS 校验服务不可用。", 502);
     const payload = await response.json() as DnsJsonResponse;
     return (payload.Answer || [])

@@ -10,7 +10,7 @@ import {
 import { summarizeAgentRun } from "@/lib/agent-runtime/trace-summary";
 import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
-import { validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
+import { PublicWebError, validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfilesWithReport } from "@/lib/profile-merge";
 import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
@@ -113,7 +113,13 @@ async function requestProviderConfig(request: Request): Promise<AgentProviderOve
         ? [validatePublicUrlResolution(safeConfig.websiteBaseUrl, { signal: request.signal })]
         : []),
     ]);
-  } catch {
+  } catch (error) {
+    console.error("[parse] provider DNS validation failed:", error instanceof Error ? `${error.name}: ${error.message}` : error);
+    // Distinguish an unavailable DNS validator (transient, retryable) from a
+    // provider URL that genuinely resolves to a non-public network.
+    if (error instanceof PublicWebError && error.status >= 500) {
+      throw new ProfileAgentError("Provider Base URL 的 DNS 校验服务暂时不可用，请稍后重试。", 502);
+    }
     throw new ProfileAgentError("Provider Base URL 的 DNS 地址不是可验证的公开网络。", 400);
   }
   return safeConfig;
