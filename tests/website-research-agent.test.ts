@@ -285,6 +285,64 @@ test("Website model planner uses forced tool output and only accepts an observed
   }
 });
 
+test("DeepSeek website planning disables thinking and stays on the supported Tool path", async () => {
+  inMemoryTraceStore.clear();
+  const originalFetch = globalThis.fetch;
+  const tracer = createAgentTracer(`deepseek-website-planner-${crypto.randomUUID()}`);
+  const requests: Record<string, unknown>[] = [];
+  globalThis.fetch = (async (input, init) => {
+    assert.equal(String(input), "https://api.deepseek.com/anthropic/v1/messages");
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    requests.push(body);
+    return Response.json({
+      content: [{
+        type: "tool_use",
+        name: "choose_website_research_action",
+        input: {
+          action: "submit",
+          nextUrl: null,
+          reason: "当前证据已经足够",
+          targetFields: [],
+        },
+      }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 80, output_tokens: 20 },
+    });
+  }) as typeof fetch;
+  try {
+    const planner = createWebsiteResearchModelPlanner({
+      tracer,
+      providerConfig: {
+        maasApiKey: "deepseek-test-key",
+        maasBaseUrl: "https://api.deepseek.com",
+        maasModel: "deepseek-v4-pro",
+      },
+    });
+    assert.ok(planner);
+    const decision = await planner({
+      iteration: 1,
+      rootUrl: ROOT,
+      missingFields: [],
+      visitedPages: [{ url: ROOT, title: "Avery Chen", depth: 0 }],
+      candidates: [{
+        url: "https://portfolio.example.com/projects",
+        depth: 1,
+        discoveredFrom: ROOT,
+        score: 38,
+        reasons: ["projects"],
+      }],
+      budgetRemaining: { pages: 4, steps: 70, bytes: 2_900_000 },
+    });
+    assert.equal(decision.action, "submit");
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0]?.thinking, { type: "disabled" });
+    assert.deepEqual(requests[0]?.tool_choice, { type: "any" });
+    assert.equal("output_config" in requests[0], false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Website Research Agent stops on the page budget and returns the researched partial profile", async () => {
   const { result, calls } = await execute({ budget: { maxPages: 2 } });
   assert.equal(calls.length, 2);

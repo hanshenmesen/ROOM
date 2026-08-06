@@ -109,6 +109,39 @@ test("pet QA answers from ParsedProfile with citations and no pet-name inference
   }
 });
 
+test("pet QA disables thinking and uses tool_choice any on DeepSeek", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody: Record<string, unknown> | undefined;
+  globalThis.fetch = (async (input, init) => {
+    assert.equal(String(input), "https://api.deepseek.com/anthropic/v1/messages");
+    requestBody = JSON.parse(String(init?.body));
+    return Response.json({
+      content: [{
+        type: "tool_use",
+        name: "submit_pet_qa_answer",
+        input: { answer: "主人做过 Beyond Detection。", citations: [] },
+      }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 50, output_tokens: 20 },
+    });
+  }) as typeof fetch;
+
+  try {
+    const answer = await answerPetQaQuestion(
+      profile,
+      "主人做过什么项目？",
+      [],
+      { maasApiKey: "deepseek-test-key", maasBaseUrl: "https://api.deepseek.com", maasModel: "deepseek-v4-pro" },
+    );
+    assert.match(answer.answer, /Beyond Detection/);
+    assert.deepEqual(requestBody?.thinking, { type: "disabled" });
+    assert.deepEqual(requestBody?.tool_choice, { type: "any" });
+    assert.equal("output_config" in (requestBody || {}), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("pet QA falls back to MAAS key and returns a recoverable configuration error when missing", async () => {
   const originalFetch = globalThis.fetch;
   const originalPetKey = process.env.PET_QA_API_KEY;

@@ -4,8 +4,8 @@ import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
 
 // The repository-wide default provider is DeepSeek's Anthropic-compatible
 // endpoint. These tests pin the exact request contract ROOM relies on:
-// /anthropic/v1/messages URL, tools + tool_choice structured output, no
-// output_config, and tool-mode trace metadata.
+// /anthropic/v1/messages URL, tools + tool_choice structured output, thinking
+// disabled, no output_config, and tool-mode trace metadata.
 delete process.env.MAAS_BASE_URL;
 delete process.env.MAAS_MODEL;
 
@@ -56,8 +56,19 @@ test("the default DeepSeek route calls /anthropic/v1/messages with tool-mode str
     const url = String(input);
     const body = JSON.parse(String(init?.body)) as Record<string, unknown> & {
       tools?: Array<{ input_schema?: { properties?: Record<string, unknown> } }>;
+      thinking?: { type?: string };
     };
     requests.push({ url, body });
+    // Reproduce the production failure from the Trace screenshot: when
+    // thinking is left enabled, a dense extraction can exhaust its request
+    // window with only a thinking block and no final tool_use Artifact.
+    if (body.thinking?.type !== "disabled") {
+      return Response.json({
+        content: [{ type: "thinking", thinking: "long reasoning without a final answer" }],
+        stop_reason: "max_tokens",
+        usage: { input_tokens: 100, output_tokens: 8_000 },
+      });
+    }
     const isIdentity = Boolean(body.tools?.[0]?.input_schema?.properties?.identity);
     return Response.json({
       content: [{
@@ -83,6 +94,7 @@ test("the default DeepSeek route calls /anthropic/v1/messages with tool-mode str
       // DeepSeek's thinking mode rejects the named tool_choice form; `any`
       // forces the single tool equivalently.
       assert.deepEqual(request.body.tool_choice, { type: "any" });
+      assert.deepEqual(request.body.thinking, { type: "disabled" });
       assert.equal("output_config" in request.body, false);
     }
 

@@ -5,7 +5,7 @@ import {
   type PetPersonality,
 } from "../profile-space-customization.ts";
 import { normalizeRoomCompanionName } from "../room-companion.ts";
-import { getAgentProviderConfig, type AgentProviderOverride } from "./provider-config.ts";
+import { getAgentProviderConfig, isDeepSeekProvider, type AgentProviderOverride } from "./provider-config.ts";
 import { estimateCallCostUsd } from "./provider-pricing.ts";
 import { providerErrorDetail } from "./provider-errors.ts";
 import { AgentRunControls, type AgentRunBudgetLimits } from "../agent-runtime/run-controls.ts";
@@ -268,6 +268,7 @@ export async function answerPetQaQuestion(
     signal: runtimeOptions.signal,
     budget: { maxModelCalls: 3, maxOutputTokens: 9_000, ...runtimeOptions.budget },
   });
+  const deepSeek = isDeepSeekProvider(config.baseUrl);
   let lastResult: { response: Response; payload: unknown } | undefined;
   for (const apiKey of config.apiKeys) {
     const inputTokens = Math.ceil((system.length + content.length) / 4);
@@ -292,6 +293,10 @@ export async function answerPetQaQuestion(
         messages: [{ role: "user", content }],
         temperature: 0,
         max_tokens: 4_000,
+        // A quick, profile-grounded answer does not need DeepSeek's default
+        // thinking pass; disabling it keeps the fixed 4k budget for the
+        // actual answer instead of reasoning.
+        ...(deepSeek ? { thinking: { type: "disabled" } } : {}),
         ...(config.mode === "tool" ? {
           tools: [{
             name: "submit_pet_qa_answer",

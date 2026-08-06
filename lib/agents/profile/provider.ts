@@ -5,6 +5,7 @@ import {
   DEFAULT_WEBSITE_AGENT_MODEL,
   FALLBACK_MAAS_MODEL,
   getAgentProviderConfig,
+  isDeepSeekProvider,
   type AgentProviderOverride,
 } from "../provider-config.ts";
 import { estimateCallCostUsd } from "../provider-pricing.ts";
@@ -15,8 +16,9 @@ import { ProfileAgentError } from "./types.ts";
 import { cleanString } from "./utils.ts";
 import { shardOutputErrors } from "./validation.ts";
 
-// Output budgets leave headroom for thinking-mode providers (DeepSeek V4
-// enables thinking by default and counts reasoning toward max_tokens).
+// Output budgets leave enough room for complete dense Profile artifacts.
+// DeepSeek extraction requests disable thinking below so reasoning cannot
+// consume the artifact budget before the required tool call is emitted.
 const IDENTITY_MAX_OUTPUT_TOKENS = 8_000;
 const ITEMS_MAX_OUTPUT_TOKENS = 16_000;
 const PROFILE_AGENT_EFFORT = "low";
@@ -216,8 +218,15 @@ export async function callProfileModel<T>(input: {
 
   providerLoop: for (const provider of providers) {
     const providerLabel = providerName(provider.baseUrl);
+    const deepSeek = isDeepSeekProvider(provider.baseUrl);
     if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue;
-    const modes = provider.mode === "json-schema"
+    // DeepSeek's Anthropic endpoint supports Tool Use but ignores the JSON
+    // schema part of output_config. Retrying an empty Tool response through
+    // json-schema only adds another slow request that cannot satisfy ROOM's
+    // structured-output contract.
+    const modes = deepSeek
+      ? ["tool"] as const
+      : provider.mode === "json-schema"
       ? ["json-schema", "tool"] as const
       : ["tool", "json-schema"] as const;
     for (const mode of modes) {
@@ -250,6 +259,11 @@ export async function callProfileModel<T>(input: {
                 messages: [{ role: "user", content: input.content }],
                 temperature: 0,
                 max_tokens: maxOutputTokens,
+                // DeepSeek V4 defaults to thinking. Dense website/profile
+                // extraction can spend the full request window on reasoning
+                // and return no final tool_use block. This task is extraction,
+                // so disable thinking and reserve the output for the Artifact.
+                ...(deepSeek ? { thinking: { type: "disabled" } } : {}),
                 ...(mode === "tool" ? {
                   tools: [{
                     name: "submit_profile_result",
@@ -324,6 +338,14 @@ export async function callProfileModel<T>(input: {
             }
             sawEmptyResponse = true;
             input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "empty_response" });
+            // A 200 with no extractable text usually means the provider
+            // returned a shape responseText() doesn't recognize yet (e.g. a
+            // thinking-only response, or content blocks in an unexpected
+            // position). Log the raw shape server-side to diagnose it.
+            console.error(
+              `[profile-agent] empty response from ${providerLabel}/${model} (${mode}):`,
+              JSON.stringify(result.payload).slice(0, 2000),
+            );
             fallbackCount += 1;
             continue;
           }

@@ -1,7 +1,7 @@
 // The primary provider slot defaults to DeepSeek's Anthropic-compatible
 // endpoint: every ROOM model path (profile shards, website planner, pet QA)
 // speaks Anthropic Messages, and DeepSeek fully supports the fields ROOM
-// uses (system, tools/input_schema, tool_choice=tool, max_tokens).
+// uses (system, tools/input_schema, tool_choice=any, max_tokens).
 // Boundary: DeepSeek does not support image/document content blocks, so
 // PDF-vision and image inputs need a multimodal provider (e.g. MAAS).
 export const DEFAULT_MAAS_BASE_URL = "https://api.deepseek.com/anthropic";
@@ -31,6 +31,31 @@ function configuredValues(...values: Array<string | undefined>) {
   return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
 }
 
+export function isDeepSeekProvider(value: string) {
+  try {
+    const candidate = value.includes("://") ? value : `https://${value}`;
+    return new URL(candidate).hostname === "api.deepseek.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Normalizes a DeepSeek base URL to its Anthropic endpoint and picks the
+ * portable default mode. Users frequently paste DeepSeek's OpenAI-style
+ * base URL (https://api.deepseek.com or .../v1); on that host ROOM must
+ * always call /anthropic (the only format it speaks) and default to tool
+ * mode (DeepSeek's output_config.format is unsupported). Non-DeepSeek hosts
+ * pass through unchanged.
+ */
+function normalizeProviderBaseUrl(rawBaseUrl: string, explicitMode: "json-schema" | "tool" | undefined, jsonSchemaDefault: "json-schema" | "tool") {
+  const trimmed = rawBaseUrl.replace(/\/$/, "");
+  const deepSeek = isDeepSeekProvider(trimmed);
+  const baseUrl = deepSeek && !trimmed.startsWith(DEFAULT_MAAS_BASE_URL) ? DEFAULT_MAAS_BASE_URL : trimmed;
+  const mode = explicitMode || (deepSeek ? "tool" as const : jsonSchemaDefault);
+  return { baseUrl, mode };
+}
+
 export function getAgentProviderConfig(override?: AgentProviderOverride) {
   const maasApiKeys = override
     ? configuredValues(override.maasApiKey)
@@ -47,32 +72,25 @@ export function getAgentProviderConfig(override?: AgentProviderOverride) {
       process.env.MAAS_API_KEY_FALLBACK,
     );
 
-  const rawMaasBaseUrl = (override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL).replace(/\/$/, "");
-  // DeepSeek exposes both OpenAI-style and Anthropic-style endpoints, but
-  // ROOM only speaks Anthropic Messages. Users frequently paste the OpenAI
-  // base URL from DeepSeek's docs (https://api.deepseek.com or .../v1);
-  // normalize every DeepSeek host to the Anthropic endpoint and force tool
-  // mode (its output_config.format is unsupported), instead of failing with
-  // a bare http_400 and a misleading Bedrock fallback model.
-  const deepseekHost = (() => {
-    try {
-      return new URL(rawMaasBaseUrl).hostname === "api.deepseek.com";
-    } catch {
-      return false;
-    }
-  })();
-  const maasBaseUrl = deepseekHost && !rawMaasBaseUrl.startsWith(DEFAULT_MAAS_BASE_URL)
-    ? DEFAULT_MAAS_BASE_URL
-    : rawMaasBaseUrl;
+  const maasNormalized = normalizeProviderBaseUrl(
+    override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL,
+    override?.maasMode,
+    "json-schema",
+  );
+  // Falls back to the already-normalized maas base URL (not the raw
+  // override/env value): otherwise a DeepSeek maas config normalized to
+  // /anthropic would silently un-normalize once it reached the petQa slot.
+  const petQaNormalized = normalizeProviderBaseUrl(
+    override?.petQaBaseUrl || process.env.PET_QA_BASE_URL || maasNormalized.baseUrl || DEFAULT_PET_QA_BASE_URL,
+    override?.petQaMode || override?.maasMode,
+    "json-schema",
+  );
   return {
     maas: {
       apiKeys: maasApiKeys,
-      baseUrl: maasBaseUrl,
+      baseUrl: maasNormalized.baseUrl,
       model: override?.maasModel || process.env.MAAS_MODEL || DEFAULT_MAAS_MODEL,
-      // DeepSeek only honours `output_config.effort`, not the json-schema
-      // `format` field, so tool mode is the portable default; providers that
-      // do support output_config can still opt into "json-schema" explicitly.
-      mode: override?.maasMode || (maasBaseUrl === DEFAULT_MAAS_BASE_URL || deepseekHost ? "tool" as const : "json-schema" as const),
+      mode: maasNormalized.mode,
     },
     website: {
       apiKeys: websiteApiKeys,
@@ -82,15 +100,9 @@ export function getAgentProviderConfig(override?: AgentProviderOverride) {
     },
     petQa: {
       apiKeys: petQaApiKeys,
-      baseUrl: (
-        override?.petQaBaseUrl
-        || process.env.PET_QA_BASE_URL
-        || override?.maasBaseUrl
-        || process.env.MAAS_BASE_URL
-        || DEFAULT_PET_QA_BASE_URL
-      ).replace(/\/$/, ""),
+      baseUrl: petQaNormalized.baseUrl,
       model: override?.petQaModel || process.env.PET_QA_MODEL || override?.maasModel || process.env.MAAS_MODEL || DEFAULT_PET_QA_MODEL,
-      mode: override?.petQaMode || override?.maasMode || "json-schema" as const,
+      mode: petQaNormalized.mode,
     },
   };
 }

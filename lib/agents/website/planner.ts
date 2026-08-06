@@ -1,7 +1,11 @@
 import { AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import type { AgentCallMeta } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
-import { getAgentProviderConfig, type AgentProviderOverride } from "../provider-config.ts";
+import {
+  getAgentProviderConfig,
+  isDeepSeekProvider,
+  type AgentProviderOverride,
+} from "../provider-config.ts";
 import { estimateCallCostUsd } from "../provider-pricing.ts";
 import { providerErrorDetail } from "../provider-errors.ts";
 import type {
@@ -204,7 +208,10 @@ export function createWebsiteResearchModelPlanner(input: {
     let fallbackCount = 0;
     for (const provider of providers) {
       const providerLabel = providerName(provider.baseUrl);
-      const modes = provider.mode === "tool"
+      const deepSeek = isDeepSeekProvider(provider.baseUrl);
+      const modes = deepSeek
+        ? ["tool"] as const
+        : provider.mode === "tool"
         ? ["tool", "json-schema"] as const
         : ["json-schema", "tool"] as const;
       for (const mode of modes) {
@@ -233,6 +240,10 @@ export function createWebsiteResearchModelPlanner(input: {
                 messages: [{ role: "user", content }],
                 temperature: 0,
                 max_tokens: MAX_OUTPUT_TOKENS,
+                // Navigation is a small schema decision. Disabling DeepSeek's
+                // default thinking avoids spending the 30-second planner
+                // window without producing the required tool call.
+                ...(deepSeek ? { thinking: { type: "disabled" } } : {}),
                 ...(mode === "tool" ? {
                   tools: [{
                     name: "choose_website_research_action",
