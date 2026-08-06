@@ -302,7 +302,7 @@ test("profile Agent falls back after truncated JSON and gives complete profiles 
     );
     assert.equal(profile.name, "韩晨");
     assert.ok(requests.some((request) => request.model.startsWith("bedrock-")));
-    assert.equal(requests.find((request) => request.hasItems)?.max_tokens, 12_000);
+    assert.equal(requests.find((request) => request.hasItems)?.max_tokens, 16_000);
     assert.ok(requests.every((request) => request.system.includes("Return exactly one complete JSON object")));
     assert.ok(requests.every((request) => request.system.includes("last non-whitespace character must be }")));
   } finally {

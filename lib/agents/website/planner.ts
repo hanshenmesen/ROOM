@@ -2,6 +2,8 @@ import { AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import type { AgentCallMeta } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import { getAgentProviderConfig, type AgentProviderOverride } from "../provider-config.ts";
+import { estimateCallCostUsd } from "../provider-pricing.ts";
+import { providerErrorDetail } from "../provider-errors.ts";
 import type {
   WebsiteResearchMissingField,
   WebsiteResearchPlannerDecision,
@@ -10,7 +12,10 @@ import type {
 
 const PLANNER_STEP = "website.plan";
 const PLANNER_PROMPT_VERSION = "website-planner.v1";
-const MAX_OUTPUT_TOKENS = 500;
+// Thinking-mode providers (DeepSeek V4 defaults to thinking) count reasoning
+// toward max_tokens, so a 500 budget that worked for plain completions is
+// rejected outright. 4096 leaves room for reasoning plus the tiny decision.
+const MAX_OUTPUT_TOKENS = 4_096;
 const DECISION_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -42,8 +47,8 @@ function estimatedTokens(value: string) {
   return Math.max(1, Math.ceil(value.length / 4));
 }
 
-function estimatedCost(inputTokens: number, outputTokens: number) {
-  return (inputTokens * 15 + outputTokens * 75) / 1_000_000;
+function estimatedCost(baseUrl: string, inputTokens: number, outputTokens: number) {
+  return estimateCallCostUsd(baseUrl, inputTokens, outputTokens);
 }
 
 function providerName(baseUrl: string) {
@@ -162,7 +167,7 @@ function modelMeta(input: {
     latencyMs: Math.max(0, Math.round(performance.now() - input.startedMark)),
     ...usage,
     ...(usage.inputTokens !== undefined || usage.outputTokens !== undefined ? {
-      estimatedCost: Number(estimatedCost(usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
+      estimatedCost: Number(estimatedCost(input.provider, usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
     } : {}),
     attempt: 1,
     fallbackCount: 0,
@@ -183,7 +188,7 @@ export function createWebsiteResearchModelPlanner(input: {
   if (!providers.length) return undefined;
   const controls = new AgentRunControls({
     signal: input.signal,
-    budget: { maxModelCalls: 6, maxInputTokens: 30_000, maxOutputTokens: 3_000, maxEstimatedCostUsd: 1 },
+    budget: { maxModelCalls: 6, maxInputTokens: 30_000, maxOutputTokens: 16_000, maxEstimatedCostUsd: 1 },
   });
 
   return async (observation) => {
@@ -211,7 +216,7 @@ export function createWebsiteResearchModelPlanner(input: {
           controls.budget.reserve({
             inputTokens: inputTokenEstimate,
             outputTokens: MAX_OUTPUT_TOKENS,
-            estimatedCostUsd: estimatedCost(inputTokenEstimate, MAX_OUTPUT_TOKENS),
+            estimatedCostUsd: estimatedCost(provider.baseUrl, inputTokenEstimate, MAX_OUTPUT_TOKENS),
           });
           try {
             const response = await fetch(`${messagesBaseUrl(provider.baseUrl)}/messages`, {
@@ -247,7 +252,8 @@ export function createWebsiteResearchModelPlanner(input: {
             }), fallbackCount };
             if (!response.ok) {
               input.tracer.emit({ type: "model.failed", step: PLANNER_STEP, meta, errorCode: `http_${response.status}` });
-              lastError = new Error(`planner provider returned ${response.status}`);
+              const detail = providerErrorDetail(payload);
+              lastError = new Error(`planner provider returned ${response.status}${detail ? `: ${detail}` : ""}`);
               fallbackCount += 1;
               continue;
             }

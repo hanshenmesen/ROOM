@@ -6,6 +6,8 @@ import {
 } from "../profile-space-customization.ts";
 import { normalizeRoomCompanionName } from "../room-companion.ts";
 import { getAgentProviderConfig, type AgentProviderOverride } from "./provider-config.ts";
+import { estimateCallCostUsd } from "./provider-pricing.ts";
+import { providerErrorDetail } from "./provider-errors.ts";
 import { AgentRunControls, type AgentRunBudgetLimits } from "../agent-runtime/run-controls.ts";
 
 export const MAX_PET_QA_QUESTION_CHARACTERS = 800;
@@ -224,12 +226,7 @@ export function isPrivateProfileDataRequest(question: string) {
 }
 
 function providerDetail(payload: unknown) {
-  if (!payload || typeof payload !== "object") return "";
-  const record = payload as Record<string, unknown>;
-  const error = record.error;
-  if (typeof error === "string") return cleanString(error, 220);
-  if (error && typeof error === "object") return cleanString((error as Record<string, unknown>).message, 220);
-  return cleanString(record.detail, 220);
+  return providerErrorDetail(payload, 220);
 }
 
 export async function answerPetQaQuestion(
@@ -269,15 +266,17 @@ export async function answerPetQaQuestion(
   ].join("\n\n");
   const runtimeControls = new AgentRunControls({
     signal: runtimeOptions.signal,
-    budget: { maxModelCalls: 3, maxOutputTokens: 3_000, ...runtimeOptions.budget },
+    budget: { maxModelCalls: 3, maxOutputTokens: 9_000, ...runtimeOptions.budget },
   });
   let lastResult: { response: Response; payload: unknown } | undefined;
   for (const apiKey of config.apiKeys) {
     const inputTokens = Math.ceil((system.length + content.length) / 4);
     runtimeControls.budget.reserve({
       inputTokens,
-      outputTokens: 1_000,
-      estimatedCostUsd: (inputTokens * 15 + 1_000 * 75) / 1_000_000,
+      // Headroom for thinking-mode providers whose reasoning counts
+      // toward max_tokens (DeepSeek V4 defaults to thinking).
+      outputTokens: 4_000,
+      estimatedCostUsd: estimateCallCostUsd(config.baseUrl, inputTokens, 4_000),
     });
     const response = await fetch(`${messagesBaseUrl(config.baseUrl)}/messages`, {
       method: "POST",
@@ -292,7 +291,7 @@ export async function answerPetQaQuestion(
         system,
         messages: [{ role: "user", content }],
         temperature: 0,
-        max_tokens: 1_000,
+        max_tokens: 4_000,
         ...(config.mode === "tool" ? {
           tools: [{
             name: "submit_pet_qa_answer",

@@ -7,14 +7,18 @@ import {
   getAgentProviderConfig,
   type AgentProviderOverride,
 } from "../provider-config.ts";
+import { estimateCallCostUsd } from "../provider-pricing.ts";
+import { providerErrorDetail } from "../provider-errors.ts";
 import { IDENTITY_DRAFT_SCHEMA, type ProfileDraftSchema } from "./schemas.ts";
 import type { ExtractionShard, MaasContentBlock, ProfileAgentOptions } from "./types.ts";
 import { ProfileAgentError } from "./types.ts";
 import { cleanString } from "./utils.ts";
 import { shardOutputErrors } from "./validation.ts";
 
-const IDENTITY_MAX_OUTPUT_TOKENS = 4_000;
-const ITEMS_MAX_OUTPUT_TOKENS = 12_000;
+// Output budgets leave headroom for thinking-mode providers (DeepSeek V4
+// enables thinking by default and counts reasoning toward max_tokens).
+const IDENTITY_MAX_OUTPUT_TOKENS = 8_000;
+const ITEMS_MAX_OUTPUT_TOKENS = 16_000;
 const PROFILE_AGENT_EFFORT = "low";
 
 function estimatedTokens(input: string | MaasContentBlock[]) {
@@ -24,8 +28,8 @@ function estimatedTokens(input: string | MaasContentBlock[]) {
   return Math.max(1, Math.ceil(characters / 4));
 }
 
-function estimatedCost(inputTokens: number, outputTokens: number) {
-  return (inputTokens * 15 + outputTokens * 75) / 1_000_000;
+function estimatedCost(baseUrlOrHost: string, inputTokens: number, outputTokens: number) {
+  return estimateCallCostUsd(baseUrlOrHost, inputTokens, outputTokens);
 }
 
 function responseText(payload: unknown) {
@@ -151,7 +155,7 @@ function metaFor(input: {
     latencyMs: Math.max(0, Math.round(performance.now() - input.startedMark)),
     ...usage,
     ...(usage.inputTokens !== undefined || usage.outputTokens !== undefined ? {
-      estimatedCost: Number(estimatedCost(usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
+      estimatedCost: Number(estimatedCost(input.provider, usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
     } : {}),
     attempt: input.attempt,
     fallbackCount: input.fallbackCount,
@@ -224,7 +228,7 @@ export async function callProfileModel<T>(input: {
           input.runtimeControls.budget.reserve({
             inputTokens: inputTokenEstimate,
             outputTokens: maxOutputTokens,
-            estimatedCostUsd: estimatedCost(inputTokenEstimate, maxOutputTokens),
+            estimatedCostUsd: estimatedCost(provider.baseUrl, inputTokenEstimate, maxOutputTokens),
           });
           let result: { response: Response; payload: unknown };
           try {
@@ -337,9 +341,7 @@ export async function callProfileModel<T>(input: {
   }
   const { response, payload } = lastResult;
   if (!response.ok) {
-    const detail = payload && typeof payload === "object"
-      ? cleanString((payload as Record<string, unknown>).detail) || cleanString((payload as Record<string, unknown>).error)
-      : "";
+    const detail = providerErrorDetail(payload);
     throw new ProfileAgentError(`Profile Agent 请求失败（${response.status}）${detail ? `：${detail}` : ""}`, 502);
   }
   if (invalidOutputDetails.length) {
