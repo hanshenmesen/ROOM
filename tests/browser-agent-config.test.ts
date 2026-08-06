@@ -27,14 +27,15 @@ test("browser Agent config ships with the DeepSeek defaults", () => {
   assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.petQa.model, "deepseek-v4-pro");
 });
 
-test("provider presets resolve ids from base urls across all four providers", () => {
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 4);
+test("provider presets resolve ids from base urls and models across all five providers", () => {
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 5);
   assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].id, "deepseek");
   assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].mode, "tool");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.xiaohongshu.com" }), "xhs-maas");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.deepseek.com/anthropic" }), "deepseek");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.zhizengzeng.com/v1" }), "zhizengzeng");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.rednote.life/hackson" }), "maas");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.xiaohongshu.com", model: "deepseek-v4-pro" }), "xhs-maas");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.xiaohongshu.com", model: "qwen3.5-397b-a17b" }), "xhs-maas-qwen");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.deepseek.com/anthropic", model: "deepseek-v4-pro" }), "deepseek");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.zhizengzeng.com/v1", model: "claude-sonnet-5" }), "zhizengzeng");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.rednote.life/hackson", model: "vertex-claude-sonnet-5/claude-sonnet-5" }), "maas");
 });
 
 test("requiresMaasUserEmail identifies only the internal gateway host", () => {
@@ -187,8 +188,8 @@ test("empty browser keys preserve the server-environment fallback", () => {
   assert.equal(readBrowserAgentConfigHeaders(headers), undefined);
 });
 
-test("the provider dropdown maps every Base URL to its compatible request mode", () => {
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 4);
+test("the provider dropdown maps every Base URL and model to its compatible request mode", () => {
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 5);
   assert.deepEqual(browserAgentProviderPreset("deepseek"), {
     id: "deepseek",
     label: "DeepSeek",
@@ -198,9 +199,16 @@ test("the provider dropdown maps every Base URL to its compatible request mode",
   });
   assert.deepEqual(browserAgentProviderPreset("xhs-maas"), {
     id: "xhs-maas",
-    label: "小红书内网 MAAS",
+    label: "小红书内网 MAAS · DeepSeek V4 Pro",
     baseUrl: "https://maas.devops.xiaohongshu.com",
     model: "deepseek-v4-pro",
+    mode: "tool",
+  });
+  assert.deepEqual(browserAgentProviderPreset("xhs-maas-qwen"), {
+    id: "xhs-maas-qwen",
+    label: "小红书内网 MAAS · Qwen 3.5 397B",
+    baseUrl: "https://maas.devops.xiaohongshu.com",
+    model: "qwen3.5-397b-a17b",
     mode: "tool",
   });
   assert.deepEqual(browserAgentProviderPreset("maas"), {

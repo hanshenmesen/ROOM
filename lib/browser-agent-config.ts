@@ -12,9 +12,16 @@ export const BROWSER_AGENT_PROVIDER_PRESETS = [
   },
   {
     id: "xhs-maas",
-    label: "小红书内网 MAAS",
+    label: "小红书内网 MAAS · DeepSeek V4 Pro",
     baseUrl: "https://maas.devops.xiaohongshu.com",
     model: "deepseek-v4-pro",
+    mode: "tool" as const,
+  },
+  {
+    id: "xhs-maas-qwen",
+    label: "小红书内网 MAAS · Qwen 3.5 397B",
+    baseUrl: "https://maas.devops.xiaohongshu.com",
+    model: "qwen3.5-397b-a17b",
     mode: "tool" as const,
   },
   {
@@ -117,7 +124,11 @@ export function browserAgentProviderPreset(id: BrowserAgentProviderPresetId) {
   return BROWSER_AGENT_PROVIDER_PRESETS.find((preset) => preset.id === id) || BROWSER_AGENT_PROVIDER_PRESETS[0];
 }
 
-export function browserAgentProviderPresetId(provider: Pick<BrowserAgentProviderConfig, "baseUrl">): BrowserAgentProviderPresetId {
+export function browserAgentProviderPresetId(provider: Pick<BrowserAgentProviderConfig, "baseUrl" | "model">): BrowserAgentProviderPresetId {
+  const exact = BROWSER_AGENT_PROVIDER_PRESETS.find(
+    (preset) => preset.baseUrl === provider.baseUrl && preset.model === provider.model,
+  );
+  if (exact) return exact.id;
   if (provider.baseUrl.includes("api.deepseek.com")) return "deepseek";
   if (requiresMaasUserEmail(provider.baseUrl)) return "xhs-maas";
   if (provider.baseUrl.includes("api.zhizengzeng.com")) return "zhizengzeng";
@@ -132,7 +143,8 @@ export function normalizeBrowserAgentConfig(value: unknown): BrowserAgentConfig 
     fallback: BrowserAgentProviderConfig,
   ): BrowserAgentProviderConfig => {
     const baseUrl = typeof provider?.baseUrl === "string" && provider.baseUrl ? provider.baseUrl : fallback.baseUrl;
-    const inferredPreset = browserAgentProviderPreset(browserAgentProviderPresetId({ baseUrl }));
+    const model = typeof provider?.model === "string" && provider.model ? provider.model : fallback.model;
+    const inferredPreset = browserAgentProviderPreset(browserAgentProviderPresetId({ baseUrl, model }));
     return {
       apiKey: typeof provider?.apiKey === "string" ? provider.apiKey : "",
       baseUrl,
