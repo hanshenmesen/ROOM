@@ -14,7 +14,7 @@ import { PublicWebError, validatePublicUrl, validatePublicUrlResolution } from "
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfilesWithReport } from "@/lib/profile-merge";
 import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
-import type { AgentProviderOverride } from "@/lib/agents/provider-config";
+import { getAgentProviderConfig, type AgentProviderOverride } from "@/lib/agents/provider-config";
 import {
   prefetchWebsiteResearchRoot,
   publicWebsiteResearchSnapshot,
@@ -347,14 +347,37 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
   let profile: ParsedProfile;
   if (file.type === "application/pdf" || extension === "pdf") {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const data = bytesToBase64(bytes);
     const preparsed = await preparsePdf(bytes).catch(() => null);
-    profile = (await extractProfileFromAttachmentWithAgentRun(
-      { mediaType: "application/pdf", data },
-      { ...baseSource, format: "pdf", pageCount: preparsed?.pageCount },
-      preparsed?.text || "",
-      agentOptions,
-    )).profile;
+    const providerProtocol = getAgentProviderConfig(providerConfig).maas.protocol;
+    // OpenAI Chat Completions has no standard inline-PDF content block. The
+    // internal xhs-maas gateway is a text/function-calling endpoint, so feed
+    // it ROOM's local PDF text extraction instead of throwing while building
+    // an unsupported `document` message. Anthropic-compatible providers keep
+    // the original attachment path for providers that can inspect the PDF.
+    if (providerProtocol === "xhs-maas") {
+      if (!preparsed?.text.trim()) {
+        throw new ProfileAgentError("该 PDF 无法提取文本，当前内网 MAAS 模型不支持直接读取 PDF 文件。请上传可复制文字的 PDF，或改用支持 PDF 的多模态 Provider。", 422);
+      }
+      // Present the extracted PDF text as a line-numbered text source, not a
+      // page-referenced PDF. Page semantics only work when the model can see
+      // the rendered PDF; a text-only model just counts lines (observed with
+      // Qwen 3.5 returning evidenceLines [4], [10] against a 1-page source),
+      // which the page-range validator then rejects. Line numbering also
+      // gives the model explicit [N] markers to cite, improving compliance.
+      profile = (await extractProfileWithAgentRun(
+        preparsed.text,
+        { ...baseSource, format: "text" },
+        agentOptions,
+      )).profile;
+    } else {
+      const data = bytesToBase64(bytes);
+      profile = (await extractProfileFromAttachmentWithAgentRun(
+        { mediaType: "application/pdf", data },
+        { ...baseSource, format: "pdf", pageCount: preparsed?.pageCount },
+        preparsed?.text || "",
+        agentOptions,
+      )).profile;
+    }
   } else if (IMAGE_TYPES.has(file.type as AgentAttachment["mediaType"])) {
     const data = bytesToBase64(new Uint8Array(await file.arrayBuffer()));
     profile = (await extractProfileFromAttachmentWithAgentRun(

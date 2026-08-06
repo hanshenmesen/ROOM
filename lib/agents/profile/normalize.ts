@@ -87,12 +87,25 @@ function draftErrors(
     if (format !== "text" && !cleanString(item?.evidenceExcerpt)) {
       errors.push(`items[${index}].evidenceExcerpt must quote the source`);
     }
+    // fieldEvidence falls back to the item-level evidenceLines. A subtle bug
+    // bit in production: `fieldEvidence?.[field] || evidenceLines` treats an
+    // EMPTY array as truthy, so a model returning `fieldEvidence.techStack:
+    // []` alongside valid item-level evidenceLines was rejected. Check each
+    // source for actual valid lines instead of relying on truthiness.
     for (const field of ["timeRange", "role", "projectUrl"] as const) {
-      if (cleanString(item?.[field]) && !cleanLineNumbers(item?.fieldEvidence?.[field] || item?.evidenceLines, sourceCount).length) {
+      if (
+        cleanString(item?.[field])
+        && !cleanLineNumbers(item?.fieldEvidence?.[field], sourceCount).length
+        && !cleanLineNumbers(item?.evidenceLines, sourceCount).length
+      ) {
         errors.push(`items[${index}].fieldEvidence.${field} is required when ${field} is present`);
       }
     }
-    if (cleanStringList(item?.techStack).length && !cleanLineNumbers(item?.fieldEvidence?.techStack || item?.evidenceLines, sourceCount).length) {
+    if (
+      cleanStringList(item?.techStack).length
+      && !cleanLineNumbers(item?.fieldEvidence?.techStack, sourceCount).length
+      && !cleanLineNumbers(item?.evidenceLines, sourceCount).length
+    ) {
       errors.push(`items[${index}].fieldEvidence.techStack is required when techStack is present`);
     }
   }
@@ -127,7 +140,30 @@ export function normalizeProfileDraft(value: unknown, text: string, source: Prof
       ? 1
       : lines.length;
   const validationErrors = draftErrors(value, sourceCount, source.format, text);
-  if (validationErrors.length) throw new ProfileAgentError("Agent 返回的数据未通过验证。", 502, validationErrors);
+  if (validationErrors.length) {
+    // The trace only stores the validation-error summary (validationErrors);
+    // log the raw evidenceLines/fieldEvidence shapes server-side so a model
+    // that fails this cross-field contract (e.g. wrong line-number type or
+    // scheme, or omitting fieldEvidence for a populated optional field) can
+    // be diagnosed without guessing at its exact output shape.
+    const items = Array.isArray(rawDraft?.items) ? rawDraft.items : [];
+    console.error(
+      "[profile-agent] draft failed evidence validation:",
+      JSON.stringify({
+        sourceCount,
+        errors: validationErrors.slice(0, 6),
+        items: items.slice(0, 3).map((item: Record<string, unknown>) => ({
+          title: item?.title,
+          timeRange: item?.timeRange,
+          role: item?.role,
+          techStack: item?.techStack,
+          evidenceLines: item?.evidenceLines,
+          fieldEvidence: item?.fieldEvidence,
+        })),
+      }).slice(0, 2000),
+    );
+    throw new ProfileAgentError("Agent 返回的数据未通过验证。", 502, validationErrors);
+  }
   const draft = value as AgentProfileDraft;
   const sourceId = source.id || `source-${stableId(text)}`;
   const sourceMedia = (source.media || []).slice(0, 80);
@@ -159,11 +195,16 @@ export function normalizeProfileDraft(value: unknown, text: string, source: Prof
   const personalWebsite = safeHttpUrl(draft.personalWebsite?.value);
   const items = draft.items.slice(0, 80).map((item, index): ProfileItem => {
     const media = mediaForDraftIndex(sourceMedia, item.mediaIndex);
+    // Prefer fieldEvidence only when it actually yields valid lines; an empty
+    // array is truthy, so a plain `||` would shadow the item-level
+    // evidenceLines fallback (see draftErrors above).
+    const evidenceLinesFor = (fieldLines: unknown) =>
+      cleanLineNumbers(fieldLines, sourceCount).length ? fieldLines : item.evidenceLines;
     const fieldEvidence = {
-      ...(item.timeRange ? { timeRange: evidenceFor(item.fieldEvidence?.timeRange || item.evidenceLines, item.evidenceExcerpt) } : {}),
-      ...(item.role ? { role: evidenceFor(item.fieldEvidence?.role || item.evidenceLines, item.evidenceExcerpt) } : {}),
-      ...(item.techStack?.length ? { techStack: evidenceFor(item.fieldEvidence?.techStack || item.evidenceLines, item.evidenceExcerpt) } : {}),
-      ...(item.projectUrl ? { projectUrl: evidenceFor(item.fieldEvidence?.projectUrl || item.evidenceLines, item.evidenceExcerpt) } : {}),
+      ...(item.timeRange ? { timeRange: evidenceFor(evidenceLinesFor(item.fieldEvidence?.timeRange), item.evidenceExcerpt) } : {}),
+      ...(item.role ? { role: evidenceFor(evidenceLinesFor(item.fieldEvidence?.role), item.evidenceExcerpt) } : {}),
+      ...(item.techStack?.length ? { techStack: evidenceFor(evidenceLinesFor(item.fieldEvidence?.techStack), item.evidenceExcerpt) } : {}),
+      ...(item.projectUrl ? { projectUrl: evidenceFor(evidenceLinesFor(item.fieldEvidence?.projectUrl), item.evidenceExcerpt) } : {}),
     };
     const contentFamily = item.contentFamily && CONTENT_FAMILIES.has(item.contentFamily)
       ? item.contentFamily
