@@ -253,6 +253,9 @@ export function createWebsiteResearchModelPlanner(input: {
             if (!response.ok) {
               input.tracer.emit({ type: "model.failed", step: PLANNER_STEP, meta, errorCode: `http_${response.status}` });
               const detail = providerErrorDetail(payload);
+              if (response.status >= 400 && response.status < 500) {
+                console.error(`[website-planner] ${response.status} from ${providerLabel}/${provider.model}:`, detail || "(no message)");
+              }
               lastError = new Error(`planner provider returned ${response.status}${detail ? `: ${detail}` : ""}`);
               fallbackCount += 1;
               continue;

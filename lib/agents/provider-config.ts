@@ -47,7 +47,23 @@ export function getAgentProviderConfig(override?: AgentProviderOverride) {
       process.env.MAAS_API_KEY_FALLBACK,
     );
 
-  const maasBaseUrl = (override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL).replace(/\/$/, "");
+  const rawMaasBaseUrl = (override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL).replace(/\/$/, "");
+  // DeepSeek exposes both OpenAI-style and Anthropic-style endpoints, but
+  // ROOM only speaks Anthropic Messages. Users frequently paste the OpenAI
+  // base URL from DeepSeek's docs (https://api.deepseek.com or .../v1);
+  // normalize every DeepSeek host to the Anthropic endpoint and force tool
+  // mode (its output_config.format is unsupported), instead of failing with
+  // a bare http_400 and a misleading Bedrock fallback model.
+  const deepseekHost = (() => {
+    try {
+      return new URL(rawMaasBaseUrl).hostname === "api.deepseek.com";
+    } catch {
+      return false;
+    }
+  })();
+  const maasBaseUrl = deepseekHost && !rawMaasBaseUrl.startsWith(DEFAULT_MAAS_BASE_URL)
+    ? DEFAULT_MAAS_BASE_URL
+    : rawMaasBaseUrl;
   return {
     maas: {
       apiKeys: maasApiKeys,
@@ -56,7 +72,7 @@ export function getAgentProviderConfig(override?: AgentProviderOverride) {
       // DeepSeek only honours `output_config.effort`, not the json-schema
       // `format` field, so tool mode is the portable default; providers that
       // do support output_config can still opt into "json-schema" explicitly.
-      mode: override?.maasMode || (maasBaseUrl === DEFAULT_MAAS_BASE_URL ? "tool" as const : "json-schema" as const),
+      mode: override?.maasMode || (maasBaseUrl === DEFAULT_MAAS_BASE_URL || deepseekHost ? "tool" as const : "json-schema" as const),
     },
     website: {
       apiKeys: websiteApiKeys,

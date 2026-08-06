@@ -186,7 +186,11 @@ export async function callProfileModel<T>(input: {
   const messagesBaseUrl = (baseUrl: string) => /\/v1$/i.test(baseUrl) ? baseUrl : `${baseUrl}/v1`;
   const maasModels = [...new Set([
     providerConfig.maas.model,
-    ...(providerConfig.maas.mode === "json-schema" ? [FALLBACK_MAAS_MODEL] : []),
+    // The Bedrock fallback is a second Claude route on the MAAS gateway; it
+    // is meaningless (and confusing) on any other provider host.
+    ...(providerConfig.maas.mode === "json-schema" && providerName(providerConfig.maas.baseUrl).endsWith("rednote.life")
+      ? [FALLBACK_MAAS_MODEL]
+      : []),
   ])];
   const websiteProviders = websiteApiKeys.length ? [{
     baseUrl: messagesBaseUrl(providerConfig.website.baseUrl),
@@ -320,6 +324,15 @@ export async function callProfileModel<T>(input: {
             continue;
           }
           input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: `http_${result.response.status}` });
+          if (result.response.status >= 400 && result.response.status < 500) {
+            // Provider 4xx bodies carry the exact request-validation reason;
+            // the trace deliberately stores only the status code, so log the
+            // sanitized message server-side for diagnosis.
+            console.error(
+              `[profile-agent] ${result.response.status} from ${providerLabel}/${model}:`,
+              providerErrorDetail(result.payload) || "(no message)",
+            );
+          }
           fallbackCount += 1;
           if ([401, 403].includes(result.response.status)) continue;
           if (result.response.status === 429 || result.response.status >= 500) {

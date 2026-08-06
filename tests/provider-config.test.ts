@@ -57,6 +57,25 @@ test("provider config uses documented defaults without claiming readiness", () =
   assert.equal(status.secretsExposed, false);
 });
 
+test("deepseek base url variants normalize to the anthropic endpoint with tool mode", () => {
+  clearAgentEnvironment();
+  for (const baseUrl of [
+    "https://api.deepseek.com",
+    "https://api.deepseek.com/",
+    "https://api.deepseek.com/v1",
+    "https://api.deepseek.com/anthropic",
+  ]) {
+    const config = getAgentProviderConfig({ maasApiKey: "k", maasBaseUrl: baseUrl });
+    assert.equal(config.maas.baseUrl, "https://api.deepseek.com/anthropic", `normalizing ${baseUrl}`);
+    assert.equal(config.maas.mode, "tool", `mode for ${baseUrl}`);
+  }
+  // An explicit mode still wins over the DeepSeek default.
+  assert.equal(
+    getAgentProviderConfig({ maasApiKey: "k", maasBaseUrl: "https://api.deepseek.com/v1", maasMode: "json-schema" }).maas.mode,
+    "json-schema",
+  );
+});
+
 test("primary provider mode follows the endpoint unless explicitly overridden", () => {
   clearAgentEnvironment();
   // DeepSeek's Anthropic endpoint ignores output_config.format, so the
