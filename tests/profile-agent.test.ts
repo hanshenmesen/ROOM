@@ -6,6 +6,11 @@ import { formatPdfEvidence } from "../lib/pdf-preparse.ts";
 import { mergeProfiles } from "../lib/profile-merge.ts";
 import { validatePublicUrl } from "../lib/public-web.ts";
 
+// These tests exercise the MAAS json-schema request path (output_config and
+// the Bedrock fallback model). Pinning the base URL keeps that path the
+// default here even though the repository-wide default provider is DeepSeek.
+process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+
 const identityResult = {
   sourcePageCount: 1,
   personalWebsite: {

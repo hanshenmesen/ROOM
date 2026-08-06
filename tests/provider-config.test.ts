@@ -57,6 +57,23 @@ test("provider config uses documented defaults without claiming readiness", () =
   assert.equal(status.secretsExposed, false);
 });
 
+test("primary provider mode follows the endpoint unless explicitly overridden", () => {
+  clearAgentEnvironment();
+  // DeepSeek's Anthropic endpoint ignores output_config.format, so the
+  // portable default there is tool mode.
+  assert.equal(DEFAULT_MAAS_BASE_URL, "https://api.deepseek.com/anthropic");
+  assert.equal(DEFAULT_MAAS_MODEL, "deepseek-v4-pro");
+  assert.equal(getAgentProviderConfig().maas.mode, "tool");
+
+  // Providers that support output_config keep the json-schema default.
+  process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+  assert.equal(getAgentProviderConfig().maas.mode, "json-schema");
+
+  // An explicit mode always wins.
+  assert.equal(getAgentProviderConfig({ maasMode: "json-schema" }).maas.mode, "json-schema");
+  assert.equal(getAgentProviderConfig({ maasMode: "tool" }).maas.mode, "tool");
+});
+
 test("public status reports provider readiness without exposing API keys", () => {
   clearAgentEnvironment();
   process.env.MAAS_API_KEY = "server-only-primary-secret";

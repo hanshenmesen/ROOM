@@ -13,9 +13,21 @@ import {
   readBrowserPortraitArtConfigHeaders,
 } from "../lib/browser-agent-config.ts";
 
-test("browser Agent config ships with the requested MAAS defaults", () => {
-  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.maas.baseUrl, "https://maas.devops.rednote.life/hackson");
-  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.maas.model, "vertex-claude-sonnet-5/claude-sonnet-5");
+test("browser Agent config ships with the DeepSeek defaults", () => {
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.maas.baseUrl, "https://api.deepseek.com/anthropic");
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.maas.model, "deepseek-v4-pro");
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.maas.mode, "tool");
+  // The website slot keeps its own preset instead of inheriting the primary one.
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.website.baseUrl, "https://api.zhizengzeng.com/v1");
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.website.model, "claude-sonnet-5");
+  // The pet QA slot follows the primary provider.
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.petQa.baseUrl, "https://api.deepseek.com/anthropic");
+  assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.petQa.model, "deepseek-v4-pro");
+});
+
+test("provider presets resolve ids from base urls across all three providers", () => {
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].id, "deepseek");
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].mode, "tool");
 });
 
 test("browser Agent config crosses the parsing boundary without using a URL query", () => {
@@ -50,7 +62,7 @@ test("browser Agent config crosses the parsing boundary without using a URL quer
   assert.equal(parsed?.websiteApiKey, "website-session-key");
   assert.equal(parsed?.maasBaseUrl, DEFAULT_BROWSER_AGENT_CONFIG.maas.baseUrl);
   assert.equal(parsed?.websiteModel, DEFAULT_BROWSER_AGENT_CONFIG.website.model);
-  assert.equal(parsed?.maasMode, "json-schema");
+  assert.equal(parsed?.maasMode, "tool");
   assert.equal(parsed?.websiteMode, "tool");
 });
 
@@ -131,8 +143,15 @@ test("empty browser keys preserve the server-environment fallback", () => {
   assert.equal(readBrowserAgentConfigHeaders(headers), undefined);
 });
 
-test("the provider dropdown maps both Base URLs to their compatible request modes", () => {
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 2);
+test("the provider dropdown maps every Base URL to its compatible request mode", () => {
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 3);
+  assert.deepEqual(browserAgentProviderPreset("deepseek"), {
+    id: "deepseek",
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/anthropic",
+    model: "deepseek-v4-pro",
+    mode: "tool",
+  });
   assert.deepEqual(browserAgentProviderPreset("maas"), {
     id: "maas",
     label: "MAAS",

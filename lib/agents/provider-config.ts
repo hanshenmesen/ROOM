@@ -1,5 +1,11 @@
-export const DEFAULT_MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
-export const DEFAULT_MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
+// The primary provider slot defaults to DeepSeek's Anthropic-compatible
+// endpoint: every ROOM model path (profile shards, website planner, pet QA)
+// speaks Anthropic Messages, and DeepSeek fully supports the fields ROOM
+// uses (system, tools/input_schema, tool_choice=tool, max_tokens).
+// Boundary: DeepSeek does not support image/document content blocks, so
+// PDF-vision and image inputs need a multimodal provider (e.g. MAAS).
+export const DEFAULT_MAAS_BASE_URL = "https://api.deepseek.com/anthropic";
+export const DEFAULT_MAAS_MODEL = "deepseek-v4-pro";
 export const FALLBACK_MAAS_MODEL = "bedrock-claude-sonnet-5/claude-sonnet-5";
 export const DEFAULT_WEBSITE_AGENT_BASE_URL = "https://api.zhizengzeng.com/v1";
 export const DEFAULT_WEBSITE_AGENT_MODEL = "claude-sonnet-5";
@@ -41,12 +47,16 @@ export function getAgentProviderConfig(override?: AgentProviderOverride) {
       process.env.MAAS_API_KEY_FALLBACK,
     );
 
+  const maasBaseUrl = (override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL).replace(/\/$/, "");
   return {
     maas: {
       apiKeys: maasApiKeys,
-      baseUrl: (override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL).replace(/\/$/, ""),
+      baseUrl: maasBaseUrl,
       model: override?.maasModel || process.env.MAAS_MODEL || DEFAULT_MAAS_MODEL,
-      mode: override?.maasMode || "json-schema" as const,
+      // DeepSeek only honours `output_config.effort`, not the json-schema
+      // `format` field, so tool mode is the portable default; providers that
+      // do support output_config can still opt into "json-schema" explicitly.
+      mode: override?.maasMode || (maasBaseUrl === DEFAULT_MAAS_BASE_URL ? "tool" as const : "json-schema" as const),
     },
     website: {
       apiKeys: websiteApiKeys,

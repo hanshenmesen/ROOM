@@ -6,6 +6,11 @@ import { inMemoryTraceStore } from "../lib/agent-runtime/in-memory-trace-store.t
 import { agentTraceEventView, inspectAgentTrace } from "../lib/agent-runtime/trace-inspector.ts";
 import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
 
+// This suite asserts the MAAS json-schema fallback path (Bedrock model and
+// json-schema mode metadata), so it pins the MAAS base URL rather than the
+// repository-wide DeepSeek default.
+process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+
 const identity = {
   sourcePageCount: null,
   personalWebsite: null,

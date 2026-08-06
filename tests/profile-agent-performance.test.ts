@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { extractProfileWithAgent } from "../lib/agents/profile-agent.ts";
 
+// Same pinning as profile-agent.test.ts: these mocks exercise the MAAS
+// json-schema request path, not the repository-wide DeepSeek default.
+process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+
 const identity = {
   sourcePageCount: null,
   personalWebsite: null,

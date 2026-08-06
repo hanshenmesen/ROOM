@@ -13,7 +13,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose either the MAAS or Zhizengzeng provider preset. Each dropdown option supplies its compatible Base URL, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
+Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose a provider preset. The default preset is **DeepSeek** (`deepseek-v4-pro` via the Anthropic-compatible endpoint); MAAS and Zhizengzeng presets remain available. Each dropdown option supplies its compatible Base URL, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
+
+> Boundary note: DeepSeek's Anthropic endpoint does not accept image/document content blocks, so PDF-vision and image uploads require a multimodal provider (e.g. MAAS). Text and Markdown résumés, text-layer PDFs, and website research work fully on DeepSeek.
 
 Advanced settings can enable an independent concurrent Website Agent with a second key and its own provider dropdown. Once the résumé identity pass discovers a personal homepage, that Agent starts immediately while the remaining résumé extraction continues.
 
@@ -34,14 +36,14 @@ WEBSITE_AGENT_BASE_URL=https://your-provider.example/v1
 WEBSITE_AGENT_MODEL=claude-sonnet-5
 MAAS_API_KEY=your-primary-key
 MAAS_API_KEY_FALLBACK=your-secondary-key
-MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
-MAAS_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
+MAAS_BASE_URL=https://api.deepseek.com/anthropic
+MAAS_MODEL=deepseek-v4-pro
 IMAGE_MAAS_API_KEY=
 IMAGE_MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
 IMAGE_MAAS_MODEL=gpt-image-2
 PET_QA_API_KEY=
-PET_QA_BASE_URL=https://maas.devops.rednote.life/hackson
-PET_QA_MODEL=vertex-claude-sonnet-5/claude-sonnet-5
+PET_QA_BASE_URL=https://api.deepseek.com/anthropic
+PET_QA_MODEL=deepseek-v4-pro
 NEXT_PUBLIC_PET_TTS_ENABLED=1
 NEXT_PUBLIC_PET_TTS_REALTIME_URL=wss://joiagent.devops.beta.xiaohongshu.com/tts/qwen3cus/v1/audio/speech/stream
 NEXT_PUBLIC_PET_TTS_MODEL=Qwen3-TTS-12Hz-1.7B-CustomVoice

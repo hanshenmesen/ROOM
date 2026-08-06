@@ -4,6 +4,13 @@ export type BrowserAgentProviderMode = "json-schema" | "tool";
 
 export const BROWSER_AGENT_PROVIDER_PRESETS = [
   {
+    id: "deepseek",
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/anthropic",
+    model: "deepseek-v4-pro",
+    mode: "tool" as const,
+  },
+  {
     id: "maas",
     label: "MAAS",
     baseUrl: "https://maas.devops.rednote.life/hackson",
@@ -18,6 +25,8 @@ export const BROWSER_AGENT_PROVIDER_PRESETS = [
     mode: "tool" as const,
   },
 ] as const;
+
+const ZHIZENGZENG_PRESET = BROWSER_AGENT_PROVIDER_PRESETS.find((preset) => preset.id === "zhizengzeng")!;
 
 export type BrowserAgentProviderPresetId = (typeof BROWSER_AGENT_PROVIDER_PRESETS)[number]["id"];
 
@@ -50,9 +59,9 @@ export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
   },
   website: {
     apiKey: "",
-    baseUrl: BROWSER_AGENT_PROVIDER_PRESETS[1].baseUrl,
-    model: BROWSER_AGENT_PROVIDER_PRESETS[1].model,
-    mode: BROWSER_AGENT_PROVIDER_PRESETS[1].mode,
+    baseUrl: ZHIZENGZENG_PRESET.baseUrl,
+    model: ZHIZENGZENG_PRESET.model,
+    mode: ZHIZENGZENG_PRESET.mode,
   },
   image: {
     apiKey: "",
@@ -79,7 +88,9 @@ export function browserAgentProviderPreset(id: BrowserAgentProviderPresetId) {
 }
 
 export function browserAgentProviderPresetId(provider: Pick<BrowserAgentProviderConfig, "baseUrl">): BrowserAgentProviderPresetId {
-  return provider.baseUrl.includes("api.zhizengzeng.com") ? "zhizengzeng" : "maas";
+  if (provider.baseUrl.includes("api.deepseek.com")) return "deepseek";
+  if (provider.baseUrl.includes("api.zhizengzeng.com")) return "zhizengzeng";
+  return "maas";
 }
 
 export function normalizeBrowserAgentConfig(value: unknown): BrowserAgentConfig | null {
@@ -90,7 +101,7 @@ export function normalizeBrowserAgentConfig(value: unknown): BrowserAgentConfig 
     fallback: BrowserAgentProviderConfig,
   ): BrowserAgentProviderConfig => {
     const baseUrl = typeof provider?.baseUrl === "string" && provider.baseUrl ? provider.baseUrl : fallback.baseUrl;
-    const inferredPreset = browserAgentProviderPreset(baseUrl.includes("api.zhizengzeng.com") ? "zhizengzeng" : "maas");
+    const inferredPreset = browserAgentProviderPreset(browserAgentProviderPresetId({ baseUrl }));
     return {
       apiKey: typeof provider?.apiKey === "string" ? provider.apiKey : "",
       baseUrl,
