@@ -41,11 +41,39 @@
 
 机器可读的权威数据源：[`evals/reports/smoke-baseline.json`](../evals/reports/smoke-baseline.json) 和 [`evals/reports/full-baseline.json`](../evals/reports/full-baseline.json)。
 
+## 回归门禁
+
+由于两个数据集的阈值均为 100% 而确定性 Parser 存在已知缺陷，基线按设计"未通过"，阈值模式 `--gate` 永远为红。为保证迭代不悄悄破坏既有行为，仓库提供相对基线的回归门禁：
+
+```bash
+npm run eval:regression
+```
+
+它对 smoke 与 full 两个数据集离线运行确定性 Pipeline（零网络、零模型调用），与已审核基线逐项对比：任何核心指标回退、失败分类计数上升或用例数减少都会以退出码 1 失败，并生成中文回归报告 `outputs/evals/regression-report.md`。CI 对 Profile Eval 与 Creative Retrieval 均执行该门禁（后者使用阈值 `--gate`，因其基线本身达标）。
+
+指标改善并经人工审核后，可显式更新基线：
+
+```bash
+npm run eval:regression:update
+```
+
+`--write` 只在零回退时生效，避免用更新基线掩盖回退。该门禁证明"修改没有破坏既有行为"，仍然不代表模型准确率。
+
 ## Website Research 对比能力
 
 阶段 4 为单页和受限多页网站抽取增加了离线对比契约。它可以报告预期标题召回率、召回率差值、已访问页面数、下载字节数、Tool 调用次数、Tool 延迟、模型调用次数，以及在有数据时的 Provider Token 用量。Fixture 证明：即使根页面不含项目，系统仍能发现受支持的项目页和发表页；外部链接、本地网络链接和私有链接不会进入执行计划。
 
 这是能力测试，不是生产环境基准测试。它使用虚构的内存网站图和注入的确定性提交器，因此不声称真实模型的网站抽取准确率或真实网络延迟。如需发布正式对比结果，仍需使用已审核的多页网站，并在明确授权后运行 Provider 实验。
+
+## LLM Judge 校准
+
+事实性指标用确定性 Gold Label 评测，但叙事质量没有标准答案。项目为此落地了 LLM-as-a-Judge 的校准协议（Q35 的后续方向）：人工评分与 Judge 评分在同一样本上配对，按维度计算 exact / within-one agreement、MAE 和二次加权 Cohen's Kappa，全部维度通过门槛（Kappa ≥ 0.6、within-one ≥ 0.9）后才允许引用 Judge 分数。
+
+```bash
+npm run eval:judge        # 生成校准报告（零模型调用）
+```
+
+当前数据集为 20 个合成预标注样本，只证明校准管线可运行并进入 CI 门禁；用真实 Agent 输出做人工评分前，不能宣称 Judge 已校准。机器可读实现：[`lib/evals/judge-calibration.ts`](../lib/evals/judge-calibration.ts)。
 
 ## Creative Retrieval 评测
 

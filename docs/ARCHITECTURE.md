@@ -95,7 +95,7 @@ Profile model shards share one pre-call budget for model calls, estimated input 
 
 Untrusted source-authored instructions are quarantined before parsing and LLM submission while preserving source line numbers. Public-web requests validate URL syntax, every redirect, and resolved A/AAAA addresses. Companion citations are verified against actual Profile Item evidence, and Companion context is a public-field allowlist. See [Agent security](./AGENT_SECURITY.md).
 
-The active `WorkflowStore` is intentionally in-memory because `.openai/hosting.json` has no D1 or R2 binding. It survives requests and browser refreshes handled by the same process or Worker isolate, but not process restarts, isolate replacement, or deployment. The D1 tables and migration are present as the durable metadata contract; enabling durable recovery still requires a D1/R2 store adapter, private object retention/deletion, and run ownership checks. See [Workflow state](./WORKFLOW_STATE.md).
+A `DurableWorkflowStore` now implements the same `WorkflowStore` contract over D1 metadata plus private R2 bodies (event-sourced projections; no source or Artifact bodies in D1). `resolveWorkflowStore()` activates it automatically when the runtime provides `DB` and `WORKFLOW_OBJECTS` bindings, and every store exposes a `persistence` descriptor so public Run snapshots report `survivesProcessRestart` honestly. Because `.openai/hosting.json` still has no D1 or R2 binding, the in-memory store remains the active default and durable recovery is covered by restart-simulation tests rather than a live deployment. Enabling it in production still requires binding resources, private object retention/deletion, and run ownership checks. See [Workflow state](./WORKFLOW_STATE.md).
 
 ## Decision records
 

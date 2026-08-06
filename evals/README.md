@@ -55,6 +55,18 @@ npm run eval:compare -- \
   --candidate outputs/evals/smoke-profile-agent.json
 ```
 
+Run the regression gate used by CI. Because both datasets intentionally fail their 100% thresholds today, the gate compares against the reviewed baselines instead: any metric regression, increased failure-category count, or reduced case count fails the run. Improvements require explicit review before `npm run eval:regression:update` promotes new baselines (it refuses while regressions exist):
+
+```bash
+npm run eval:regression
+```
+
+Check LLM-as-a-Judge calibration (zero model calls). Human and judge scores are paired per sample; each rubric dimension must clear weighted Cohen's kappa and within-one agreement thresholds before judge scores may be quoted. The bundled dataset is synthetic and pre-labeled — it proves the pipeline, not a calibrated judge:
+
+```bash
+npm run eval:judge
+```
+
 ## Dataset contract
 
 - `cases/` contains one `profile-eval-case.v1` JSON file per case.

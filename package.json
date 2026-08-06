@@ -17,14 +17,18 @@
     "eval:profile": "node scripts/profile-eval.mjs",
     "eval:full": "node scripts/profile-eval.mjs --dataset full",
     "eval:compare": "node scripts/profile-eval-compare.mjs",
+    "eval:regression": "node scripts/profile-eval-regression.mjs",
+    "eval:regression:update": "node scripts/profile-eval-regression.mjs --write",
     "eval:experiment": "node scripts/profile-eval-experiment.mjs",
     "eval:experiment:preflight": "node scripts/profile-eval-experiment.mjs --preflight --write",
     "eval:creative": "node scripts/creative-retrieval-eval.mjs",
+    "eval:judge": "node scripts/judge-calibration-eval.mjs",
     "eval:fixtures": "node scripts/generate-profile-eval-fixtures.mjs",
     "eval:fixtures:update": "node scripts/generate-profile-eval-fixtures.mjs --write",
     "rag:sync": "node scripts/sync-reference-rag.mjs",
     "eval:parser": "node scripts/evaluate-profile-models.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

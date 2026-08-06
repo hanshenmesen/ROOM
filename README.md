@@ -1,5 +1,7 @@
 # ROOM
 
+[![CI](https://github.com/hanshenmesen/ROOM/actions/workflows/ci.yml/badge.svg)](https://github.com/hanshenmesen/ROOM/actions/workflows/ci.yml)
+
 > Turn a portfolio into a world people can walk through.
 
 ROOM is an agent-driven system that converts an existing personal website or résumé into a traceable two-floor 3D home. The Agent pipeline preserves source evidence, while the home turns the compiled profile into clickable project islands, semantic information objects, a source archive, and a private upper gallery.
@@ -61,6 +63,9 @@ The demo supports:
 - Hybrid PDF parsing: a fast page-aware text/link evidence pass plus Claude document vision and semantic extraction.
 - A bounded multi-page Website Research Tool Agent with a model-driven Plan→Tool→Observation→Replan loop. The model can select only policy-approved candidate URLs; invalid plans fall back to deterministic ranking. Root-page prefetch still starts as soon as the résumé Identity shard finds a homepage.
 - A live, expandable Agent Trace timeline for model calls, tool calls, planner decisions, retries, validation, artifacts, latency, Token usage, and estimated cost. Sensitive values are redacted before storage.
+- A cross-run Agent metrics endpoint (`/api/agent-runs/metrics`) with task completion rate, p50/p95 latencies, measured Token coverage, estimated cost, planner fallback rate, and concurrency lease counters, plus NDJSON event export and a collapsible in-app fleet panel.
+- A durable Workflow Store option: D1 metadata plus private R2 bodies with event-sourced projections, honest `survivesProcessRestart` reporting, and a retention policy (24-hour source bodies, 30-day records, active runs exempt). In-memory remains the default until D1/R2 bindings are provisioned.
+- CI-guarded quality gates: typecheck, Agent pipeline snapshot comparison, offline Eval regression gates, creative retrieval thresholds, and LLM Judge calibration (weighted Cohen's kappa) on a Node 22/24 matrix.
 - Conflict-aware Profile merging with evidence-backed Claims. Identity, date, role, URL, sensitive-phone, and low-confidence-media gates pause for an explicit user decision; user-confirmed values outrank later Agent output.
 - A Mardou GLB home rendered with React Three Fiber, including a long-corridor entrance, first-person WASD movement, collision handling, and a clickable staircase.
 - A public ground-floor gallery with project islands, semantic profile objects, a visitor book, and a source archive.
