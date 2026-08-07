@@ -77,7 +77,11 @@ export function traceEventMetadata(event: AgentRunEvent) {
       "Input Token": event.meta.inputTokens ?? "未返回",
       "Output Token": event.meta.outputTokens ?? "未返回",
       "预估成本": event.meta.estimatedCost === undefined ? "未返回" : `$${event.meta.estimatedCost.toFixed(6)}`,
+      ...(event.type === "model.failed" && event.diagnostic ? { 结构摘要: event.diagnostic } : {}),
     };
+  }
+  if (event.type === "validation.failed" && event.diagnostic) {
+    return { 结构摘要: event.diagnostic };
   }
   if (event.type === "tool.completed" || event.type === "tool.failed") {
     return { 输入: event.meta.inputSummary, 输出: event.meta.outputSummary || "无输出" };

@@ -23,11 +23,26 @@ const MAX_SAMPLE_ITEMS = 3;
 const MAX_KEYS = 30;
 const MAX_OUTPUT_CHARS = 2_000;
 
+/**
+ * JSON-safe structural summary of an untrusted value. Contains no string
+ * contents (the PII vector) -- only types, key paths, counts, and numeric /
+ * boolean literals -- so it can be attached to traces and logs verbatim.
+ */
+export type DiagnosticNode =
+  | null
+  | boolean
+  | number
+  | { type: "string"; chars: number }
+  | { type: "undefined" }
+  | { type: string; truncated: true }
+  | { type: "array"; length: number; sample: DiagnosticNode[] }
+  | { type: "object"; keyCount: number; sample: Record<string, DiagnosticNode> };
+
 export function diagnosticPayloadsEnabled() {
   return process.env.AGENT_DIAGNOSTIC_PAYLOADS === "1";
 }
 
-export function summarizeDiagnosticValue(value: unknown, depth = 0): unknown {
+export function summarizeDiagnosticValue(value: unknown, depth = 0): DiagnosticNode {
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "string") return { type: "string", chars: value.length };
   if (value === undefined) return { type: "undefined" };
@@ -41,13 +56,13 @@ export function summarizeDiagnosticValue(value: unknown, depth = 0): unknown {
   }
   if (typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>);
-    const sample: Record<string, unknown> = {};
+    const sample: Record<string, DiagnosticNode> = {};
     for (const [key, entry] of entries.slice(0, MAX_KEYS)) {
       sample[key] = summarizeDiagnosticValue(entry, depth + 1);
     }
     return { type: "object", keyCount: entries.length, sample };
   }
-  return { type: typeof value };
+  return { type: typeof value, truncated: true };
 }
 
 /**

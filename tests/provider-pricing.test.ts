@@ -16,6 +16,16 @@ test("pricing follows the provider host, with DeepSeek at list price", () => {
   assert.equal(pricingForProvider("custom-provider"), claude);
 });
 
+test("the internal MAAS gateway prices at the DeepSeek tier, not the Claude fallback", () => {
+  // Regression: the gateway was priced at the Claude fallback (~34x too
+  // high), which exhausted the shared run budget mid-retry and masked the
+  // real provider error behind an estimated_cost exhaustion.
+  assert.deepEqual(
+    pricingForProvider("https://maas.devops.xiaohongshu.com"),
+    pricingForProvider("https://api.deepseek.com/anthropic"),
+  );
+});
+
 test("cost estimates stay provider-aware instead of hardcoding one price", () => {
   const inputTokens = 10_000;
   const outputTokens = 4_000;

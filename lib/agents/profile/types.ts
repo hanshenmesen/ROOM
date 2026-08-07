@@ -1,3 +1,4 @@
+import type { DiagnosticNode } from "../../agent-runtime/diagnostics.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import type { AgentRunBudgetLimits, AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import type { ContentFamily, ProfileItem, ProfileMedia } from "../../types.ts";
@@ -83,11 +84,14 @@ export type MaasContentBlock =
 export class ProfileAgentError extends Error {
   readonly status: number;
   readonly details: string[];
+  /** PII-free structural summary of the offending draft, when available. */
+  readonly diagnostic?: DiagnosticNode;
 
-  constructor(message: string, status = 502, details: string[] = []) {
+  constructor(message: string, status = 502, details: string[] = [], diagnostic?: DiagnosticNode) {
     super(message);
     this.name = "ProfileAgentError";
     this.status = status;
     this.details = details;
+    this.diagnostic = diagnostic;
   }
 }

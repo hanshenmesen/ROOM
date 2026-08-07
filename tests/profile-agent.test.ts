@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractProfileFromAttachmentWithAgent } from "../lib/agents/profile-agent.ts";
+import { extractProfileFromAttachmentWithAgent, ProfileAgentError } from "../lib/agents/profile-agent.ts";
 import { compileProfile } from "../lib/agents/pipeline.ts";
 import { formatPdfEvidence } from "../lib/pdf-preparse.ts";
 import { mergeProfiles } from "../lib/profile-merge.ts";
@@ -212,6 +212,42 @@ test("profile Agent keeps legacy detail-only item shards compatible", async () =
     assert.equal(project?.techStack, undefined);
     assert.equal(project?.projectUrl, undefined);
   } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.MAAS_API_KEY;
+    else process.env.MAAS_API_KEY = originalKey;
+  }
+});
+
+test("parallel shard failures reject once without unhandled promise rejections", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.MAAS_API_KEY;
+  process.env.MAAS_API_KEY = "test-key";
+  // Both shards fail near-simultaneously; the inventory shard's rejection
+  // must not surface as an unhandled rejection while the identity-first
+  // await chain is still settling (observed crashing Node scripts).
+  globalThis.fetch = (async () => new Response("unauthorized", { status: 401 })) as typeof fetch;
+
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => {
+    unhandled.push(reason);
+  };
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    await assert.rejects(
+      extractProfileFromAttachmentWithAgent(
+        { mediaType: "application/pdf", data: "cGRm" },
+        { label: "resume.pdf", type: "text", format: "pdf", pageCount: 1 },
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof ProfileAgentError);
+        return true;
+      },
+    );
+    // Give any stray shard rejection a chance to surface.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.removeListener("unhandledRejection", onUnhandled);
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.MAAS_API_KEY;
     else process.env.MAAS_API_KEY = originalKey;

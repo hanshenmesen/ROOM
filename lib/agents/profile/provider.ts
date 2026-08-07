@@ -1,7 +1,7 @@
 import type { AgentCallMeta, AgentCallResult } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import type { AgentRunControls } from "../../agent-runtime/run-controls.ts";
-import { diagnosticDump } from "../../agent-runtime/diagnostics.ts";
+import { diagnosticDump, summarizeDiagnosticValue } from "../../agent-runtime/diagnostics.ts";
 import {
   DEFAULT_WEBSITE_AGENT_MODEL,
   FALLBACK_MAAS_MODEL,
@@ -323,7 +323,13 @@ export async function callProfileModel<T>(input: {
                   return { data: value as T, meta };
                 }
                 invalidOutputDetails.push(`${input.shard} 分片结构不完整 · model=${model} · mode=${mode} · ${structuralErrors.join("; ")}`);
-                input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "invalid_structure" });
+                input.tracer.emit({
+                  type: "model.failed",
+                  step: input.step,
+                  meta,
+                  errorCode: "invalid_structure",
+                  diagnostic: summarizeDiagnosticValue(value),
+                });
                 // The trace only stores the structural-error summary; dump
                 // the parsed tool-call arguments server-side (structural
                 // summary by default, raw only behind the diagnostics flag)
@@ -350,7 +356,13 @@ export async function callProfileModel<T>(input: {
               continue;
             }
             sawEmptyResponse = true;
-            input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "empty_response" });
+            input.tracer.emit({
+              type: "model.failed",
+              step: input.step,
+              meta,
+              errorCode: "empty_response",
+              diagnostic: summarizeDiagnosticValue(result.payload),
+            });
             // A 200 with no extractable text usually means the provider
             // returned a shape responseText() doesn't recognize yet (e.g. a
             // thinking-only response, or content blocks in an unexpected

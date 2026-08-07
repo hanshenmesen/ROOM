@@ -1,3 +1,5 @@
+import type { DiagnosticNode } from "./diagnostics.ts";
+
 export type AgentCallMode = "json-schema" | "tool";
 
 export type AgentCallMeta = {
@@ -43,11 +45,14 @@ export type AgentRunEvent = EventBase & (
   | { type: "run.started" }
   | { type: "step.started"; step: string; attempt: number }
   | { type: "model.completed"; step: string; meta: AgentCallMeta }
-  | { type: "model.failed"; step: string; meta: AgentCallMeta; errorCode: string }
+  // `diagnostic` carries a PII-free structural summary of the offending
+  // payload (see diagnostics.ts) so shape failures are diagnosable from the
+  // trace alone -- no server-log spelunking, no reproduction rerun.
+  | { type: "model.failed"; step: string; meta: AgentCallMeta; errorCode: string; diagnostic?: DiagnosticNode }
   | { type: "tool.started"; step: string; toolCallId: string; tool: string; inputSummary: AgentToolSummary }
   | { type: "tool.completed"; step: string; meta: AgentToolCallMeta }
   | { type: "tool.failed"; step: string; meta: AgentToolCallMeta; errorCode: string }
-  | { type: "validation.failed"; step: string; errors: string[] }
+  | { type: "validation.failed"; step: string; errors: string[]; diagnostic?: DiagnosticNode }
   | { type: "security.input_quarantined"; step: string; count: number; categories: string[] }
   | { type: "budget.exhausted"; step: string; reason: string; usage: AgentToolSummary }
   | { type: "planner.decision"; step: string; action: "continue" | "submit"; reason: string; nextUrl?: string; source: "model" | "deterministic" | "deterministic-fallback" }

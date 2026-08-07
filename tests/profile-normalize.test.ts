@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeProfileDraft } from "../lib/agents/profile/normalize.ts";
+import { ProfileAgentError } from "../lib/agents/profile/types.ts";
 
 // Regression coverage for a production failure observed with Qwen 3.5 on the
 // xhs-maas gateway: the model returned `fieldEvidence: {techStack: [], ...}`
@@ -82,4 +83,32 @@ test("valid fieldEvidence lines still take precedence over item-level lines", ()
   assert.equal(item?.fieldEvidence?.timeRange?.[0]?.locator, "line:3");
   assert.equal(item?.fieldEvidence?.role?.[0]?.locator, "line:5");
   assert.equal(item?.fieldEvidence?.techStack?.[0]?.locator, "line:6");
+});
+
+test("evidence validation failures carry a PII-free structural diagnostic on the error", () => {
+  const draft = draftWith({ timeRange: [3], role: [5], techStack: [6] });
+  // Out-of-range line references against a 6-line source: the exact failure
+  // Qwen 3.5 produced when it counted text lines against a 1-page PDF.
+  draft.items[0].evidenceLines = [99];
+  draft.items[0].fieldEvidence = { timeRange: [99], role: [99], techStack: [99] };
+
+  const original = console.error;
+  console.error = () => {};
+  try {
+    assert.throws(
+      () => normalizeProfileDraft(draft, SOURCE_TEXT, SOURCE),
+      (error) => {
+        assert.ok(error instanceof ProfileAgentError);
+        assert.ok(error.diagnostic, "the error should carry the structural diagnostic");
+        const rendered = JSON.stringify(error.diagnostic);
+        assert.equal(rendered.includes("Signal Room"), false);
+        assert.equal(rendered.includes("Lead developer"), false);
+        assert.match(rendered, /"sourceCount":6/);
+        assert.match(rendered, /"sample":\[99\]/);
+        return true;
+      },
+    );
+  } finally {
+    console.error = original;
+  }
 });

@@ -139,6 +139,14 @@ export async function runProfileAgent(
             ? expectations.careerItems
             : expectations.minimumItems,
       ));
+      // Attach noop observers up front: an inventory shard that rejects
+      // before the identity-first await chain reaches it would otherwise
+      // surface as an unhandled rejection -- fatal in Node scripts (observed
+      // crashing the provider smoke gate on simultaneous 401s) and silently
+      // leaked in workerd. The awaits below still see the original
+      // rejections; this only marks the promises as observed.
+      identityOutputPromise.catch(() => {});
+      for (const promise of inventoryOutputPromises) promise.catch(() => {});
 
       try {
         const identityResult = await identityOutputPromise;
@@ -201,11 +209,13 @@ export async function runProfileAgent(
       } catch (error) {
         await Promise.allSettled([identityOutputPromise, ...inventoryOutputPromises]);
         const details = error instanceof ProfileAgentError ? error.details : [];
+        const diagnostic = error instanceof ProfileAgentError ? error.diagnostic : undefined;
         const validationStep = `${stepPrefix}.validate`;
         tracer.emit({
           type: "validation.failed",
           step: validationStep,
           errors: details.length ? details : [errorCode(error)],
+          ...(diagnostic ? { diagnostic } : {}),
         });
         if (!(error instanceof ProfileAgentError) || attemptIndex === MAX_AGENT_ATTEMPTS - 1) throw error;
         previousErrors = error.details;
