@@ -33,11 +33,13 @@ Trace 在进入 Store 前统一脱敏。API Key、Authorization、Cookie、完�
 
 单 Run Trace 回答"这次运行发生了什么"；跨 Run 聚合回答"Agent 整体表现如何"。`GET /api/agent-runs/metrics` 在当前内存窗口（最多 100 个 Run）上输出：
 
-- 任务完成率（只统计已完结 Run，运行中的 Run 不参与分子分母）；
-- Model / Tool 延迟的 p50、p95 与最大值；
+- Run 计数（总数、完成、失败、运行中；`successRate` 保留在 API 载荷中，但前端面板不再展示完成率——调试期失败会主导窗口，比率恢复过慢且容易误导）；
+- Model / Tool 延迟的平均值、p50、p95 与最大值；
 - Token 用量与预估成本——只累计 Provider 返回 usage 的调用，`measuredUsageCalls` 明确标注覆盖了多少次调用；
 - Planner 决策来源分布与 `deterministic-fallback` 占比；
 - 按 Provider/Model 分组的调用量、失败数、延迟分位数、Token 与成本。
+
+前端 Fleet 面板只展示轮数与平均值（运行轮数、模型/工具平均耗时、平均每轮 Token、实测 Token、预估成本、Planner 降级、并发租约），并提供"重置统计"按钮调用 `POST /api/agent-runs/metrics/reset` 清空内存窗口——用于演示前归零。重置只清 Trace 窗口，不影响活跃的并发租约。
 
 单个 Run 的事件还可以通过 `GET /api/agent-runs/:runId/events?format=jsonl` 导出为 NDJSON，用于离线分析或与 Eval 报告对齐。聚合输出不含 Prompt、简历正文、Claim 值或请求头；Token 与成本保持"实测 usage"与"估算"的区分，窗口边界在响应的 `store` 字段中明示。
 
