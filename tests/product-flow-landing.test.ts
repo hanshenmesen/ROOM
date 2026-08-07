@@ -95,10 +95,11 @@ test("website and resume sources wait for one explicit generate action", () => {
   assert.match(parseRouteSource, /source\.type === "url"[\s\S]*runWebsiteAgent\(startWebsiteAgent\(website, providerConfig, tracer, request\.signal\)/);
 });
 
-test("xhs-maas PDF extraction uses line-numbered text evidence instead of page references", () => {
-  const xhsBranch = parseRouteSource.match(/providerProtocol === "xhs-maas"[\s\S]*?\} else \{/)?.[0] || "";
-  assert.match(xhsBranch, /format: "text"/);
-  assert.doesNotMatch(xhsBranch, /format: "pdf"/);
+test("providers without document-block support get line-numbered text evidence instead of page references", () => {
+  const textBranch = parseRouteSource.match(/!capabilities\.supportsDocumentBlocks[\s\S]*?\} else \{/)?.[0] || "";
+  assert.match(textBranch, /format: "text"/);
+  assert.doesNotMatch(textBranch, /format: "pdf"/);
+  assert.match(parseRouteSource, /!capabilities\.supportsImageBlocks/);
 });
 
 test("conflicting Agent claims stop at an evidence-backed human checkpoint", () => {

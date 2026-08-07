@@ -14,6 +14,7 @@ import { PublicWebError, validatePublicUrl, validatePublicUrlResolution } from "
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfilesWithReport } from "@/lib/profile-merge";
 import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
+import { providerCapabilitiesFor } from "@/lib/agents/provider-capabilities";
 import { getAgentProviderConfig, type AgentProviderOverride } from "@/lib/agents/provider-config";
 import {
   prefetchWebsiteResearchRoot,
@@ -345,18 +346,18 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
   tracer.emit({ type: "artifact.created", step: "source.prepare", name: "prepared-source.json", schemaVersion: "source.v1" });
   tracer.emit({ type: "step.completed", step: "source.prepare" });
   let profile: ParsedProfile;
+  const maasSlot = getAgentProviderConfig(providerConfig).maas;
+  const capabilities = providerCapabilitiesFor(maasSlot.baseUrl, maasSlot.model);
   if (file.type === "application/pdf" || extension === "pdf") {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const preparsed = await preparsePdf(bytes).catch(() => null);
-    const providerProtocol = getAgentProviderConfig(providerConfig).maas.protocol;
-    // OpenAI Chat Completions has no standard inline-PDF content block. The
-    // internal xhs-maas gateway is a text/function-calling endpoint, so feed
-    // it ROOM's local PDF text extraction instead of throwing while building
-    // an unsupported `document` message. Anthropic-compatible providers keep
-    // the original attachment path for providers that can inspect the PDF.
-    if (providerProtocol === "xhs-maas") {
+    // Providers without document-block support (the OpenAI-protocol xhs-maas
+    // gateway, DeepSeek's official endpoint) receive ROOM's local PDF text
+    // extraction instead of an unsupported `document` message. Providers
+    // that can inspect the PDF keep the original attachment path.
+    if (!capabilities.supportsDocumentBlocks) {
       if (!preparsed?.text.trim()) {
-        throw new ProfileAgentError("该 PDF 无法提取文本，当前内网 MAAS 模型不支持直接读取 PDF 文件。请上传可复制文字的 PDF，或改用支持 PDF 的多模态 Provider。", 422);
+        throw new ProfileAgentError("该 PDF 无法提取文本，当前 Provider 不支持直接读取 PDF 文件。请上传可复制文字的 PDF，或改用支持 PDF 的多模态 Provider。", 422);
       }
       // Present the extracted PDF text as a line-numbered text source, not a
       // page-referenced PDF. Page semantics only work when the model can see
@@ -379,6 +380,9 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
       )).profile;
     }
   } else if (IMAGE_TYPES.has(file.type as AgentAttachment["mediaType"])) {
+    if (!capabilities.supportsImageBlocks) {
+      throw new ProfileAgentError("当前 Provider 不支持图片输入。请改用支持图片的多模态 Provider（如 MAAS Claude 路由），或上传文本简历。", 422);
+    }
     const data = bytesToBase64(new Uint8Array(await file.arrayBuffer()));
     profile = (await extractProfileFromAttachmentWithAgentRun(
       { mediaType: file.type as Exclude<AgentAttachment["mediaType"], "application/pdf">, data },

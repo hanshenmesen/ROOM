@@ -33,6 +33,15 @@ export function isXhsMaasGatewayProvider(value: string) {
   }
 }
 
+export function isDeepSeekProvider(value: string) {
+  try {
+    const candidate = value.includes("://") ? value : `https://${value}`;
+    return new URL(candidate).hostname === "api.deepseek.com";
+  } catch {
+    return false;
+  }
+}
+
 export function providerProtocolForBaseUrl(baseUrl: string): ProviderProtocol {
   return isXhsMaasGatewayProvider(baseUrl) ? "xhs-maas" : "anthropic";
 }

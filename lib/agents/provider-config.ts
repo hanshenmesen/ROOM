@@ -1,4 +1,9 @@
-import { isXhsMaasGatewayProvider, providerProtocolForBaseUrl, type ProviderProtocol } from "./provider-request.ts";
+import { providerCapabilitiesFor } from "./provider-capabilities.ts";
+import {
+  isDeepSeekProvider as isDeepSeekProviderHost,
+  providerProtocolForBaseUrl,
+  type ProviderProtocol,
+} from "./provider-request.ts";
 
 // The primary provider slot defaults to DeepSeek's official Anthropic-
 // compatible endpoint: every ROOM model path (profile shards, website
@@ -47,28 +52,19 @@ function configuredValues(...values: Array<string | undefined>) {
 }
 
 export function isDeepSeekProvider(value: string) {
-  try {
-    const candidate = value.includes("://") ? value : `https://${value}`;
-    return new URL(candidate).hostname === "api.deepseek.com";
-  } catch {
-    return false;
-  }
+  return isDeepSeekProviderHost(value);
 }
 
 export { isXhsMaasGatewayProvider } from "./provider-request.ts";
 
 /**
- * Whether a provider host serves deepseek-v4-pro through a route that
- * defaults reasoning ("thinking") on. This is true both for DeepSeek's
- * official Anthropic-compatible endpoint and for Xiaohongshu's internal
- * MAAS gateway (an OpenAI Chat Completions proxy in front of the same
- * model) -- production traces showed the MAAS gateway also spending the
- * full output-token budget on reasoning for dense extractions when this
- * was left enabled, so both hosts must disable it.
+ * Whether a provider host serves a model route that defaults reasoning
+ * ("thinking") on and must be told to disable it. Backed by the provider
+ * capability matrix so the rule lives next to the other per-provider
+ * facts instead of being re-derived at each call site.
  */
 export function shouldDisableThinking(baseUrl: string, model = "") {
-  return isDeepSeekProvider(baseUrl)
-    || (isXhsMaasGatewayProvider(baseUrl) && /^deepseek(?:-|$)/i.test(model.trim()));
+  return providerCapabilitiesFor(baseUrl, model).disableThinking;
 }
 
 /**
