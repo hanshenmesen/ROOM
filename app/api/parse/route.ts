@@ -8,6 +8,7 @@ import {
   type ProfileAgentSource,
 } from "@/lib/agents/profile-agent";
 import { summarizeAgentRun } from "@/lib/agent-runtime/trace-summary";
+import { AgentBudgetExceededError } from "@/lib/agent-runtime/run-controls";
 import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
 import { PublicWebError, validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
@@ -436,8 +437,10 @@ export async function POST(request: Request) {
     const timedOut = error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name);
     const status = error instanceof ProfileAgentError ? error.status : timedOut ? 504 : publicErrorStatus(error) || 500;
     const message = timedOut
-      ? "Claude Profile Agent 解析超时，请重试。"
-      : error instanceof Error ? error.message : "Agent 解析失败。";
+      ? "Profile Agent 解析超时，请重试。"
+      : error instanceof AgentBudgetExceededError
+        ? "本次解析超出资源预算。请精简输入内容，或稍后重试。"
+        : error instanceof Error ? error.message : "Agent 解析失败。";
     return NextResponse.json(
       {
         error: message,

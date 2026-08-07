@@ -1,5 +1,5 @@
 import { createAgentTracer } from "../../agent-runtime/tracer.ts";
-import type { AgentRunSnapshot } from "../../agent-runtime/run-types.ts";
+import type { AgentCallResult, AgentRunSnapshot } from "../../agent-runtime/run-types.ts";
 import { AgentBudgetExceededError, AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import type { ParsedProfile } from "../../types.ts";
 import { normalizeProfileDraft } from "./normalize.ts";
@@ -56,6 +56,30 @@ function inventoryItem(item: Record<string, unknown>) {
   };
 }
 
+/**
+ * Decides which shards must re-run after a failed attempt. Shard-level
+ * failures (provider/request/invalid output) re-run only the shards without
+ * a successful cached result. Profile-level validation failures name the
+ * implicated shard group in their details; when the mapping is ambiguous
+ * the caller falls back to re-running everything (the previous behaviour).
+ */
+function shardsForRetry(
+  details: string[],
+  succeeded: Map<ExtractionShard, unknown>,
+  inventoryShards: ExtractionShard[],
+): Set<ExtractionShard> | undefined {
+  if (!details.length) {
+    const missing = (["identity", ...inventoryShards] as ExtractionShard[]).filter((shard) => !succeeded.has(shard));
+    return missing.length ? new Set(missing) : undefined;
+  }
+  const text = details.join("\n");
+  const wantsIdentity = /identity|personalWebsite|contacts|foods|hobbies|skills|sourcePageCount/.test(text);
+  const wantsItems = /items|education|experience|research|achievement/.test(text);
+  if (wantsIdentity && !wantsItems) return new Set(["identity"]);
+  if (wantsItems && !wantsIdentity) return new Set(inventoryShards);
+  return undefined;
+}
+
 export async function runProfileAgent(
   text: string,
   source: ProfileAgentSource,
@@ -86,6 +110,12 @@ export async function runProfileAgent(
     signal: options.signal,
   });
   let previousErrors: string[] | undefined;
+  // Successful shard results survive across attempts: a retry re-runs only
+  // the shards implicated by the failure instead of paying for every shard
+  // again (a failed items shard used to also re-run a healthy identity
+  // shard, doubling both latency and cost).
+  const shardResults = new Map<ExtractionShard, AgentCallResult<Record<string, unknown>>>();
+  let retryOnly: Set<ExtractionShard> | undefined;
 
   try {
     for (let attemptIndex = 0; attemptIndex < MAX_AGENT_ATTEMPTS; attemptIndex += 1) {
@@ -104,6 +134,8 @@ export async function runProfileAgent(
       const providerScope = options.providerScope || (source.type === "url" ? "website" : "resume");
       const stepPrefix = options.stepPrefix || (providerScope === "website" ? "website" : "profile");
       const executeShard = async (shard: ExtractionShard, minimumItems: number) => {
+        const cached = shardResults.get(shard);
+        if (cached && retryOnly && !retryOnly.has(shard)) return cached;
         const step = `${stepPrefix}.${shard}`;
         tracer.emit({ type: "step.started", step, attempt });
         const result = await callProfileModel<Record<string, unknown>>({
@@ -120,6 +152,7 @@ export async function runProfileAgent(
           step,
           runtimeControls,
         });
+        shardResults.set(shard, result);
         tracer.emit({
           type: "artifact.created",
           step,
@@ -196,7 +229,7 @@ export async function runProfileAgent(
         };
         const validationStep = `${stepPrefix}.validate`;
         tracer.emit({ type: "step.started", step: validationStep, attempt });
-        const profile = normalizeProfileDraft(combinedDraft, normalized, source);
+        const profile = normalizeProfileDraft(combinedDraft, normalized, source, { tracer, step: validationStep });
         tracer.emit({
           type: "artifact.created",
           step: validationStep,
@@ -217,8 +250,16 @@ export async function runProfileAgent(
           errors: details.length ? details : [errorCode(error)],
           ...(diagnostic ? { diagnostic } : {}),
         });
-        if (!(error instanceof ProfileAgentError) || attemptIndex === MAX_AGENT_ATTEMPTS - 1) throw error;
+        // Only content/validation failures carry `details`, and only they
+        // benefit from a prompt-level retry (the hints feed the next
+        // prompt). Transport failures (401/403/429/5xx/timeouts) fail
+        // identically on a retry -- re-running them just doubled cost while
+        // masking the classified status behind a circuit-open 502.
+        if (!(error instanceof ProfileAgentError) || !error.details.length || attemptIndex === MAX_AGENT_ATTEMPTS - 1) {
+          throw error;
+        }
         previousErrors = error.details;
+        retryOnly = shardsForRetry(details, shardResults, inventoryShards);
         tracer.emit({
           type: "step.retried",
           step: validationStep,

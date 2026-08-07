@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createAgentTracer } from "../lib/agent-runtime/tracer.ts";
 import { normalizeProfileDraft } from "../lib/agents/profile/normalize.ts";
 import { ProfileAgentError } from "../lib/agents/profile/types.ts";
+import { cleanLineNumbers } from "../lib/agents/profile/utils.ts";
 
 // Regression coverage for a production failure observed with Qwen 3.5 on the
 // xhs-maas gateway: the model returned `fieldEvidence: {techStack: [], ...}`
@@ -87,9 +89,10 @@ test("valid fieldEvidence lines still take precedence over item-level lines", ()
 
 test("evidence validation failures carry a PII-free structural diagnostic on the error", () => {
   const draft = draftWith({ timeRange: [3], role: [5], techStack: [6] });
-  // Out-of-range line references against a 6-line source: the exact failure
-  // Qwen 3.5 produced when it counted text lines against a 1-page PDF.
+  // Out-of-range line references AND an excerpt that does not appear in the
+  // source, so the deterministic repair pass cannot save the citation.
   draft.items[0].evidenceLines = [99];
+  draft.items[0].evidenceExcerpt = "原文里不存在这句话";
   draft.items[0].fieldEvidence = { timeRange: [99], role: [99], techStack: [99] };
 
   const original = console.error;
@@ -105,6 +108,58 @@ test("evidence validation failures carry a PII-free structural diagnostic on the
         assert.equal(rendered.includes("Lead developer"), false);
         assert.match(rendered, /"sourceCount":6/);
         assert.match(rendered, /"sample":\[99\]/);
+        return true;
+      },
+    );
+  } finally {
+    console.error = original;
+  }
+});
+
+test("cleanLineNumbers coerces integer-looking strings instead of dropping the citation", () => {
+  assert.deepEqual(cleanLineNumbers(["2", 3, "x", 99, " 4 "], 6), [2, 3, 4]);
+});
+
+test("a verbatim excerpt deterministically recovers unusable evidenceLines", () => {
+  const draft = draftWith({ timeRange: [3], role: [5], techStack: [6] });
+  draft.items[0].evidenceLines = [99];
+  draft.items[0].evidenceExcerpt = "Signal Room：3D 个人世界项目";
+  draft.identity.name.evidenceLines = [];
+  draft.identity.name.evidenceExcerpt = "张三";
+
+  const tracer = createAgentTracer();
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const profile = normalizeProfileDraft(draft, SOURCE_TEXT, SOURCE, { tracer, step: "profile.validate" });
+    const item = profile.items[0];
+    assert.equal(item?.evidence[0]?.locator, "line:4");
+    assert.equal(profile.identityEvidence.name?.[0]?.locator, "line:1");
+    // The empty fieldEvidence arrays now fall back to the recovered lines.
+    assert.equal(item?.fieldEvidence?.timeRange?.[0]?.locator, "line:3");
+
+    const repairEvents = tracer.snapshot()?.events.filter((event) => event.type === "evidence.repaired") || [];
+    assert.equal(repairEvents.length, 1);
+    assert.equal(repairEvents[0].count, 2);
+    assert.deepEqual(repairEvents[0].targets, ["identity.name", "items[0]"]);
+  } finally {
+    console.error = original;
+  }
+});
+
+test("an item with neither usable lines nor a matching excerpt still fails", () => {
+  const draft = draftWith({ timeRange: [3], role: [5], techStack: [6] });
+  draft.items[0].evidenceLines = [];
+  draft.items[0].evidenceExcerpt = "这句话根本不在原文里";
+
+  const original = console.error;
+  console.error = () => {};
+  try {
+    assert.throws(
+      () => normalizeProfileDraft(draft, SOURCE_TEXT, SOURCE),
+      (error) => {
+        assert.ok(error instanceof ProfileAgentError);
+        assert.ok(error.details.some((detail) => detail.includes("evidenceLines must reference the source")));
         return true;
       },
     );

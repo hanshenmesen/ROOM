@@ -254,6 +254,115 @@ test("parallel shard failures reject once without unhandled promise rejections",
   }
 });
 
+test("a retried run re-runs only the failed shard and reuses the healthy one", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.MAAS_API_KEY;
+  process.env.MAAS_API_KEY = "test-key";
+  let identityCalls = 0;
+  let itemCalls = 0;
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as {
+      output_config: { format: { schema: { properties: Record<string, unknown> } } };
+    };
+    const isIdentity = Boolean(body.output_config.format.schema.properties.identity);
+    if (isIdentity) {
+      identityCalls += 1;
+      return Response.json({ content: [{ type: "text", text: JSON.stringify(identityResult) }] });
+    }
+    itemCalls += 1;
+    // Fail the items shard in BOTH protocol modes on the first attempt so
+    // callProfileModel exhausts its internal fallbacks and the outer retry
+    // loop engages; the second attempt succeeds.
+    if (itemCalls <= 2) return Response.json({ content: [{ type: "text", text: "{not-json" }] });
+    return Response.json({ content: [{ type: "text", text: JSON.stringify(itemsResult) }] });
+  }) as typeof fetch;
+
+  try {
+    const profile = await extractProfileFromAttachmentWithAgent(
+      { mediaType: "application/pdf", data: "cGRm" },
+      { label: "resume.pdf", type: "text", format: "pdf", pageCount: 1 },
+    );
+    assert.equal(profile.name, "韩晨");
+    assert.equal(identityCalls, 1);
+    assert.equal(itemCalls, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.MAAS_API_KEY;
+    else process.env.MAAS_API_KEY = originalKey;
+  }
+});
+
+test("a profile-level validation retry reuses the identity shard when only items are implicated", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.MAAS_API_KEY;
+  process.env.MAAS_API_KEY = "test-key";
+  let identityCalls = 0;
+  let itemCalls = 0;
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as {
+      output_config: { format: { schema: { properties: Record<string, unknown> } } };
+    };
+    const isIdentity = Boolean(body.output_config.format.schema.properties.identity);
+    if (isIdentity) {
+      identityCalls += 1;
+      return Response.json({ content: [{ type: "text", text: JSON.stringify(identityResult) }] });
+    }
+    itemCalls += 1;
+    // First attempt: structurally valid items shard whose evidence lines are
+    // out of range for the 1-page source -- passes shard validation but
+    // fails normalize(), implicating only the items shard.
+    const items = itemCalls === 1
+      ? { ...itemsResult, items: itemsResult.items.map((item) => ({ ...item, evidenceLines: [99] })) }
+      : itemsResult;
+    return Response.json({ content: [{ type: "text", text: JSON.stringify(items) }] });
+  }) as typeof fetch;
+
+  try {
+    const profile = await extractProfileFromAttachmentWithAgent(
+      { mediaType: "application/pdf", data: "cGRm" },
+      { label: "resume.pdf", type: "text", format: "pdf", pageCount: 1 },
+    );
+    assert.equal(profile.name, "韩晨");
+    assert.equal(identityCalls, 1);
+    assert.equal(itemCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.MAAS_API_KEY;
+    else process.env.MAAS_API_KEY = originalKey;
+  }
+});
+
+test("provider HTTP failures map to classified statuses with actionable messages", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.MAAS_API_KEY;
+  process.env.MAAS_API_KEY = "test-key";
+  try {
+    for (const [httpStatus, expectedStatus, messagePart] of [
+      [401, 401, "配置解析服务"],
+      [429, 429, "限流"],
+      [503, 503, "暂时不可用"],
+    ] as const) {
+      globalThis.fetch = (async () => new Response("x", { status: httpStatus })) as typeof fetch;
+      await assert.rejects(
+        extractProfileFromAttachmentWithAgent(
+          { mediaType: "application/pdf", data: "cGRm" },
+          { label: "resume.pdf", type: "text", format: "pdf", pageCount: 1 },
+        ),
+        (error: unknown) => {
+          assert.ok(error instanceof ProfileAgentError);
+          assert.equal(error.status, expectedStatus, `HTTP ${httpStatus} should map to ${expectedStatus}`);
+          assert.match(error.message, new RegExp(messagePart));
+          return true;
+        },
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.MAAS_API_KEY;
+    else process.env.MAAS_API_KEY = originalKey;
+  }
+});
+
 test("personal website fetch guard rejects local and credential-bearing URLs", () => {
   assert.throws(() => validatePublicUrl("http://127.0.0.1/profile"));
   assert.throws(() => validatePublicUrl("https://user:secret@example.com/profile"));

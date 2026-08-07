@@ -17,6 +17,7 @@ import {
 } from "react";
 import { compileProfile } from "@/lib/agents/pipeline";
 import { latestAgentRunMessage } from "@/lib/agent-runtime/events";
+import { agentRunStages } from "@/lib/agent-runtime/trace-inspector";
 import type { AgentRunEvent, AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
 import { AgentMetricsPanel } from "@/components/AgentMetricsPanel";
 import { AgentTracePanel } from "@/components/AgentTracePanel";
@@ -506,6 +507,7 @@ export function RoomStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const parseAbortController = useRef<AbortController | null>(null);
   const [agentRunEvents, setAgentRunEvents] = useState<AgentRunEvent[]>([]);
   const [agentRunProfileId, setAgentRunProfileId] = useState("");
   const [pendingProfile, setPendingProfile] = useState<ParsedProfile | null>(null);
@@ -1056,6 +1058,20 @@ export function RoomStudio() {
     return { profile: data.profile, mergeReport: data.mergeReport };
   }
 
+  function abortableBackoffSleep(ms: number, signal: AbortSignal) {
+    return new Promise<void>((resolvePromise, reject) => {
+      const timer = window.setTimeout(() => resolvePromise(), ms);
+      signal.addEventListener("abort", () => {
+        window.clearTimeout(timer);
+        reject(new DOMException("已取消", "AbortError"));
+      }, { once: true });
+    });
+  }
+
+  function cancelAgentRun() {
+    parseAbortController.current?.abort();
+  }
+
   async function requestTrackedAgentRun<T extends { run?: AgentRunSnapshot }>(
     input: string,
     init: RequestInit,
@@ -1063,6 +1079,12 @@ export function RoomStudio() {
     const runId = crypto.randomUUID();
     const headers = new Headers(init.headers);
     headers.set("x-room-agent-run-id", runId);
+    // One tracked run at a time; aborting the controller propagates through
+    // fetch to the server's request.signal, which stops the agent run's
+    // model calls instead of letting them finish in the background.
+    parseAbortController.current?.abort();
+    const controller = new AbortController();
+    parseAbortController.current = controller;
     setAgentRunEvents([]);
     const poll = async () => {
       try {
@@ -1081,7 +1103,7 @@ export function RoomStudio() {
     const maxConcurrencyRetries = 3;
     try {
       for (let attempt = 0; ; attempt += 1) {
-        const response = await fetch(input, { ...init, headers });
+        const response = await fetch(input, { ...init, headers, signal: controller.signal });
         if (response.status !== 429 || attempt >= maxConcurrencyRetries) {
           const data = await response.json() as T;
           if (data.run) setAgentRunEvents(data.run.events);
@@ -1090,12 +1112,11 @@ export function RoomStudio() {
         }
         const retryAfterSeconds = Number(response.headers.get("retry-after")) || 2 * (attempt + 1);
         setMessage(`上一个 Agent 任务仍在运行，${retryAfterSeconds} 秒后自动重试（${attempt + 1}/${maxConcurrencyRetries}）…`);
-        await new Promise((resolvePromise) => {
-          window.setTimeout(resolvePromise, retryAfterSeconds * 1_000);
-        });
+        await abortableBackoffSleep(retryAfterSeconds * 1_000, controller.signal);
       }
     } finally {
       window.clearInterval(pollTimer);
+      if (parseAbortController.current === controller) parseAbortController.current = null;
     }
   }
 
@@ -1169,7 +1190,11 @@ export function RoomStudio() {
       const parsed = await parseTextWithAgent("", value, "url", [], value, true);
       acceptParsedProfile(parsed.profile, parsed.mergeReport);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "读取失败，请稍后重试。 ");
+      setMessage(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "已取消本次生成。"
+          : error instanceof Error ? error.message : "读取失败，请稍后重试。 ",
+      );
     } finally {
       setLoading(false);
     }
@@ -1185,8 +1210,8 @@ export function RoomStudio() {
     beginMoveInDraft();
     setLoading(true);
     setMessage(website
-      ? "Claude Profile Agent 正在并行读取简历和个人网站…"
-      : "Claude Profile Agent 正在读取简历，并准备追踪个人网站…");
+      ? "Profile Agent 正在并行读取简历和个人网站…"
+      : "Profile Agent 正在读取简历，并准备追踪个人网站…");
     try {
       const form = new FormData();
       form.set("file", file);
@@ -1209,7 +1234,11 @@ export function RoomStudio() {
       setAgentRunProfileId(data.profile.id);
       acceptParsedProfile(data.profile, data.mergeReport);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法读取这个文件。");
+      setMessage(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "已取消本次生成。"
+          : error instanceof Error ? error.message : "无法读取这个文件。",
+      );
     } finally {
       setLoading(false);
     }
@@ -1666,6 +1695,13 @@ export function RoomStudio() {
   if (!result && (loading || pendingProfile)) {
     const reviewActive = Boolean(profileMergeReport);
     const creationReady = Boolean(pendingProfile && !reviewActive);
+    const agentStages = agentRunStages(agentRunEvents);
+    const agentStageStatusLabels: Record<string, string> = {
+      active: "进行中",
+      done: "完成",
+      failed: "失败",
+      pending: "等待",
+    };
     return (
       <main className={`creation-page ${creationReady ? "is-ready" : reviewActive ? "is-reviewing" : "is-parsing"}`}>
         <BackgroundMusicController ref={musicController} enabled={false} visible={false} />
@@ -1692,6 +1728,21 @@ export function RoomStudio() {
               <li className={creationReady && moveInStep === "pet" ? "is-active" : creationReady ? "is-complete" : ""}><span>04</span><div><strong>起名、捏宠物与选性格</strong><small>调整{companionName}的名字、颜色、耳朵、花纹和回答语气</small></div></li>
               <li className={creationReady && moveInStep === "photos" ? "is-active" : ""}><span>05</span><div><strong>上传空间照片</strong><small>最多 6 张，对应二楼现有自由相框</small></div></li>
             </ol>
+            {loading && agentStages.length ? (
+              <ol className="agent-stage-progress" aria-label="Agent 分步进度">
+                {agentStages.map((stage) => (
+                  <li key={stage.id} className={`is-${stage.status}`}>
+                    <strong>{stage.label}</strong>
+                    <small>{agentStageStatusLabels[stage.status]}</small>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+            {loading ? (
+              <button type="button" className="agent-run-cancel" onClick={cancelAgentRun}>
+                取消本次生成
+              </button>
+            ) : null}
             <AgentTracePanel events={agentRunEvents} />
             <AgentMetricsPanel />
           </section>

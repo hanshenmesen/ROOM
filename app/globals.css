@@ -813,6 +813,18 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .agent-metrics-providers li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .agent-metrics-providers span { font: 7px var(--font-geist-mono), monospace; color: #57534d; }
 .agent-metrics-providers small { color: #817a72; font-size: 7px; }
+.agent-stage-progress { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.agent-stage-progress li { display: flex; align-items: baseline; gap: 6px; padding: 5px 10px; border: 1px solid rgba(25,23,27,.22); border-radius: 999px; background: rgba(255,253,248,.4); }
+.agent-stage-progress strong { font-size: 8px; color: #57534d; }
+.agent-stage-progress small { font-size: 7px; color: #817a72; }
+.agent-stage-progress li.is-active { border-color: rgba(28,51,72,.55); background: rgba(28,51,72,.06); }
+.agent-stage-progress li.is-active small { color: #1c3348; }
+.agent-stage-progress li.is-done { border-color: rgba(47,118,88,.4); }
+.agent-stage-progress li.is-done small { color: #2f7658; }
+.agent-stage-progress li.is-failed { border-color: rgba(178,58,42,.45); }
+.agent-stage-progress li.is-failed small { color: #b23a2a; }
+.agent-run-cancel { margin-top: 10px; align-self: flex-start; border: 1px solid rgba(178,58,42,.45); background: transparent; color: #b23a2a; font: 8px var(--font-geist-mono), monospace; letter-spacing: .08em; padding: 5px 14px; border-radius: 999px; cursor: pointer; }
+.agent-run-cancel:hover { background: rgba(178,58,42,.08); }
 .agent-metrics-panel > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 12px 9px; border-top: 1px solid rgba(25,23,27,.22); color: #817a72; font-size: 7px; }
 .agent-metrics-reset { border: 1px solid rgba(25,23,27,.28); background: transparent; color: #57534d; font: 7px var(--font-geist-mono), monospace; letter-spacing: .09em; padding: 3px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
 .agent-metrics-reset:hover:not(:disabled) { background: rgba(25,23,27,.08); }

@@ -53,6 +53,9 @@ export type AgentRunEvent = EventBase & (
   | { type: "tool.completed"; step: string; meta: AgentToolCallMeta }
   | { type: "tool.failed"; step: string; meta: AgentToolCallMeta; errorCode: string }
   | { type: "validation.failed"; step: string; errors: string[]; diagnostic?: DiagnosticNode }
+  // Emitted when deterministic evidence repair rebuilt a citation from the
+  // model's verbatim excerpt instead of failing the run.
+  | { type: "evidence.repaired"; step: string; count: number; targets: string[] }
   | { type: "security.input_quarantined"; step: string; count: number; categories: string[] }
   | { type: "budget.exhausted"; step: string; reason: string; usage: AgentToolSummary }
   | { type: "planner.decision"; step: string; action: "continue" | "submit"; reason: string; nextUrl?: string; source: "model" | "deterministic" | "deterministic-fallback" }

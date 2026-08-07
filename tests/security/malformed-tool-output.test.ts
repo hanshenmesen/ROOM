@@ -54,8 +54,13 @@ test("token budget exhaustion is observable and stops before a provider request"
   }
 });
 
-test("continuous provider failures trip the per-run circuit breaker", async () => {
+test("continuous provider failures trip the per-run circuit breaker without a pointless outer retry", async () => {
   const originalFetch = globalThis.fetch;
+  const originalBaseUrl = process.env.MAAS_BASE_URL;
+  const originalModel = process.env.MAAS_MODEL;
+  // Two modes x two models gives the per-run breaker enough calls to trip.
+  process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+  process.env.MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
   let calls = 0;
   globalThis.fetch = (async () => {
     calls += 1;
@@ -64,9 +69,22 @@ test("continuous provider failures trip the per-run circuit breaker", async () =
   try {
     await assert.rejects(() => extractProfileWithAgentRun("Lin\nAgent Engineer\nAbout\nBuilds safe agents.", {}, {
       providerConfig: { maasApiKey: "test-key" },
-    }), ProfileAgentError);
-    assert.ok(calls >= 3 && calls <= 4);
+    }), (error: unknown) => {
+      assert.ok(error instanceof ProfileAgentError);
+      // Transport failures are classified and fail fast: no outer retry
+      // doubling the calls while masking the status behind a circuit-open
+      // 502.
+      assert.equal(error.status, 503);
+      return true;
+    });
+    // The shared breaker opens after 3 failures and short-circuits the rest;
+    // without it the two parallel shards x 2 modes x 2 models would make 8.
+    assert.ok(calls >= 3 && calls < 8);
   } finally {
     globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) delete process.env.MAAS_BASE_URL;
+    else process.env.MAAS_BASE_URL = originalBaseUrl;
+    if (originalModel === undefined) delete process.env.MAAS_MODEL;
+    else process.env.MAAS_MODEL = originalModel;
   }
 });

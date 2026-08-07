@@ -400,18 +400,51 @@ export async function callProfileModel<T>(input: {
 
   if (!lastResult) {
     if (lastRequestError instanceof Error) {
-      throw new ProfileAgentError(`Profile Agent 请求失败：${lastRequestError.message}`, 502);
+      // A request-level failure here is almost always the per-request abort
+      // timeout firing; surface it as a 504 with an actionable hint instead
+      // of an opaque 502 wrapping a DOMException message.
+      const timedOut = lastRequestError instanceof DOMException
+        && ["TimeoutError", "AbortError"].includes(lastRequestError.name);
+      throw new ProfileAgentError(
+        timedOut
+          ? "模型响应超时。该 Provider 当前响应过慢，请稍后重试，或在「配置解析服务」中切换 Provider。"
+          : `Profile Agent 请求失败：${lastRequestError.message}`,
+        timedOut ? 504 : 502,
+      );
     }
-    throw new ProfileAgentError("MAAS 请求未执行。", 502);
+    throw new ProfileAgentError("Provider 熔断保护中，本次请求未执行。请稍后重试。", 503);
   }
   const { response, payload } = lastResult;
   if (!response.ok) {
     const detail = providerErrorDetail(payload);
+    // Classify provider failures so the user gets a next step instead of a
+    // bare 502.
+    if ([401, 403].includes(response.status)) {
+      throw new ProfileAgentError(
+        `Provider 拒绝了 API key（${response.status}）${detail ? `：${detail}` : ""}。请在「配置解析服务」中检查 key 是否正确、是否仍有权限。`,
+        response.status,
+      );
+    }
+    if (response.status === 429) {
+      throw new ProfileAgentError("Provider 请求限流（429）。请稍后重试。", 429);
+    }
+    if (response.status >= 500) {
+      throw new ProfileAgentError(
+        `Provider 服务暂时不可用（${response.status}）。请稍后重试，或切换其他 Provider。`,
+        503,
+      );
+    }
     throw new ProfileAgentError(`Profile Agent 请求失败（${response.status}）${detail ? `：${detail}` : ""}`, 502);
   }
   if (invalidOutputDetails.length) {
-    throw new ProfileAgentError("Agent 没有返回有效 JSON。", 502, invalidOutputDetails.slice(-4));
+    throw new ProfileAgentError(
+      "模型多次返回不完整的数据，自动重试后仍失败。请切换 Provider 重试，或精简输入内容。",
+      502,
+      invalidOutputDetails.slice(-4),
+    );
   }
-  if (sawEmptyResponse) throw new ProfileAgentError("Profile Agent 提供方均返回空内容。", 502);
+  if (sawEmptyResponse) {
+    throw new ProfileAgentError("模型返回了空内容，通常是 Provider 兼容性问题。请切换 Provider 重试。", 502);
+  }
   throw new ProfileAgentError("Profile Agent 返回了空内容。", 502);
 }

@@ -3,7 +3,7 @@ import test from "node:test";
 import { summarizeAgentRun } from "../lib/agent-runtime/trace-summary.ts";
 import { createAgentTracer } from "../lib/agent-runtime/tracer.ts";
 import { inMemoryTraceStore } from "../lib/agent-runtime/in-memory-trace-store.ts";
-import { agentTraceEventView, inspectAgentTrace } from "../lib/agent-runtime/trace-inspector.ts";
+import { agentRunStages, agentTraceEventView, inspectAgentTrace } from "../lib/agent-runtime/trace-inspector.ts";
 import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
 
 // This suite asserts the MAAS json-schema fallback path (Bedrock model and
@@ -117,6 +117,38 @@ test("trace redaction removes secrets from validation and failure events", () =>
   const serialized = JSON.stringify(tracer.snapshot());
   assert.doesNotMatch(serialized, /abcdefghijk|secretvalue123/);
   assert.match(serialized, /REDACTED/);
+});
+
+test("agentRunStages derives per-stage status with latest-event-wins semantics", () => {
+  inMemoryTraceStore.clear();
+  const tracer = createAgentTracer("stage-progress-run");
+  const meta = {
+    callId: "call-1",
+    agent: "profile-agent",
+    provider: "maas",
+    model: "model-x",
+    mode: "tool" as const,
+    promptVersion: "profile.items.v1",
+    startedAt: new Date().toISOString(),
+    latencyMs: 10,
+    attempt: 1,
+    fallbackCount: 0,
+  };
+  tracer.emit({ type: "step.started", step: "profile.identity", attempt: 1 });
+  tracer.emit({ type: "step.completed", step: "profile.identity" });
+  tracer.emit({ type: "step.started", step: "profile.items", attempt: 1 });
+  tracer.emit({ type: "model.failed", step: "profile.items", meta, errorCode: "invalid_json" });
+  // A retry restarts the failed stage, turning it active again.
+  tracer.emit({ type: "step.started", step: "profile.items", attempt: 2 });
+  tracer.emit({ type: "step.completed", step: "profile.items" });
+  tracer.emit({ type: "step.started", step: "profile.validate", attempt: 2 });
+
+  const stages = agentRunStages(tracer.snapshot()!.events);
+  assert.deepEqual(stages, [
+    { id: "identity", label: "身份提取", status: "done" },
+    { id: "items", label: "内容提取", status: "done" },
+    { id: "validate", label: "校验合并", status: "active" },
+  ]);
 });
 
 test("Trace inspector summarizes model, tool, retry, token, cost, and planner events", () => {

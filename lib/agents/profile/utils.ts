@@ -18,6 +18,9 @@ export function cleanStringList(value: unknown, limit = 40) {
 export function cleanLineNumbers(value: unknown, lineCount: number) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
+    // Models occasionally serialize line numbers as strings ("3"); coerce
+    // integer-looking strings instead of dropping the whole citation.
+    .map((line) => typeof line === "string" && /^\d+$/.test(line.trim()) ? Number(line.trim()) : line)
     .filter((line): line is number => Number.isInteger(line) && line >= 1 && line <= lineCount))]
     .sort((left, right) => left - right);
 }

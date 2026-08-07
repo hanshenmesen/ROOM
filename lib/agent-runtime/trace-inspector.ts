@@ -30,6 +30,52 @@ export function inspectAgentTrace(events: AgentRunEvent[]) {
   };
 }
 
+export type AgentStageStatus = "pending" | "active" | "done" | "failed";
+
+export type AgentStage = { id: string; label: string; status: AgentStageStatus };
+
+const AGENT_STAGE_LABELS: Record<string, string> = {
+  identity: "身份提取",
+  items: "内容提取",
+  website: "网站研究",
+  validate: "校验合并",
+};
+
+function agentStageIdForStep(step: string) {
+  if (step.endsWith(".validate")) return "validate";
+  if (step.endsWith(".identity")) return "identity";
+  if (step.endsWith(".items") || step.endsWith(".research") || step.endsWith(".career")) return "items";
+  if (step.includes("tool-research") || step.endsWith(".plan")) return "website";
+  return "";
+}
+
+/**
+ * Derives the user-facing stage list from a run's trace events, so a long
+ * parse shows "身份提取 → 内容提取 → 网站研究 → 校验合并" with per-stage
+ * status instead of an opaque spinner. Latest event wins per stage, which
+ * makes a retry turn a failed stage active again naturally.
+ */
+export function agentRunStages(events: AgentRunEvent[]): AgentStage[] {
+  const order: string[] = [];
+  const statusByStage = new Map<string, AgentStageStatus>();
+  for (const event of events) {
+    if (!("step" in event)) continue;
+    const stage = agentStageIdForStep(event.step);
+    if (!stage) continue;
+    if (!order.includes(stage)) order.push(stage);
+    if (event.type === "step.started") statusByStage.set(stage, "active");
+    else if (event.type === "step.completed") statusByStage.set(stage, "done");
+    else if (event.type === "model.failed" || event.type === "validation.failed" || event.type === "tool.failed") {
+      statusByStage.set(stage, "failed");
+    }
+  }
+  return order.map((id) => ({
+    id,
+    label: AGENT_STAGE_LABELS[id] || id,
+    status: statusByStage.get(id) || "pending",
+  }));
+}
+
 export function agentTraceEventView(event: AgentRunEvent) {
   const step = "step" in event ? agentStepName(event.step) : "Agent Run";
   if (event.type === "run.started") return { tone: "active", title: "Agent Run 已启动", detail: "建立运行上下文与 Trace。" } as const;
@@ -58,6 +104,11 @@ export function agentTraceEventView(event: AgentRunEvent) {
     detail: `${event.source} · ${event.reason}`,
   } as const;
   if (event.type === "validation.failed") return { tone: "warning", title: `${step} · 校验未通过`, detail: event.errors.join("；") } as const;
+  if (event.type === "evidence.repaired") return {
+    tone: "warning",
+    title: `${step} · 证据已确定性修复`,
+    detail: `${event.count} 处 · ${event.targets.join("、")}`,
+  } as const;
   if (event.type === "security.input_quarantined") return {
     tone: "warning", title: `${step} · 已隔离不可信指令`, detail: `${event.count} 处 · ${event.categories.join("、")}`,
   } as const;

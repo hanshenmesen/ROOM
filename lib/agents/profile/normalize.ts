@@ -1,4 +1,5 @@
 import { diagnosticDump, summarizeDiagnosticValue, type DiagnosticNode } from "../../agent-runtime/diagnostics.ts";
+import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import type { ContentFamily, ParsedProfile, ProfileItem, ProfileMedia, SourceEvidence } from "../../types.ts";
 import { validateProfile } from "../../validate.ts";
 import { inventoryExpectations } from "./shard-planner.ts";
@@ -14,6 +15,57 @@ const CONTENT_FAMILIES = new Set<ContentFamily>([
   "open-source",
   "media-coverage",
 ]);
+
+/**
+ * Recovers evidence line numbers from an exact excerpt quote. Some models
+ * (Qwen 3.5 on the internal gateway, observed in production) return correct
+ * excerpts but invalid evidenceLines -- out of range, wrong scheme, or
+ * missing entirely. When the excerpt literally appears in the source, the
+ * citation can be rebuilt deterministically instead of failing the run.
+ */
+function recoverLinesFromExcerpt(excerpt: string, lines: string[]): number[] {
+  const needle = cleanString(excerpt).toLocaleLowerCase();
+  // Two characters is enough for CJK names/terms to be a reliable needle;
+  // shorter than that risks matching noise.
+  if (needle.length < 2) return [];
+  const findMatches = (candidate: string) => lines
+    .map((line, index) => (cleanString(line).toLocaleLowerCase().includes(candidate) ? index + 1 : 0))
+    .filter((line) => line > 0);
+  const full = findMatches(needle);
+  if (full.length) return full;
+  // A long excerpt may span a line break; fall back to its head segment.
+  const head = needle.slice(0, 24);
+  return head.length >= 2 ? findMatches(head) : [];
+}
+
+/**
+ * Deterministic evidence repair pass, applied before validation for text
+ * sources: every holder whose evidenceLines are unusable but whose
+ * evidenceExcerpt quotes the source verbatim gets its citation rebuilt.
+ * Returns the repaired target labels for trace observability.
+ */
+function repairDraftEvidence(draft: Partial<AgentProfileDraft>, lines: string[], sourceCount: number) {
+  const targets: string[] = [];
+  const fix = (holder: unknown, label: string) => {
+    if (!holder || typeof holder !== "object") return;
+    const entry = holder as { evidenceLines?: unknown; evidenceExcerpt?: unknown };
+    if (cleanLineNumbers(entry.evidenceLines, sourceCount).length) return;
+    const recovered = recoverLinesFromExcerpt(cleanString(entry.evidenceExcerpt), lines);
+    if (recovered.length) {
+      entry.evidenceLines = recovered;
+      targets.push(label);
+    }
+  };
+  if (draft.personalWebsite?.value) fix(draft.personalWebsite, "personalWebsite");
+  for (const field of ["name", "headline", "location", "summary"] as const) {
+    fix(draft.identity?.[field], `identity.${field}`);
+  }
+  (draft.items || []).forEach((item, index) => fix(item, `items[${index}]`));
+  for (const [collection, entries] of [["contacts", draft.contacts], ["foods", draft.foods], ["hobbies", draft.hobbies], ["skills", draft.skills]] as const) {
+    (entries || []).forEach((entry, index) => fix(entry, `${collection}[${index}]`));
+  }
+  return targets;
+}
 
 function evidenceForLines(sourceId: string, lines: string[], requested: unknown): SourceEvidence[] {
   const numbers = cleanLineNumbers(requested, lines.length);
@@ -132,7 +184,12 @@ function mediaForDraftIndex(media: ProfileMedia[], value: unknown) {
   return Number.isInteger(value) && Number(value) >= 0 ? media[Number(value)] : undefined;
 }
 
-export function normalizeProfileDraft(value: unknown, text: string, source: ProfileAgentSource): ParsedProfile {
+export function normalizeProfileDraft(
+  value: unknown,
+  text: string,
+  source: ProfileAgentSource,
+  observer?: { tracer?: AgentTracer; step?: string },
+): ParsedProfile {
   const lines = sourceLines(text);
   const rawDraft = value as Partial<AgentProfileDraft>;
   const sourceCount = source.format === "pdf"
@@ -140,6 +197,20 @@ export function normalizeProfileDraft(value: unknown, text: string, source: Prof
     : source.format === "image"
       ? 1
       : lines.length;
+  // Deterministic evidence repair runs before validation, turning model
+  // citation sloppiness (bad line numbers with a verbatim excerpt) from a
+  // hard failure into a traceable recovery.
+  if ((!source.format || source.format === "text") && rawDraft && typeof rawDraft === "object") {
+    const repaired = repairDraftEvidence(rawDraft, lines, sourceCount);
+    if (repaired.length && observer?.tracer) {
+      observer.tracer.emit({
+        type: "evidence.repaired",
+        step: observer.step || "profile.validate",
+        count: repaired.length,
+        targets: repaired.slice(0, 12),
+      });
+    }
+  }
   const validationErrors = draftErrors(value, sourceCount, source.format, text);
   if (validationErrors.length) {
     // The structural summary rides on the error so run-profile-agent can
