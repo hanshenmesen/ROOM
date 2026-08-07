@@ -28,7 +28,11 @@ export type ProfileAgentRunResult = {
 };
 
 function errorCode(error: unknown) {
-  if (error instanceof DOMException && ["TimeoutError", "AbortError"].includes(error.name)) return "timeout";
+  // A user-initiated cancel (via the run-cancellation registry) is an
+  // AbortError; a per-request timeout is a TimeoutError. Keeping them
+  // distinct lets the trace tell "user walked away" from "provider hung".
+  if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
+  if (error instanceof DOMException && error.name === "TimeoutError") return "timeout";
   if (error instanceof ProfileAgentError) return `profile_agent_${error.status}`;
   return "profile_agent_failed";
 }

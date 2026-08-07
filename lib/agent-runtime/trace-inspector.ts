@@ -11,7 +11,14 @@ export function inspectAgentTrace(events: AgentRunEvent[]) {
   const inputTokens = modelEvents.reduce((total, event) => total + (event.meta.inputTokens || 0), 0);
   const outputTokens = modelEvents.reduce((total, event) => total + (event.meta.outputTokens || 0), 0);
   const estimatedCost = modelEvents.reduce((total, event) => total + (event.meta.estimatedCost || 0), 0);
-  const latencyMs = [...modelEvents, ...toolEvents].reduce((total, event) => total + event.meta.latencyMs, 0);
+  // Wall-clock elapsed from the first to the last event. Summing per-call
+  // latencies instead would double-count parallel work (the website
+  // research tools overlap the model shards) and, worse, disagreed with
+  // the live ticking display -- the user watched the number jump from ~50s
+  // to 128.7s the moment the run completed.
+  const firstAt = Date.parse(events[0]?.occurredAt || "");
+  const lastAt = Date.parse(events.at(-1)?.occurredAt || "");
+  const latencyMs = Number.isFinite(firstAt) && Number.isFinite(lastAt) ? Math.max(0, lastAt - firstAt) : 0;
   const status: AgentRunStatus = events.some((event) => event.type === "run.failed")
     ? "failed"
     : events.some((event) => event.type === "run.completed") ? "completed" : "running";

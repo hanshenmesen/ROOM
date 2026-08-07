@@ -17,6 +17,31 @@ function statusFor(events: AgentRunEvent[]) {
   return "running" as const;
 }
 
+// A run whose server handler died without emitting a terminal event
+// (dev-server HMR reloads and process restarts kill in-flight handlers;
+// pre-cancellation-era runs never got one either) would otherwise report
+// "running" forever and inflate the fleet panel's in-progress count. The
+// longest a live run can stay silent is bounded by the run budget
+// (40 min), so anything quiet for longer is declared stale on read and
+// closed with a terminal event exactly once.
+const STALE_RUN_TTL_MS = 45 * 60_000;
+
+function sweepStaleRuns(state: StoreState) {
+  const now = Date.now();
+  for (const [runId, events] of state) {
+    if (statusFor(events) !== "running") continue;
+    const last = events.at(-1);
+    if (!last || now - Date.parse(last.occurredAt) < STALE_RUN_TTL_MS) continue;
+    events.push({
+      type: "run.failed",
+      errorCode: "stale",
+      eventId: `event-${crypto.randomUUID()}`,
+      occurredAt: new Date(now).toISOString(),
+      runId,
+    });
+  }
+}
+
 export class InMemoryTraceStore {
   append(event: AgentRunEvent) {
     const state = sharedState();
@@ -32,7 +57,9 @@ export class InMemoryTraceStore {
   }
 
   get(runId: string): AgentRunSnapshot | undefined {
-    const events = sharedState().get(runId);
+    const state = sharedState();
+    sweepStaleRuns(state);
+    const events = state.get(runId);
     if (!events) return undefined;
     const started = events.find((event) => event.type === "run.started");
     const completed = [...events].reverse().find((event) => event.type === "run.completed" || event.type === "run.failed");
@@ -47,7 +74,9 @@ export class InMemoryTraceStore {
 
   /** Bounded snapshot window (most recent runs first) for cross-run aggregation. */
   list(): AgentRunSnapshot[] {
-    return [...sharedState().entries()].reverse().map(([runId, events]) => {
+    const state = sharedState();
+    sweepStaleRuns(state);
+    return [...state.entries()].reverse().map(([runId, events]) => {
       const started = events.find((event) => event.type === "run.started");
       const completed = [...events].reverse().find((event) => event.type === "run.completed" || event.type === "run.failed");
       return {

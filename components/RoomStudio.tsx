@@ -18,9 +18,10 @@ import {
 import { compileProfile } from "@/lib/agents/pipeline";
 import { latestAgentRunMessage } from "@/lib/agent-runtime/events";
 import { agentRunStages } from "@/lib/agent-runtime/trace-inspector";
-import type { AgentRunEvent, AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
+import type { AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
 import { AgentMetricsPanel } from "@/components/AgentMetricsPanel";
 import { AgentTracePanel } from "@/components/AgentTracePanel";
+import { useAgentRun } from "@/components/use-agent-run";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
   BROWSER_AGENT_SESSION_KEY,
@@ -507,8 +508,12 @@ export function RoomStudio() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const parseAbortController = useRef<AbortController | null>(null);
-  const [agentRunEvents, setAgentRunEvents] = useState<AgentRunEvent[]>([]);
+  const {
+    agentRunEvents,
+    resetAgentRunEvents,
+    requestTrackedAgentRun,
+    cancelAgentRun,
+  } = useAgentRun({ onMessage: setMessage });
   const [agentRunProfileId, setAgentRunProfileId] = useState("");
   const [pendingProfile, setPendingProfile] = useState<ParsedProfile | null>(null);
   const [profileMergeReport, setProfileMergeReport] = useState<ProfileMergeReport | null>(null);
@@ -1058,68 +1063,6 @@ export function RoomStudio() {
     return { profile: data.profile, mergeReport: data.mergeReport };
   }
 
-  function abortableBackoffSleep(ms: number, signal: AbortSignal) {
-    return new Promise<void>((resolvePromise, reject) => {
-      const timer = window.setTimeout(() => resolvePromise(), ms);
-      signal.addEventListener("abort", () => {
-        window.clearTimeout(timer);
-        reject(new DOMException("已取消", "AbortError"));
-      }, { once: true });
-    });
-  }
-
-  function cancelAgentRun() {
-    parseAbortController.current?.abort();
-  }
-
-  async function requestTrackedAgentRun<T extends { run?: AgentRunSnapshot }>(
-    input: string,
-    init: RequestInit,
-  ) {
-    const runId = crypto.randomUUID();
-    const headers = new Headers(init.headers);
-    headers.set("x-room-agent-run-id", runId);
-    // One tracked run at a time; aborting the controller propagates through
-    // fetch to the server's request.signal, which stops the agent run's
-    // model calls instead of letting them finish in the background.
-    parseAbortController.current?.abort();
-    const controller = new AbortController();
-    parseAbortController.current = controller;
-    setAgentRunEvents([]);
-    const poll = async () => {
-      try {
-        const response = await fetch(`/api/agent-runs/${encodeURIComponent(runId)}/events`, { cache: "no-store" });
-        if (!response.ok) return;
-        const run = await response.json() as AgentRunSnapshot;
-        setAgentRunEvents(run.events);
-      } catch {
-        // The final POST response remains the fallback when in-memory polling is unavailable.
-      }
-    };
-    const pollTimer = window.setInterval(() => void poll(), 500);
-    // A 429 means this client's earlier Agent task is still running (slow
-    // thinking-mode providers can hold a slot for a minute or two). Back off
-    // and retry instead of failing the click outright.
-    const maxConcurrencyRetries = 3;
-    try {
-      for (let attempt = 0; ; attempt += 1) {
-        const response = await fetch(input, { ...init, headers, signal: controller.signal });
-        if (response.status !== 429 || attempt >= maxConcurrencyRetries) {
-          const data = await response.json() as T;
-          if (data.run) setAgentRunEvents(data.run.events);
-          else await poll();
-          return { response, data };
-        }
-        const retryAfterSeconds = Number(response.headers.get("retry-after")) || 2 * (attempt + 1);
-        setMessage(`上一个 Agent 任务仍在运行，${retryAfterSeconds} 秒后自动重试（${attempt + 1}/${maxConcurrencyRetries}）…`);
-        await abortableBackoffSleep(retryAfterSeconds * 1_000, controller.signal);
-      }
-    } finally {
-      window.clearInterval(pollTimer);
-      if (parseAbortController.current === controller) parseAbortController.current = null;
-    }
-  }
-
   const requestRoomChange = useCallback((roomId: string) => {
     if (cameraTransitioning) return;
     // Once the visitor is inside, navigation is limited to the two interior
@@ -1171,7 +1114,7 @@ export function RoomStudio() {
     setPetCustomization({ ...DEFAULT_PET_CUSTOMIZATION });
     setPrivateFrameImages({});
     setPrivateFrameMessage("");
-    setAgentRunEvents([]);
+    resetAgentRunEvents();
     setAgentRunProfileId("");
   }
 

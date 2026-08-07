@@ -42,7 +42,9 @@ function event<K extends AgentRunEvent["type"]>(
   sequence += 1;
   return {
     eventId: `event-${sequence}`,
-    occurredAt: new Date(Date.UTC(2026, 7, 5, 0, 0, sequence)).toISOString(),
+    // Fresh timestamps keep legitimately running runs from being swept as
+    // stale; the stale-sweep test overrides occurredAt explicitly.
+    occurredAt: new Date(Date.now() + sequence).toISOString(),
     runId,
     type,
     ...extra,
@@ -282,6 +284,21 @@ test("events route exports JSONL and rejects unsupported formats", async () => {
     params: Promise.resolve({ runId: "export-run-2" }),
   });
   assert.equal(missing.status, 404);
+});
+
+test("trace store sweeps zombie runs stuck in running past the stale threshold", () => {
+  const staleOccurredAt = new Date(Date.now() - 60 * 60_000).toISOString();
+  inMemoryTraceStore.append(event("stale-run", "run.started", { occurredAt: staleOccurredAt }));
+  inMemoryTraceStore.append(event("fresh-run", "run.started"));
+
+  const snapshots = inMemoryTraceStore.list();
+  const stale = snapshots.find((snapshot) => snapshot.runId === "stale-run");
+  const fresh = snapshots.find((snapshot) => snapshot.runId === "fresh-run");
+  assert.equal(stale?.status, "failed");
+  const staleLast = stale?.events.at(-1);
+  assert.equal(staleLast?.type, "run.failed");
+  assert.ok(staleLast?.type === "run.failed" && staleLast.errorCode === "stale");
+  assert.equal(fresh?.status, "running");
 });
 
 test("trace store list returns bounded snapshots newest first", () => {

@@ -4,6 +4,7 @@ import { summarizeAgentRun } from "../lib/agent-runtime/trace-summary.ts";
 import { createAgentTracer } from "../lib/agent-runtime/tracer.ts";
 import { inMemoryTraceStore } from "../lib/agent-runtime/in-memory-trace-store.ts";
 import { agentRunStages, agentTraceEventView, inspectAgentTrace } from "../lib/agent-runtime/trace-inspector.ts";
+import type { AgentRunEvent } from "../lib/agent-runtime/run-types.ts";
 import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
 
 // This suite asserts the MAAS json-schema fallback path (Bedrock model and
@@ -149,6 +150,31 @@ test("agentRunStages derives per-stage status with latest-event-wins semantics",
     { id: "items", label: "内容提取", status: "done" },
     { id: "validate", label: "校验合并", status: "active" },
   ]);
+});
+
+test("Trace inspector latency is wall-clock span, not the sum of parallel call latencies", () => {
+  const base = Date.now();
+  const meta = (offsetMs: number) => ({
+    callId: `call-${offsetMs}`,
+    agent: "profile-agent",
+    provider: "maas",
+    model: "model-x",
+    mode: "tool" as const,
+    promptVersion: "profile.v1",
+    startedAt: new Date(base + offsetMs).toISOString(),
+    // Each call claims 60s of latency (they ran in parallel); the wall
+    // span between the first and last event is only 10s.
+    latencyMs: 60_000,
+    attempt: 1,
+    fallbackCount: 0,
+  });
+  const events = [
+    { type: "run.started", eventId: "e1", occurredAt: new Date(base).toISOString(), runId: "r" },
+    { type: "model.completed", step: "profile.identity", eventId: "e2", occurredAt: new Date(base + 5_000).toISOString(), runId: "r", meta: meta(5_000) },
+    { type: "model.completed", step: "profile.items", eventId: "e3", occurredAt: new Date(base + 10_000).toISOString(), runId: "r", meta: meta(10_000) },
+  ] as AgentRunEvent[];
+  const overview = inspectAgentTrace(events);
+  assert.equal(overview.latencyMs, 10_000);
 });
 
 test("Trace inspector summarizes model, tool, retry, token, cost, and planner events", () => {

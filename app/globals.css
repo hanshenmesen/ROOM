@@ -757,7 +757,17 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   margin: 0 auto;
   padding: 5vh 0;
 }
-.creation-progress { align-self: center; max-width: 650px; }
+/* The progress column's content (steps + trace + metrics + stage chips +
+   cancel button) can exceed the viewport; cap it and scroll internally,
+   mirroring the studio card on the right, so the fixed-viewport layout
+   never clips the heading and never grows a page-level scrollbar. */
+.creation-progress {
+  align-self: center;
+  max-width: 650px;
+  max-height: calc(100vh - 168px);
+  overflow-y: auto;
+  padding-right: 12px;
+}
 .creation-index,
 .creation-kicker,
 .creation-studio-heading span { font: 9px var(--font-geist-mono), monospace; letter-spacing: .12em; }
@@ -2152,6 +2162,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   .creation-page { display: block; min-height: 100vh; padding: 0 16px 24px; overflow: auto; background: #f1eee6; }
   .creation-header { height: 62px; }
   .creation-workspace { display: grid; grid-template-columns: 1fr; gap: 30px; padding: 38px 0; }
+  /* Mobile scrolls the whole page (see .creation-page above), so the
+     desktop internal-scroll cap must not apply here. */
+  .creation-progress { max-height: none; overflow: visible; padding-right: 0; }
   .creation-progress h1 { font-size: clamp(38px, 11vw, 52px); }
   .agent-trace-metrics { grid-template-columns: repeat(3,1fr); }
   .agent-trace-metrics > div:nth-child(3n) { border-right: 0; }

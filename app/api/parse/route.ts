@@ -8,6 +8,7 @@ import {
   type ProfileAgentSource,
 } from "@/lib/agents/profile-agent";
 import { summarizeAgentRun } from "@/lib/agent-runtime/trace-summary";
+import { registerAgentRunSignal } from "@/lib/agent-runtime/run-cancellation";
 import { AgentBudgetExceededError } from "@/lib/agent-runtime/run-controls";
 import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
@@ -248,7 +249,7 @@ async function enrichFromPersonalWebsite(
   return enrichFromWebsite(profile, originalLabel, website, pendingTask, providerConfig, tracer, signal);
 }
 
-async function parseJson(request: Request, tracer: AgentTracer, providerConfig?: AgentProviderOverride) {
+async function parseJson(request: Request, tracer: AgentTracer, providerConfig: AgentProviderOverride | undefined, signal: AbortSignal) {
   const body = await request.json() as ParseJsonBody;
   if (body.text !== undefined && typeof body.text !== "string") {
     throw new ProfileAgentError("text 必须是字符串。", 400);
@@ -274,7 +275,7 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
     if (website) {
       tracer.emit({ type: "artifact.created", step: "source.prepare", name: "website-root.json", schemaVersion: "website-root.v1" });
       tracer.emit({ type: "step.completed", step: "source.prepare" });
-      const result = await runWebsiteAgent(startWebsiteAgent(website, providerConfig, tracer, request.signal), undefined, tracer);
+      const result = await runWebsiteAgent(startWebsiteAgent(website, providerConfig, tracer, signal), undefined, tracer);
       if (!result.profile) throw new ProfileAgentError(result.error || "个人网站研究失败。", result.errorStatus || 502);
       return {
         profile: result.profile,
@@ -296,10 +297,10 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
     providerConfig,
     tracer,
     stepPrefix: source.type === "url" ? "website" : "profile",
-    signal: request.signal,
+    signal,
     ...(shouldFollowWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, request.signal);
+        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, signal);
       },
     } : {}),
   });
@@ -307,10 +308,10 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig?:
   if (!shouldFollowWebsite) {
     return { profile, enrichment: { attempted: false, succeeded: false } };
   }
-  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask, providerConfig, tracer, request.signal);
+  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask, providerConfig, tracer, signal);
 }
 
-async function parseFile(request: Request, tracer: AgentTracer, providerConfig?: AgentProviderOverride) {
+async function parseFile(request: Request, tracer: AgentTracer, providerConfig: AgentProviderOverride | undefined, signal: AbortSignal) {
   tracer.emit({ type: "step.started", step: "source.prepare", attempt: 1 });
   const form = await request.formData();
   const file = form.get("file");
@@ -330,17 +331,17 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
     }
   }
   let websiteTask: WebsiteAgentTask | undefined = explicitWebsite
-    ? startWebsiteAgent(explicitWebsite, providerConfig, tracer, request.signal)
+    ? startWebsiteAgent(explicitWebsite, providerConfig, tracer, signal)
     : undefined;
   const agentOptions = {
     providerScope: "resume" as const,
     providerConfig,
     tracer,
     stepPrefix: "profile" as const,
-    signal: request.signal,
+    signal,
     ...(shouldFollowWebsite && !explicitWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, request.signal);
+        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, signal);
       },
     } : {}),
   };
@@ -397,11 +398,11 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig?:
     throw new ProfileAgentError("当前支持 PDF、JPG、PNG、GIF、WebP 和常见文本/网页数据文件。", 415);
   }
   if (explicitWebsite) {
-    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig, tracer, request.signal);
+    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig, tracer, signal);
   }
   return !shouldFollowWebsite
     ? { profile, enrichment: { attempted: false, succeeded: false } }
-    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig, tracer, request.signal);
+    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig, tracer, signal);
 }
 
 function requestedRunId(request: Request) {
@@ -424,11 +425,17 @@ export async function POST(request: Request) {
     });
   }
   const tracer = createAgentTracer(requestedRunId(request));
+  // Register the run for explicit cancellation: a client-side abort alone
+  // does not reliably stop the server handler in every runtime, and a run
+  // that keeps going holds its concurrency lease until the model timeout
+  // (the "取消后反复重试报 429" bug). The cancel endpoint aborts this
+  // signal, ending the run and releasing the lease immediately.
+  const registration = registerAgentRunSignal(tracer.runId, request.signal);
   try {
     const providerConfig = await requestProviderConfig(request);
     const result = contentType.includes("multipart/form-data")
-      ? await parseFile(request, tracer, providerConfig)
-      : await parseJson(request, tracer, providerConfig);
+      ? await parseFile(request, tracer, providerConfig, registration.signal)
+      : await parseJson(request, tracer, providerConfig, registration.signal);
     tracer.complete();
     const run = tracer.snapshot()!;
     return NextResponse.json({ ...result, run, trace: summarizeAgentRun(run.events) });
@@ -450,6 +457,7 @@ export async function POST(request: Request) {
       { status },
     );
   } finally {
+    registration.unregister();
     releaseLease();
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { agentTraceEventView, inspectAgentTrace, traceEventMetadata } from "@/lib/agent-runtime/trace-inspector";
 import type { AgentRunEvent } from "@/lib/agent-runtime/run-types";
 
@@ -16,9 +17,22 @@ function readableMetadata(value: unknown) {
 }
 
 export function AgentTracePanel({ events }: { events: AgentRunEvent[] }) {
-  if (!events.length) return null;
-  const overview = inspectAgentTrace(events);
+  const overview = events.length ? inspectAgentTrace(events) : undefined;
+  const running = overview?.status === "running";
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  if (!events.length || !overview) return null;
   const statusLabel = overview.status === "completed" ? "已完成" : overview.status === "failed" ? "失败" : "运行中";
+  // Wall-clock everywhere: while running, tick from the interval clock;
+  // once finished, the inspector's first-to-last-event span is the same
+  // metric, so the number no longer jumps at completion.
+  const elapsedMs = running
+    ? Math.max(overview.latencyMs, now - Date.parse(events[0].occurredAt))
+    : overview.latencyMs;
   return (
     <section className={`agent-trace-panel is-${overview.status}`} aria-label="Agent 运行轨迹">
       <header>
@@ -30,7 +44,7 @@ export function AgentTracePanel({ events }: { events: AgentRunEvent[] }) {
         <div><dt>工具</dt><dd>{overview.toolCalls}</dd></div>
         <div><dt>重试</dt><dd>{overview.retries}</dd></div>
         <div><dt>产物</dt><dd>{overview.artifacts}</dd></div>
-        <div><dt>耗时</dt><dd>{overview.latencyMs >= 1_000 ? `${(overview.latencyMs / 1_000).toFixed(1)}s` : `${overview.latencyMs}ms`}</dd></div>
+        <div><dt>耗时</dt><dd>{elapsedMs >= 1_000 ? `${(elapsedMs / 1_000).toFixed(1)}s` : `${elapsedMs}ms`}</dd></div>
         <div><dt>Token</dt><dd>{overview.inputTokens + overview.outputTokens || "—"}</dd></div>
         <div><dt>成本</dt><dd>{overview.estimatedCost ? `$${overview.estimatedCost.toFixed(4)}` : "—"}</dd></div>
       </dl>

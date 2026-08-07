@@ -88,11 +88,11 @@ test("website and resume sources wait for one explicit generate action", () => {
   assert.doesNotMatch(studioSource, /function upload\([^}]+readFile/);
   assert.match(studioSource, /if \(sourceFile\) \{[\s\S]*readFile\(sourceFile, website \|\| undefined\)/);
   assert.match(studioSource, /if \(website\) form\.set\("website", website\)/);
-  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\(explicitWebsite, providerConfig, tracer, request\.signal\)/);
-  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig, tracer, request\.signal\)/);
+  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\(explicitWebsite, providerConfig, tracer, signal\)/);
+  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig, tracer, signal\)/);
   assert.match(studioSource, /parseTextWithAgent\("", value, "url", \[\], value, true\)/);
   assert.doesNotMatch(studioSource.match(/async function extractUrl\(\)[\s\S]*?async function readFile/)?.[0] || "", /\/api\/extract/);
-  assert.match(parseRouteSource, /source\.type === "url"[\s\S]*runWebsiteAgent\(startWebsiteAgent\(website, providerConfig, tracer, request\.signal\)/);
+  assert.match(parseRouteSource, /source\.type === "url"[\s\S]*runWebsiteAgent\(startWebsiteAgent\(website, providerConfig, tracer, signal\)/);
 });
 
 test("providers without document-block support get line-numbered text evidence instead of page references", () => {
