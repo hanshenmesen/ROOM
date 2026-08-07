@@ -59,8 +59,12 @@ test("continuous provider failures trip the per-run circuit breaker without a po
   const originalBaseUrl = process.env.MAAS_BASE_URL;
   const originalModel = process.env.MAAS_MODEL;
   // Two modes x two models gives the per-run breaker enough calls to trip.
-  process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
-  process.env.MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
+  process.env.MAAS_BASE_URL = "https://external-maas.example/hackson";
+// The external gateway's identifiers are env-injected; tests use placeholders.
+process.env.EXTERNAL_MAAS_BASE_URL = "https://external-maas.example/hackson";
+process.env.EXTERNAL_MAAS_FALLBACK_MODEL = "bedrock-claude/claude";
+
+  process.env.MAAS_MODEL = "vertex-claude/claude";
   let calls = 0;
   globalThis.fetch = (async () => {
     calls += 1;

@@ -1,4 +1,9 @@
-export const DEFAULT_PORTRAIT_ART_BASE_URL = "https://maas.devops.rednote.life/hackson";
+import { externalMaasBaseUrl } from "./agents/provider-env.ts";
+
+// No internal hostname is tracked in the repo: the image endpoint defaults
+// to the deployment's external MAAS gateway when configured, else stays
+// unconfigured (the route answers a clean 503 until an env provides one).
+export const DEFAULT_PORTRAIT_ART_BASE_URL = externalMaasBaseUrl();
 export const DEFAULT_PORTRAIT_ART_MODEL = "gpt-image-2";
 export const MAX_PORTRAIT_SOURCE_BYTES = 8 * 1024 * 1024;
 

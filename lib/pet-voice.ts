@@ -4,7 +4,9 @@ export const PET_TTS_MAX_TEXT_CHARACTERS = 2_400;
 
 export const DEFAULT_PET_TTS_CONFIG = {
   enabled: true,
-  url: "wss://joiagent.devops.beta.xiaohongshu.com/tts/qwen3cus/v1/audio/speech/stream",
+  // No default realtime endpoint in the tracked repo; provide
+  // NEXT_PUBLIC_PET_TTS_REALTIME_URL at local/deploy time (see .env.example).
+  url: "",
   model: "Qwen3-TTS-12Hz-1.7B-CustomVoice",
   voice: "vivian",
   taskType: "CustomVoice",
@@ -78,9 +80,11 @@ export function normalizePetTtsConfig(value: Partial<PetTtsConfig> | undefined):
   const tokens = typeof candidate.maxNewTokens === "number" && Number.isFinite(candidate.maxNewTokens)
     ? Math.round(candidate.maxNewTokens)
     : DEFAULT_PET_TTS_CONFIG.maxNewTokens;
+  const url = normalizedTtsUrl(candidate.url);
   return {
-    enabled: candidate.enabled !== false,
-    url: normalizedTtsUrl(candidate.url),
+    // Without a configured endpoint the voice feature is off, not broken.
+    enabled: candidate.enabled !== false && Boolean(url),
+    url,
     model: cleanConfigText(candidate.model, DEFAULT_PET_TTS_CONFIG.model),
     voice: cleanConfigText(candidate.voice, DEFAULT_PET_TTS_CONFIG.voice, 120),
     taskType: cleanConfigText(candidate.taskType, DEFAULT_PET_TTS_CONFIG.taskType, 120),

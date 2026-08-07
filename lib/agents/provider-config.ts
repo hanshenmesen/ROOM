@@ -1,9 +1,19 @@
 import { providerCapabilitiesFor } from "./provider-capabilities.ts";
 import {
+  externalMaasBaseUrl,
+  externalMaasModel,
+  internalMaasHost,
+  internalMaasModels,
+} from "./provider-env.ts";
+import {
   isDeepSeekProvider as isDeepSeekProviderHost,
   providerProtocolForBaseUrl,
   type ProviderProtocol,
 } from "./provider-request.ts";
+import {
+  BROWSER_AGENT_PROVIDER_PRESETS,
+  type BrowserAgentProviderPreset,
+} from "../browser-agent-config.ts";
 
 // The primary provider slot defaults to DeepSeek's official Anthropic-
 // compatible endpoint: every ROOM model path (profile shards, website
@@ -14,16 +24,12 @@ import {
 // Boundary: DeepSeek does not support image/document content blocks, so
 // PDF-vision and image inputs need a multimodal provider (e.g. MAAS).
 //
-// Xiaohongshu's internal MAAS gateway (maas.devops.xiaohongshu.com) is a
-// second, OpenAI Chat Completions-compatible way to reach the same
-// deepseek-v4-pro model from inside the corporate network. It requires a
-// distinct header set (api-key / x-maas-user-email / x-maas-app-id) instead
-// of Authorization: Bearer, and is available as the "小红书内网 MAAS"
-// browser preset rather than the default, since it is not reachable from
-// outside the internal network.
+// Internal/external MAAS gateways are deliberately NOT referenced here by
+// hostname or model id: those are deployment-specific details injected via
+// environment variables (see provider-env.ts and .env.example), so the
+// tracked repository stays free of internal infrastructure identifiers.
 export const DEFAULT_MAAS_BASE_URL = "https://api.deepseek.com/anthropic";
 export const DEFAULT_MAAS_MODEL = "deepseek-v4-pro";
-export const FALLBACK_MAAS_MODEL = "bedrock-claude-sonnet-5/claude-sonnet-5";
 export const DEFAULT_WEBSITE_AGENT_BASE_URL = "https://api.zhizengzeng.com/v1";
 export const DEFAULT_WEBSITE_AGENT_MODEL = "claude-sonnet-5";
 export const DEFAULT_PET_QA_BASE_URL = DEFAULT_MAAS_BASE_URL;
@@ -156,6 +162,39 @@ export type { ProviderProtocol };
 
 export type PublicAgentConfigStatus = ReturnType<typeof getPublicAgentConfigStatus>;
 
+/**
+ * Provider presets offered in the browser setup dialog. The tracked
+ * repository ships only public providers; internal/external MAAS gateways
+ * appear only when their env identifiers are present (i.e. a local or
+ * properly configured deployment), never from git-tracked defaults.
+ */
+function runtimeProviderPresets(): BrowserAgentProviderPreset[] {
+  const presets: BrowserAgentProviderPreset[] = [...BROWSER_AGENT_PROVIDER_PRESETS];
+  const internalHost = internalMaasHost();
+  if (internalHost) {
+    internalMaasModels().forEach((model, index) => {
+      presets.push({
+        id: `internal-maas-${index}`,
+        label: `内部 MAAS 网关 · ${model}`,
+        baseUrl: `https://${internalHost}`,
+        model,
+        mode: "tool",
+        requiresUserEmail: true,
+      });
+    });
+  }
+  if (externalMaasBaseUrl() && externalMaasModel()) {
+    presets.push({
+      id: "external-maas",
+      label: "MAAS 外部网关",
+      baseUrl: externalMaasBaseUrl(),
+      model: externalMaasModel(),
+      mode: "json-schema",
+    });
+  }
+  return presets;
+}
+
 export function getPublicAgentConfigStatus() {
   const config = getAgentProviderConfig();
   const ready = config.maas.apiKeys.length > 0 || config.website.apiKeys.length > 0;
@@ -172,6 +211,7 @@ export function getPublicAgentConfigStatus() {
     ready,
     demoAvailable: true,
     secretsExposed: false,
+    presets: runtimeProviderPresets(),
     resume: {
       ready,
       provider: config.maas.apiKeys.length ? "MAAS" : config.website.apiKeys.length ? "Website fallback" : "未配置",

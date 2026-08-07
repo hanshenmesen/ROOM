@@ -2,63 +2,45 @@ export const BROWSER_AGENT_SESSION_KEY = "room:agent-config:v1";
 
 export type BrowserAgentProviderMode = "json-schema" | "tool";
 
-export const BROWSER_AGENT_PROVIDER_PRESETS = [
+export type BrowserAgentProviderPreset = {
+  id: string;
+  label: string;
+  baseUrl: string;
+  model: string;
+  mode: BrowserAgentProviderMode;
+  /** Whether the provider requires an enterprise-email header (shown as a form field). */
+  requiresUserEmail?: boolean;
+};
+
+// Only public providers are listed in the tracked repository. Internal
+// MAAS gateways (their hostnames, app ids, and model names) are injected at
+// runtime from environment variables via /api/config -- see provider-env.ts
+// -- so a fresh git clone shows just these public options.
+export const BROWSER_AGENT_PROVIDER_PRESETS: readonly BrowserAgentProviderPreset[] = [
   {
     id: "deepseek",
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com/anthropic",
     model: "deepseek-v4-pro",
-    mode: "tool" as const,
-  },
-  {
-    id: "xhs-maas",
-    label: "小红书内网 MAAS · DeepSeek V4 Pro",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
-    model: "deepseek-v4-pro",
-    mode: "tool" as const,
-  },
-  {
-    id: "xhs-maas-qwen",
-    label: "小红书内网 MAAS · Qwen 3.5 397B",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
-    model: "qwen3.5-397b-a17b",
-    mode: "tool" as const,
-  },
-  {
-    id: "maas",
-    label: "MAAS",
-    baseUrl: "https://maas.devops.rednote.life/hackson",
-    model: "vertex-claude-sonnet-5/claude-sonnet-5",
-    mode: "json-schema" as const,
+    mode: "tool",
   },
   {
     id: "zhizengzeng",
     label: "智增增 API",
     baseUrl: "https://api.zhizengzeng.com/v1",
     model: "claude-sonnet-5",
-    mode: "tool" as const,
+    mode: "tool",
   },
-] as const;
+];
 
 const ZHIZENGZENG_PRESET = BROWSER_AGENT_PROVIDER_PRESETS.find((preset) => preset.id === "zhizengzeng")!;
 
-export type BrowserAgentProviderPresetId = (typeof BROWSER_AGENT_PROVIDER_PRESETS)[number]["id"];
+export type BrowserAgentProviderPresetId = string;
 
-/**
- * True for provider hosts that require the Xiaohongshu internal MAAS
- * gateway's OpenAI Chat Completions protocol (api-key / x-maas-user-email /
- * x-maas-app-id) instead of Anthropic Messages. Kept as a small predicate
- * here (rather than importing the server-side provider-request module into
- * client bundles) since the UI only needs to know whether to show the
- * enterprise-email field.
- */
-export function requiresMaasUserEmail(baseUrl: string) {
-  try {
-    const candidate = baseUrl.includes("://") ? baseUrl : `https://${baseUrl}`;
-    return new URL(candidate).hostname === "maas.devops.xiaohongshu.com";
-  } catch {
-    return false;
-  }
+/** True when `baseUrl` belongs to a preset that requires the enterprise-email field. */
+export function presetListRequiresUserEmail(presets: readonly BrowserAgentProviderPreset[], baseUrl: string) {
+  const trimmed = baseUrl.trim().replace(/\/+$/, "");
+  return presets.some((preset) => preset.requiresUserEmail && preset.baseUrl === trimmed);
 }
 
 type BrowserAgentProviderConfig = {
@@ -101,7 +83,9 @@ export const DEFAULT_BROWSER_AGENT_CONFIG: BrowserAgentConfig = {
   },
   image: {
     apiKey: "",
-    baseUrl: "https://maas.devops.rednote.life/hackson",
+    // No default endpoint in the tracked repo: the image service is a
+    // deployment detail configured server-side (IMAGE_MAAS_* envs).
+    baseUrl: "",
     model: "gpt-image-2",
   },
   petQa: {
@@ -120,19 +104,24 @@ export type BrowserAgentConfig = {
   petQa: BrowserPetQaProviderConfig;
 };
 
-export function browserAgentProviderPreset(id: BrowserAgentProviderPresetId) {
-  return BROWSER_AGENT_PROVIDER_PRESETS.find((preset) => preset.id === id) || BROWSER_AGENT_PROVIDER_PRESETS[0];
+export function browserAgentProviderPreset(
+  id: BrowserAgentProviderPresetId,
+  presets: readonly BrowserAgentProviderPreset[] = BROWSER_AGENT_PROVIDER_PRESETS,
+) {
+  return presets.find((preset) => preset.id === id) || presets[0];
 }
 
-export function browserAgentProviderPresetId(provider: Pick<BrowserAgentProviderConfig, "baseUrl" | "model">): BrowserAgentProviderPresetId {
-  const exact = BROWSER_AGENT_PROVIDER_PRESETS.find(
+export function browserAgentProviderPresetId(
+  provider: Pick<BrowserAgentProviderConfig, "baseUrl" | "model">,
+  presets: readonly BrowserAgentProviderPreset[] = BROWSER_AGENT_PROVIDER_PRESETS,
+): BrowserAgentProviderPresetId {
+  const exact = presets.find(
     (preset) => preset.baseUrl === provider.baseUrl && preset.model === provider.model,
   );
   if (exact) return exact.id;
   if (provider.baseUrl.includes("api.deepseek.com")) return "deepseek";
-  if (requiresMaasUserEmail(provider.baseUrl)) return "xhs-maas";
   if (provider.baseUrl.includes("api.zhizengzeng.com")) return "zhizengzeng";
-  return "maas";
+  return presets[0]?.id || "custom";
 }
 
 export function normalizeBrowserAgentConfig(value: unknown): BrowserAgentConfig | null {

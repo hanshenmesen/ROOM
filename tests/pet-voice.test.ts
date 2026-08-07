@@ -22,7 +22,8 @@ test("pet voice defaults to Qwen3 realtime PCM with a bounded local preference",
   assert.equal(PET_VOICE_STORAGE_KEY, "room:pet-voice:v1");
   assert.equal(PET_TTS_SAMPLE_RATE, 24_000);
   assert.equal(DEFAULT_PET_TTS_CONFIG.voice, "vivian");
-  assert.match(DEFAULT_PET_TTS_CONFIG.url, /^wss:\/\//);
+  // No default endpoint is tracked; local runs inject NEXT_PUBLIC_PET_TTS_REALTIME_URL.
+  assert.equal(DEFAULT_PET_TTS_CONFIG.url, "");
   assert.deepEqual(normalizePetVoicePreference(null), { enabled: true, volume: 0.88 });
   assert.deepEqual(normalizePetVoicePreference({ enabled: false, volume: 7 }), { enabled: false, volume: 1 });
 });
@@ -125,7 +126,7 @@ test("a completed Qwen3 session without PCM is treated as a recoverable failure"
     await assert.rejects(
       streamPetTts({
         text: "没有音频的回答。",
-        config: normalizePetTtsConfig(undefined),
+        config: normalizePetTtsConfig({ url: "wss://tts.example.test/stream" }),
         onAudio: () => assert.fail("should not receive audio"),
       }),
       /没有返回可播放的音频/,

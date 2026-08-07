@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 
-const DEFAULT_BASE_URL = "https://maas.devops.rednote.life/hackson";
+const DEFAULT_BASE_URL = process.env.EXTERNAL_MAAS_BASE_URL || "";
 const DEFAULT_MODELS = [
-  "bedrock-claude-sonnet-5/claude-sonnet-5",
-  "vertex-claude-sonnet-5/claude-sonnet-5",
+  "bedrock-claude/claude",
+  "vertex-claude/claude",
   "vertex-global-claude-sonnet-5/claude-sonnet-5",
   "bedrock-claude-opus-4-8/claude-opus-4-8",
   "vertex-claude-opus-4-8/claude-opus-4-8",

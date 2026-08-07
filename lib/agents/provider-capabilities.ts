@@ -63,7 +63,7 @@ function xhsMaasCapabilities(model: string): ProviderCapabilities {
     supportsDocumentBlocks: false,
     supportsImageBlocks: false,
     // The gateway's `thinking` field is DeepSeek-specific; sending it to
-    // other models (e.g. qwen3.5) risks a request-validation rejection.
+    // non-DeepSeek models risks a request-validation rejection.
     disableThinking: /^deepseek(?:-|$)/i.test(model.trim()),
   };
 }

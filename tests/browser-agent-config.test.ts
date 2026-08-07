@@ -12,8 +12,34 @@ import {
   readBrowserAgentConfigHeaders,
   readBrowserPetQaConfigHeaders,
   readBrowserPortraitArtConfigHeaders,
-  requiresMaasUserEmail,
+  presetListRequiresUserEmail,
+  type BrowserAgentProviderPreset,
 } from "../lib/browser-agent-config.ts";
+
+// Placeholder identifiers only: real internal hosts/models come from env at
+// runtime and must never appear in tracked sources.
+const INTERNAL_PRESET: BrowserAgentProviderPreset = {
+  id: "internal-maas-0",
+  label: "内部 MAAS 网关 · deepseek-v4-pro",
+  baseUrl: "https://internal-maas.example",
+  model: "deepseek-v4-pro",
+  mode: "tool",
+  requiresUserEmail: true,
+};
+const INTERNAL_QWEN_PRESET: BrowserAgentProviderPreset = {
+  ...INTERNAL_PRESET,
+  id: "internal-maas-1",
+  label: "内部 MAAS 网关 · qwen-internal",
+  model: "qwen-internal",
+};
+const EXTERNAL_PRESET: BrowserAgentProviderPreset = {
+  id: "external-maas",
+  label: "MAAS 外部网关",
+  baseUrl: "https://external-maas.example/hackson",
+  model: "vertex-claude/claude",
+  mode: "json-schema",
+};
+const ALL_PRESETS = [...BROWSER_AGENT_PROVIDER_PRESETS, INTERNAL_PRESET, INTERNAL_QWEN_PRESET, EXTERNAL_PRESET];
 
 test("browser Agent config ships with the DeepSeek defaults", () => {
   assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.maas.baseUrl, "https://api.deepseek.com/anthropic");
@@ -27,21 +53,21 @@ test("browser Agent config ships with the DeepSeek defaults", () => {
   assert.equal(DEFAULT_BROWSER_AGENT_CONFIG.petQa.model, "deepseek-v4-pro");
 });
 
-test("provider presets resolve ids from base urls and models across all five providers", () => {
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 5);
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].id, "deepseek");
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS[0].mode, "tool");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.xiaohongshu.com", model: "deepseek-v4-pro" }), "xhs-maas");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.xiaohongshu.com", model: "qwen3.5-397b-a17b" }), "xhs-maas-qwen");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.deepseek.com/anthropic", model: "deepseek-v4-pro" }), "deepseek");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.zhizengzeng.com/v1", model: "claude-sonnet-5" }), "zhizengzeng");
-  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://maas.devops.rednote.life/hackson", model: "vertex-claude-sonnet-5/claude-sonnet-5" }), "maas");
+test("tracked presets are public only; runtime presets resolve ids from base urls and models", () => {
+  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 2);
+  assert.deepEqual(BROWSER_AGENT_PROVIDER_PRESETS.map((preset) => preset.id), ["deepseek", "zhizengzeng"]);
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://internal-maas.example", model: "deepseek-v4-pro" }, ALL_PRESETS), "internal-maas-0");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://internal-maas.example", model: "qwen-internal" }, ALL_PRESETS), "internal-maas-1");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.deepseek.com/anthropic", model: "deepseek-v4-pro" }, ALL_PRESETS), "deepseek");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://api.zhizengzeng.com/v1", model: "claude-sonnet-5" }, ALL_PRESETS), "zhizengzeng");
+  assert.equal(browserAgentProviderPresetId({ baseUrl: "https://external-maas.example/hackson", model: "vertex-claude/claude" }, ALL_PRESETS), "external-maas");
 });
 
-test("requiresMaasUserEmail identifies only the internal gateway host", () => {
-  assert.equal(requiresMaasUserEmail("https://maas.devops.xiaohongshu.com"), true);
-  assert.equal(requiresMaasUserEmail("https://api.deepseek.com/anthropic"), false);
-  assert.equal(requiresMaasUserEmail("https://maas.devops.rednote.life/hackson"), false);
+test("presetListRequiresUserEmail follows the preset flag, not a hardcoded host", () => {
+  assert.equal(presetListRequiresUserEmail(ALL_PRESETS, "https://internal-maas.example"), true);
+  assert.equal(presetListRequiresUserEmail(ALL_PRESETS, "https://internal-maas.example/"), true);
+  assert.equal(presetListRequiresUserEmail(ALL_PRESETS, "https://api.deepseek.com/anthropic"), false);
+  assert.equal(presetListRequiresUserEmail(ALL_PRESETS, "https://external-maas.example/hackson"), false);
 });
 
 test("browser Agent config crosses the parsing boundary without using a URL query", () => {
@@ -84,20 +110,20 @@ test("browser Agent config crosses the parsing boundary without using a URL quer
   assert.equal(parsed?.maasUserEmail, "");
 });
 
-test("the internal MAAS gateway's user email crosses the parsing boundary alongside the key", () => {
+test("an internal gateway's user email crosses the parsing boundary alongside the key", () => {
   const headers = new Headers(browserAgentConfigHeaders({
     ...DEFAULT_BROWSER_AGENT_CONFIG,
     maas: {
       apiKey: "sk-internal-test-key",
-      baseUrl: "https://maas.devops.xiaohongshu.com",
+      baseUrl: "https://internal-maas.example",
       model: "deepseek-v4-pro",
       mode: "tool",
-      userEmail: "someone@xiaohongshu.com",
+      userEmail: "someone@example.com",
     },
   }));
   const parsed = readBrowserAgentConfigHeaders(headers);
-  assert.equal(parsed?.maasBaseUrl, "https://maas.devops.xiaohongshu.com");
-  assert.equal(parsed?.maasUserEmail, "someone@xiaohongshu.com");
+  assert.equal(parsed?.maasBaseUrl, "https://internal-maas.example");
+  assert.equal(parsed?.maasUserEmail, "someone@example.com");
 });
 
 test("browser pet QA config crosses only the pet request boundary", () => {
@@ -128,12 +154,12 @@ test("browser pet QA config crosses only the pet request boundary", () => {
 test("pet QA requests reuse the primary session key and user email when no dedicated ones are set", () => {
   const headers = new Headers(browserPetQaConfigHeaders({
     ...DEFAULT_BROWSER_AGENT_CONFIG,
-    maas: { ...DEFAULT_BROWSER_AGENT_CONFIG.maas, apiKey: "shared-key", userEmail: "shared@xiaohongshu.com" },
+    maas: { ...DEFAULT_BROWSER_AGENT_CONFIG.maas, apiKey: "shared-key", userEmail: "shared@example.com" },
   }));
 
   const parsed = readBrowserPetQaConfigHeaders(headers);
   assert.equal(parsed?.petQaApiKey, "shared-key");
-  assert.equal(parsed?.petQaUserEmail, "shared@xiaohongshu.com");
+  assert.equal(parsed?.petQaUserEmail, "shared@example.com");
 });
 
 test("browser portrait-art config crosses only the image request boundary", () => {
@@ -189,35 +215,16 @@ test("empty browser keys preserve the server-environment fallback", () => {
 });
 
 test("the provider dropdown maps every Base URL and model to its compatible request mode", () => {
-  assert.equal(BROWSER_AGENT_PROVIDER_PRESETS.length, 5);
-  assert.deepEqual(browserAgentProviderPreset("deepseek"), {
+  assert.deepEqual(browserAgentProviderPreset("deepseek", ALL_PRESETS), {
     id: "deepseek",
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com/anthropic",
     model: "deepseek-v4-pro",
     mode: "tool",
   });
-  assert.deepEqual(browserAgentProviderPreset("xhs-maas"), {
-    id: "xhs-maas",
-    label: "小红书内网 MAAS · DeepSeek V4 Pro",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
-    model: "deepseek-v4-pro",
-    mode: "tool",
-  });
-  assert.deepEqual(browserAgentProviderPreset("xhs-maas-qwen"), {
-    id: "xhs-maas-qwen",
-    label: "小红书内网 MAAS · Qwen 3.5 397B",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
-    model: "qwen3.5-397b-a17b",
-    mode: "tool",
-  });
-  assert.deepEqual(browserAgentProviderPreset("maas"), {
-    id: "maas",
-    label: "MAAS",
-    baseUrl: "https://maas.devops.rednote.life/hackson",
-    model: "vertex-claude-sonnet-5/claude-sonnet-5",
-    mode: "json-schema",
-  });
-  assert.equal(browserAgentProviderPreset("zhizengzeng").baseUrl, "https://api.zhizengzeng.com/v1");
-  assert.equal(browserAgentProviderPreset("zhizengzeng").mode, "tool");
+  assert.equal(browserAgentProviderPreset("internal-maas-0", ALL_PRESETS).requiresUserEmail, true);
+  assert.equal(browserAgentProviderPreset("internal-maas-1", ALL_PRESETS).model, "qwen-internal");
+  assert.equal(browserAgentProviderPreset("external-maas", ALL_PRESETS).mode, "json-schema");
+  assert.equal(browserAgentProviderPreset("zhizengzeng", ALL_PRESETS).baseUrl, "https://api.zhizengzeng.com/v1");
+  assert.equal(browserAgentProviderPreset("zhizengzeng", ALL_PRESETS).mode, "tool");
 });

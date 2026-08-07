@@ -9,6 +9,10 @@ import { redactTraceValue } from "../lib/agent-runtime/redaction.ts";
 import { createAgentTracer } from "../lib/agent-runtime/tracer.ts";
 import { traceEventMetadata } from "../lib/agent-runtime/trace-inspector.ts";
 import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
+// Internal gateway identifiers are injected via env; tests use placeholders.
+process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+process.env.INTERNAL_MAAS_APP_ID = "test-app-id";
+
 
 const PII_SAMPLE = "上海交通大学";
 
@@ -127,7 +131,7 @@ test("failed model calls attach a structural diagnostic to the trace, without PI
         tracer,
         providerConfig: {
           maasApiKey: "diag-test-key",
-          maasBaseUrl: "https://maas.devops.xiaohongshu.com",
+          maasBaseUrl: "https://internal-maas.example",
         },
       },
     ));

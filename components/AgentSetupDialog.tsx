@@ -6,7 +6,7 @@ import {
   DEFAULT_BROWSER_AGENT_CONFIG,
   browserAgentProviderPreset,
   browserAgentProviderPresetId,
-  requiresMaasUserEmail,
+  presetListRequiresUserEmail,
   type BrowserAgentConfig,
   type BrowserAgentProviderPresetId,
 } from "@/lib/browser-agent-config";
@@ -20,14 +20,20 @@ type AgentSetupDialogProps = {
   onClear: () => void;
 };
 
+const EMPTY_PROVIDER_DRAFT = { apiKey: "", baseUrl: "", model: "", mode: "tool" as const, userEmail: "" };
+const EMPTY_IMAGE_DRAFT = { apiKey: "", baseUrl: "", model: "" };
+
 function freshConfig(config: BrowserAgentConfig | null): BrowserAgentConfig {
   return config
     ? { maas: { ...config.maas }, website: { ...config.website }, image: { ...config.image }, petQa: { ...config.petQa } }
     : {
-        maas: { ...DEFAULT_BROWSER_AGENT_CONFIG.maas },
-        website: { ...DEFAULT_BROWSER_AGENT_CONFIG.website },
-        image: { ...DEFAULT_BROWSER_AGENT_CONFIG.image },
-        petQa: { ...DEFAULT_BROWSER_AGENT_CONFIG.petQa },
+        // Start from empty fields: no preset values are pre-filled. The user
+        // picks a Provider (which fills baseUrl/model) or types everything
+        // by hand; saving persists to this tab's sessionStorage as before.
+        maas: { ...EMPTY_PROVIDER_DRAFT },
+        website: { ...EMPTY_PROVIDER_DRAFT },
+        image: { ...EMPTY_IMAGE_DRAFT },
+        petQa: { ...EMPTY_PROVIDER_DRAFT },
       };
 }
 
@@ -59,6 +65,9 @@ const FOCUSABLE_SELECTOR = [
 
 export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: AgentSetupDialogProps) {
   const [draft, setDraft] = useState(() => freshConfig(config));
+  // Public presets ship with the repo; deployment-specific gateways arrive
+  // from the server via /api/config (only present when env-configured).
+  const presets = status?.presets?.length ? status.presets : BROWSER_AGENT_PROVIDER_PRESETS;
   const [concurrentWebsiteAgent, setConcurrentWebsiteAgent] = useState(Boolean(config?.website.apiKey));
   const [customImageProvider, setCustomImageProvider] = useState(() => hasCustomImage(config));
   const [customPetQaProvider, setCustomPetQaProvider] = useState(() => hasCustomPetQa(config));
@@ -101,7 +110,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
   }
 
   function selectPrimaryProvider(presetId: BrowserAgentProviderPresetId) {
-    const preset = browserAgentProviderPreset(presetId);
+    const preset = browserAgentProviderPreset(presetId, presets);
     setDraft((current) => ({
       ...current,
       maas: {
@@ -115,6 +124,14 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!draft.maas.baseUrl.trim()) {
+      setFeedback("请选择主服务的 Provider。");
+      return;
+    }
+    if (!draft.maas.model.trim()) {
+      setFeedback("请填写主服务的 Model。");
+      return;
+    }
     if (!draft.maas.apiKey.trim()) {
       setFeedback("请填写主服务的 API Key。");
       return;
@@ -197,10 +214,11 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                   <select
                     ref={firstFieldRef}
                     aria-label="主解析 Provider"
-                    value={browserAgentProviderPresetId(draft.maas)}
+                    value={draft.maas.baseUrl ? browserAgentProviderPresetId(draft.maas, presets) : ""}
                     onChange={(event) => selectPrimaryProvider(event.target.value as BrowserAgentProviderPresetId)}
                   >
-                    {BROWSER_AGENT_PROVIDER_PRESETS.map((preset) => (
+                    <option value="" disabled>请选择 Provider</option>
+                    {presets.map((preset) => (
                       <option key={preset.id} value={preset.id}>{preset.label}</option>
                     ))}
                   </select>
@@ -210,6 +228,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                   <input
                     required
                     value={draft.maas.model}
+                    placeholder="选择 Provider 后自动填入，也可手动修改"
                     onChange={(event) => setDraft((current) => ({
                       ...current,
                       maas: { ...current.maas, model: event.target.value },
@@ -230,7 +249,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                   autoComplete="off"
                 />
               </label>
-              {requiresMaasUserEmail(draft.maas.baseUrl) ? (
+              {presetListRequiresUserEmail(presets, draft.maas.baseUrl) ? (
                 <label>
                   <span>企业邮箱</span>
                   <input
@@ -241,7 +260,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                       ...current,
                       maas: { ...current.maas, userEmail: event.target.value },
                     }))}
-                    placeholder="you@xiaohongshu.com"
+                    placeholder="you@example.com"
                     autoComplete="off"
                   />
                 </label>
@@ -284,7 +303,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                       <label><span>Base URL</span><input type="url" required value={draft.website.baseUrl} onChange={(event) => setDraft((current) => ({ ...current, website: { ...current.website, baseUrl: event.target.value } }))} /></label>
                       <label><span>Model</span><input required value={draft.website.model} onChange={(event) => setDraft((current) => ({ ...current, website: { ...current.website, model: event.target.value } }))} /></label>
                     </div>
-                    {requiresMaasUserEmail(draft.website.baseUrl) ? (
+                    {presetListRequiresUserEmail(presets, draft.website.baseUrl) ? (
                       <label>
                         <span>企业邮箱</span>
                         <input
@@ -292,7 +311,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                           required
                           value={draft.website.userEmail}
                           onChange={(event) => setDraft((current) => ({ ...current, website: { ...current.website, userEmail: event.target.value } }))}
-                          placeholder="you@xiaohongshu.com"
+                          placeholder="you@example.com"
                           autoComplete="off"
                         />
                       </label>
@@ -333,7 +352,7 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
                       <label><span>Base URL</span><input type="url" required value={draft.petQa.baseUrl} onChange={(event) => setDraft((current) => ({ ...current, petQa: { ...current.petQa, baseUrl: event.target.value } }))} /></label>
                       <label><span>Model</span><input required value={draft.petQa.model} onChange={(event) => setDraft((current) => ({ ...current, petQa: { ...current.petQa, model: event.target.value } }))} /></label>
                     </div>
-                    {requiresMaasUserEmail(draft.petQa.baseUrl) ? (
+                    {presetListRequiresUserEmail(presets, draft.petQa.baseUrl) ? (
                       <label>
                         <span>企业邮箱（可选）</span>
                         <input

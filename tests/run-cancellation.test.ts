@@ -7,6 +7,10 @@ import {
   registerAgentRunSignal,
 } from "../lib/agent-runtime/run-cancellation.ts";
 import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
+// Internal gateway identifiers are injected via env; tests use placeholders.
+process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+process.env.INTERNAL_MAAS_APP_ID = "test-app-id";
+
 
 const routeAliases: Record<string, string> = {
   "@/lib/agent-runtime/run-cancellation": new URL("../lib/agent-runtime/run-cancellation.ts", import.meta.url).href,
@@ -67,7 +71,7 @@ test("the cancel endpoint stops a hung agent run instead of waiting for the mode
     const pending = extractProfileWithAgentRun("林遥\nAgent 工程师", undefined, {
       runId,
       signal: registration.signal,
-      providerConfig: { maasApiKey: "test-key", maasBaseUrl: "https://maas.devops.xiaohongshu.com" },
+      providerConfig: { maasApiKey: "test-key", maasBaseUrl: "https://internal-maas.example" },
     });
     void pending.catch(() => {});
     // Give the run a moment to reach its in-flight fetch, then cancel via

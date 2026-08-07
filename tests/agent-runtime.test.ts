@@ -10,7 +10,11 @@ import { extractProfileWithAgentRun } from "../lib/agents/profile-agent.ts";
 // This suite asserts the MAAS json-schema fallback path (Bedrock model and
 // json-schema mode metadata), so it pins the MAAS base URL rather than the
 // repository-wide DeepSeek default.
-process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+process.env.MAAS_BASE_URL = "https://external-maas.example/hackson";
+// The external gateway's identifiers are env-injected; tests use placeholders.
+process.env.EXTERNAL_MAAS_BASE_URL = "https://external-maas.example/hackson";
+process.env.EXTERNAL_MAAS_FALLBACK_MODEL = "bedrock-claude/claude";
+
 
 const identity = {
   sourcePageCount: null,
@@ -55,7 +59,7 @@ test("profile model calls emit unique, redacted, real metadata with fallback det
   const originalKey = process.env.MAAS_API_KEY;
   const originalModel = process.env.MAAS_MODEL;
   process.env.MAAS_API_KEY = "sk-super-secret-test-key";
-  process.env.MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
+  process.env.MAAS_MODEL = "vertex-claude/claude";
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as {
       model: string;

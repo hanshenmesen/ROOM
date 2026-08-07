@@ -5,8 +5,12 @@ import { createWebsiteResearchModelPlanner } from "../lib/agents/website/planner
 import { createAgentTracer } from "../lib/agent-runtime/tracer.ts";
 import { answerPetQaQuestion } from "../lib/agents/pet-qa.ts";
 import type { ParsedProfile } from "../lib/types.ts";
+// Internal gateway identifiers are injected via env; tests use placeholders.
+process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+process.env.INTERNAL_MAAS_APP_ID = "test-app-id";
 
-// Xiaohongshu's internal MAAS gateway (maas.devops.xiaohongshu.com) proxies
+
+// The internal MAAS gateway (host from INTERNAL_MAAS_HOST) proxies
 // deepseek-v4-pro over OpenAI Chat Completions with a bespoke header set,
 // not Anthropic Messages. These tests pin that wire contract across all
 // three model call sites so a protocol regression cannot slip into only one
@@ -80,7 +84,7 @@ test("profile extraction on the xhs-maas gateway calls /v1/chat/completions with
   const originalKey = process.env.MAAS_API_KEY;
   const originalEmail = process.env.MAAS_USER_EMAIL;
   process.env.MAAS_API_KEY = "sk-internal-test-key";
-  process.env.MAAS_USER_EMAIL = "zhanghanshuo@xiaohongshu.com";
+  process.env.MAAS_USER_EMAIL = "someone@example.com";
   const requests: Array<{ url: string; headers: Headers; body: Record<string, unknown> }> = [];
 
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -101,8 +105,8 @@ test("profile extraction on the xhs-maas gateway calls /v1/chat/completions with
       {
         providerConfig: {
           maasApiKey: "sk-internal-test-key",
-          maasBaseUrl: "https://maas.devops.xiaohongshu.com",
-          maasUserEmail: "zhanghanshuo@xiaohongshu.com",
+          maasBaseUrl: "https://internal-maas.example",
+          maasUserEmail: "someone@example.com",
         },
       },
     );
@@ -110,10 +114,10 @@ test("profile extraction on the xhs-maas gateway calls /v1/chat/completions with
     assert.equal(run.profile.name, "林遥");
     assert.ok(requests.length >= 2, "identity and inventory shards should both call the gateway");
     for (const request of requests) {
-      assert.equal(request.url, "https://maas.devops.xiaohongshu.com/v1/chat/completions");
+      assert.equal(request.url, "https://internal-maas.example/v1/chat/completions");
       assert.equal(request.headers.get("api-key"), "sk-internal-test-key");
-      assert.equal(request.headers.get("x-maas-user-email"), "zhanghanshuo@xiaohongshu.com");
-      assert.equal(request.headers.get("x-maas-app-id"), "qs-api");
+      assert.equal(request.headers.get("x-maas-user-email"), "someone@example.com");
+      assert.equal(request.headers.get("x-maas-app-id"), "test-app-id");
       assert.equal(request.headers.get("authorization"), null);
       assert.equal(request.body.stream, false);
       // The internal gateway proxies the same deepseek-v4-pro model as the
@@ -132,7 +136,7 @@ test("profile extraction on the xhs-maas gateway calls /v1/chat/completions with
     assert.ok(completed.length >= 2);
     for (const event of completed) {
       assert.equal(event.meta.mode, "tool");
-      assert.equal(event.meta.provider, "maas.devops.xiaohongshu.com");
+      assert.equal(event.meta.provider, "internal-maas.example");
       assert.equal(event.meta.inputTokens, 100);
       assert.equal(event.meta.outputTokens, 50);
     }
@@ -168,8 +172,8 @@ test("the website planner on the xhs-maas gateway uses OpenAI function calling",
       tracer,
       providerConfig: {
         maasApiKey: "sk-internal-test-key",
-        maasBaseUrl: "https://maas.devops.xiaohongshu.com",
-        maasUserEmail: "zhanghanshuo@xiaohongshu.com",
+        maasBaseUrl: "https://internal-maas.example",
+        maasUserEmail: "someone@example.com",
       },
     });
     assert.ok(planner);
@@ -183,10 +187,10 @@ test("the website planner on the xhs-maas gateway uses OpenAI function calling",
     });
     assert.equal(decision.action, "submit");
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, "https://maas.devops.xiaohongshu.com/v1/chat/completions");
+    assert.equal(requests[0].url, "https://internal-maas.example/v1/chat/completions");
     assert.equal(requests[0].headers.get("api-key"), "sk-internal-test-key");
-    assert.equal(requests[0].headers.get("x-maas-user-email"), "zhanghanshuo@xiaohongshu.com");
-    assert.equal(requests[0].headers.get("x-maas-app-id"), "qs-api");
+    assert.equal(requests[0].headers.get("x-maas-user-email"), "someone@example.com");
+    assert.equal(requests[0].headers.get("x-maas-app-id"), "test-app-id");
     assert.deepEqual(requests[0].body.thinking, { type: "disabled" });
   } finally {
     globalThis.fetch = originalFetch;
@@ -224,16 +228,16 @@ test("pet QA on the xhs-maas gateway uses OpenAI function calling with the inter
       [],
       {
         maasApiKey: "sk-internal-test-key",
-        maasBaseUrl: "https://maas.devops.xiaohongshu.com",
-        maasUserEmail: "zhanghanshuo@xiaohongshu.com",
+        maasBaseUrl: "https://internal-maas.example",
+        maasUserEmail: "someone@example.com",
       },
     );
     assert.match(answer.answer, /多智能体/);
     assert.ok(request);
-    assert.equal(request!.url, "https://maas.devops.xiaohongshu.com/v1/chat/completions");
+    assert.equal(request!.url, "https://internal-maas.example/v1/chat/completions");
     assert.equal(request!.headers.get("api-key"), "sk-internal-test-key");
-    assert.equal(request!.headers.get("x-maas-user-email"), "zhanghanshuo@xiaohongshu.com");
-    assert.equal(request!.headers.get("x-maas-app-id"), "qs-api");
+    assert.equal(request!.headers.get("x-maas-user-email"), "someone@example.com");
+    assert.equal(request!.headers.get("x-maas-app-id"), "test-app-id");
     assert.deepEqual(request!.body.thinking, { type: "disabled" });
   } finally {
     globalThis.fetch = originalFetch;

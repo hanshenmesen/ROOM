@@ -32,3 +32,7 @@ export function upsertSavedProfile(
   const withoutExisting = records.filter((record) => record.profile.id !== profile.id);
   return [{ profile, savedAt }, ...withoutExisting].slice(0, MAX_SAVED_PROFILES);
 }
+
+export function removeSavedProfile(records: SavedProfileRecord[], profileId: string): SavedProfileRecord[] {
+  return records.filter((record) => record.profile.id !== profileId);
+}

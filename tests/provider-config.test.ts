@@ -86,7 +86,7 @@ test("primary provider mode follows the endpoint unless explicitly overridden", 
   assert.equal(getAgentProviderConfig().maas.mode, "tool");
 
   // Providers that support output_config keep the json-schema default.
-  process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+  process.env.MAAS_BASE_URL = "https://external-maas.example/hackson";
   assert.equal(getAgentProviderConfig().maas.mode, "json-schema");
 
   // An explicit mode always wins.
@@ -161,8 +161,9 @@ test("a browser override never mixes with server-side provider keys", () => {
 
 test("thinking is disabled only for DeepSeek routes, not Qwen on the same internal gateway", () => {
   assert.equal(shouldDisableThinking("https://api.deepseek.com/anthropic", "deepseek-v4-pro"), true);
-  assert.equal(shouldDisableThinking("https://maas.devops.xiaohongshu.com", "deepseek-v4-pro"), true);
-  assert.equal(shouldDisableThinking("https://maas.devops.xiaohongshu.com", "qwen3.5-397b-a17b"), false);
+  process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+  assert.equal(shouldDisableThinking("https://internal-maas.example", "deepseek-v4-pro"), true);
+  assert.equal(shouldDisableThinking("https://internal-maas.example", "qwen-internal"), false);
 });
 
 test("a browser pet QA override falls back to the browser MAAS key when no dedicated QA key is set", () => {

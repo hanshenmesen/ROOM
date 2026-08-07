@@ -4,12 +4,12 @@ import type { AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import { diagnosticDump, summarizeDiagnosticValue } from "../../agent-runtime/diagnostics.ts";
 import {
   DEFAULT_WEBSITE_AGENT_MODEL,
-  FALLBACK_MAAS_MODEL,
   getAgentProviderConfig,
   isDeepSeekProvider,
   shouldDisableThinking,
   type AgentProviderOverride,
 } from "../provider-config.ts";
+import { externalMaasFallbackModel, externalMaasHostname } from "../provider-env.ts";
 import { buildToolCallRequest } from "../provider-request.ts";
 import { estimateCallCostUsd } from "../provider-pricing.ts";
 import { providerErrorDetail } from "../provider-errors.ts";
@@ -201,12 +201,16 @@ export async function callProfileModel<T>(input: {
   if (!websiteApiKeys.length && !maasApiKeys.length) {
     throw new ProfileAgentError("服务端尚未配置 Profile Agent API key。", 503);
   }
+  const externalGatewayFallback = externalMaasFallbackModel();
   const maasModels = [...new Set([
     providerConfig.maas.model,
-    // The Bedrock fallback is a second Claude route on the MAAS gateway; it
-    // is meaningless (and confusing) on any other provider host.
-    ...(providerConfig.maas.mode === "json-schema" && providerName(providerConfig.maas.baseUrl).endsWith("rednote.life")
-      ? [FALLBACK_MAAS_MODEL]
+    // The fallback is a second Claude route on the external MAAS gateway; it
+    // is meaningless (and confusing) on any other provider host, and only
+    // exists when the deployment configured one.
+    ...(providerConfig.maas.mode === "json-schema"
+      && externalGatewayFallback
+      && providerName(providerConfig.maas.baseUrl) === externalMaasHostname()
+      ? [externalGatewayFallback]
       : []),
   ])];
   const websiteProviders = websiteApiKeys.length ? [{

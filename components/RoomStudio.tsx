@@ -55,6 +55,7 @@ import {
 import {
   PROFILE_HISTORY_STORAGE_KEY,
   isSavedProfileRecord,
+  removeSavedProfile,
   upsertSavedProfile,
   type SavedProfileRecord,
 } from "@/lib/profile-history";
@@ -998,6 +999,21 @@ export function RoomStudio() {
     }
   }
 
+  function deleteSavedProfile(profileId: string) {
+    const nextProfiles = removeSavedProfile(savedProfiles, profileId);
+    try {
+      writeStoredEntries(PROFILE_HISTORY_STORAGE_KEY, nextProfiles);
+      // Drop the per-profile satellite keys too (pet customization, frame
+      // photos, project edits) so deleting a space leaves nothing behind.
+      window.localStorage.removeItem(profileSpaceStorageKey(profileId));
+      window.localStorage.removeItem(`${PROJECT_EDITS_STORAGE_PREFIX}${profileId}`);
+      setSavedProfiles(nextProfiles);
+      setMessage("已删除这个已保存空间。");
+    } catch {
+      setMessage("浏览器空间不足或存储不可用，删除失败，请重试。");
+    }
+  }
+
   function acceptParsedProfile(profile: ParsedProfile, mergeReport?: ProfileMergeReport) {
     setPendingProfile(profile);
     if (mergeReport?.reviewRequired) {
@@ -1850,6 +1866,15 @@ export function RoomStudio() {
                   const stats = profileStats(record.profile);
                   return (
                     <article className="demo-panel demo-saved" key={record.profile.id}>
+                      <button
+                        type="button"
+                        className="demo-saved-delete"
+                        aria-label={`删除 ${record.profile.name} 的已保存空间`}
+                        disabled={loading}
+                        onClick={() => deleteSavedProfile(record.profile.id)}
+                      >
+                        ×
+                      </button>
                       <div className="demo-person">
                         <span>{record.profile.name.trim().slice(0, 1) || "R"}</span>
                         <div><strong>{record.profile.name}</strong><small>{record.profile.headline || record.profile.source.label}</small></div>

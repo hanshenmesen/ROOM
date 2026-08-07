@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose a provider preset. The default preset is **DeepSeek** (`deepseek-v4-pro` via its official Anthropic-compatible endpoint), reachable without any internal-network access. Two presets target Xiaohongshu's internal MAAS gateway — **小红书内网 MAAS · DeepSeek V4 Pro** and **小红书内网 MAAS · Qwen 3.5 397B** — both over OpenAI Chat Completions with an `api-key` / `x-maas-user-email` / `x-maas-app-id` header set (not Anthropic Messages); selecting either reveals the enterprise-email field required by the gateway. MAAS and Zhizengzeng presets remain available too. Each dropdown option supplies its compatible Base URL, protocol, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
+Open `http://localhost:3000`, click **配置解析服务**, paste an API key, and choose a provider preset. The default preset is **DeepSeek** (`deepseek-v4-pro` via its official Anthropic-compatible endpoint), reachable without any internal-network access, and **智增增 API** is available as a public alternative. Internal MAAS gateways (an OpenAI Chat Completions route with an `api-key` / `x-maas-user-email` / `x-maas-app-id` header set, and an external Anthropic-compatible Claude route) are deployment-specific: their hostnames and model names are not tracked in this repository — set `INTERNAL_MAAS_HOST` / `INTERNAL_MAAS_APP_ID` / `INTERNAL_MAAS_MODELS` or `EXTERNAL_MAAS_BASE_URL` / `EXTERNAL_MAAS_MODEL` in `.env.local` and the setup dialog lists them automatically (the internal gateway also reveals an enterprise-email field). Each dropdown option supplies its compatible Base URL, protocol, request mode, and recommended model. The primary provider handles both the résumé and personal website by default.
 
 > Boundary note: neither DeepSeek endpoint accepts image/document content blocks, so image uploads require a multimodal provider (e.g. MAAS). PDFs are handled per protocol: Anthropic-compatible providers receive the PDF as a native document attachment, while the internal MAAS gateway (OpenAI Chat Completions) receives ROOM's locally extracted text with line-numbered evidence — text-layer PDFs work there, and scanned PDFs without a text layer get a clear 422 asking for a text-based file or a multimodal provider. Text and Markdown résumés and website research work fully on every route.
 
@@ -39,13 +39,13 @@ MAAS_API_KEY_FALLBACK=your-secondary-key
 MAAS_BASE_URL=https://api.deepseek.com/anthropic
 MAAS_MODEL=deepseek-v4-pro
 IMAGE_MAAS_API_KEY=
-IMAGE_MAAS_BASE_URL=https://maas.devops.rednote.life/hackson
+IMAGE_MAAS_BASE_URL=https://your-image-provider.example/v1
 IMAGE_MAAS_MODEL=gpt-image-2
 PET_QA_API_KEY=
 PET_QA_BASE_URL=https://api.deepseek.com/anthropic
 PET_QA_MODEL=deepseek-v4-pro
 NEXT_PUBLIC_PET_TTS_ENABLED=1
-NEXT_PUBLIC_PET_TTS_REALTIME_URL=wss://joiagent.devops.beta.xiaohongshu.com/tts/qwen3cus/v1/audio/speech/stream
+NEXT_PUBLIC_PET_TTS_REALTIME_URL=wss://your-tts-endpoint.example/stream
 NEXT_PUBLIC_PET_TTS_MODEL=Qwen3-TTS-12Hz-1.7B-CustomVoice
 NEXT_PUBLIC_PET_TTS_VOICE=vivian
 NEXT_PUBLIC_PET_TTS_MAX_NEW_TOKENS=1024
@@ -53,7 +53,7 @@ NEXT_PUBLIC_PET_TTS_MAX_NEW_TOKENS=1024
 
 Only one valid API key is required. `MAAS_BASE_URL`, `MAAS_MODEL`, `WEBSITE_AGENT_BASE_URL`, and `WEBSITE_AGENT_MODEL` have working defaults, while a dedicated Website Agent key is optional.
 
-To use Xiaohongshu's internal MAAS gateway instead of the official DeepSeek endpoint, set `MAAS_BASE_URL=https://maas.devops.xiaohongshu.com` and `MAAS_USER_EMAIL=you@xiaohongshu.com` (also `WEBSITE_AGENT_USER_EMAIL` / `PET_QA_USER_EMAIL` for those slots). See [`lib/agents/provider-request.ts`](./lib/agents/provider-request.ts) for the two supported wire protocols.
+To use an internal MAAS gateway instead of the official DeepSeek endpoint, set `INTERNAL_MAAS_HOST`, `INTERNAL_MAAS_APP_ID`, and `INTERNAL_MAAS_MODELS` (plus `MAAS_USER_EMAIL`; also `WEBSITE_AGENT_USER_EMAIL` / `PET_QA_USER_EMAIL` for those slots) and point `MAAS_BASE_URL` at it. See [`lib/agents/provider-request.ts`](./lib/agents/provider-request.ts) for the two supported wire protocols and [`lib/agents/provider-env.ts`](./lib/agents/provider-env.ts) for the env contract.
 
 The entrance checks `/api/config` for deployment-level readiness and opens the in-browser configuration form when neither a session key nor a server key is available. A browser session configuration overrides server providers for that user's parse requests without exposing any server-side secret.
 

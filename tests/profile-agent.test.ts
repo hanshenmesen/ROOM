@@ -9,7 +9,11 @@ import { validatePublicUrl } from "../lib/public-web.ts";
 // These tests exercise the MAAS json-schema request path (output_config and
 // the Bedrock fallback model). Pinning the base URL keeps that path the
 // default here even though the repository-wide default provider is DeepSeek.
-process.env.MAAS_BASE_URL = "https://maas.devops.rednote.life/hackson";
+process.env.MAAS_BASE_URL = "https://external-maas.example/hackson";
+// The external gateway's identifiers are env-injected; tests use placeholders.
+process.env.EXTERNAL_MAAS_BASE_URL = "https://external-maas.example/hackson";
+process.env.EXTERNAL_MAAS_FALLBACK_MODEL = "bedrock-claude/claude";
+
 
 const identityResult = {
   sourcePageCount: 1,
@@ -385,7 +389,7 @@ test("profile Agent switches to Bedrock Sonnet when the configured route returns
   const originalModel = process.env.MAAS_MODEL;
   const models: string[] = [];
   process.env.MAAS_API_KEY = "test-key";
-  process.env.MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
+  process.env.MAAS_MODEL = "vertex-claude/claude";
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as {
       model: string;
@@ -419,7 +423,7 @@ test("profile Agent falls back after truncated JSON and gives complete profiles 
   const originalModel = process.env.MAAS_MODEL;
   const requests: Array<{ model: string; max_tokens: number; system: string; hasItems: boolean }> = [];
   process.env.MAAS_API_KEY = "test-key";
-  process.env.MAAS_MODEL = "vertex-claude-sonnet-5/claude-sonnet-5";
+  process.env.MAAS_MODEL = "vertex-claude/claude";
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as {
       model: string;

@@ -4,8 +4,13 @@ import {
   buildToolCallRequest,
   isXhsMaasGatewayProvider,
   providerProtocolForBaseUrl,
-  XHS_MAAS_APP_ID,
 } from "../lib/agents/provider-request.ts";
+
+// The internal gateway's identifiers come from env, never from tracked
+// constants; tests pin them to placeholders.
+process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+process.env.INTERNAL_MAAS_APP_ID = "test-app-id";
+const XHS_MAAS_APP_ID = process.env.INTERNAL_MAAS_APP_ID;
 
 const SCHEMA = {
   type: "object",
@@ -15,26 +20,26 @@ const SCHEMA = {
 } as const;
 
 test("isXhsMaasGatewayProvider matches only the internal gateway host", () => {
-  assert.equal(isXhsMaasGatewayProvider("https://maas.devops.xiaohongshu.com"), true);
-  assert.equal(isXhsMaasGatewayProvider("maas.devops.xiaohongshu.com"), true);
-  assert.equal(isXhsMaasGatewayProvider("https://maas.devops.xiaohongshu.com/v1"), true);
+  assert.equal(isXhsMaasGatewayProvider("https://internal-maas.example"), true);
+  assert.equal(isXhsMaasGatewayProvider("internal-maas.example"), true);
+  assert.equal(isXhsMaasGatewayProvider("https://internal-maas.example/v1"), true);
   assert.equal(isXhsMaasGatewayProvider("https://api.deepseek.com/anthropic"), false);
-  assert.equal(isXhsMaasGatewayProvider("https://maas.devops.rednote.life/hackson"), false);
+  assert.equal(isXhsMaasGatewayProvider("https://external-maas.example/hackson"), false);
   assert.equal(isXhsMaasGatewayProvider("not a url"), false);
 });
 
 test("providerProtocolForBaseUrl routes only the xhs-maas host to the openai protocol", () => {
-  assert.equal(providerProtocolForBaseUrl("https://maas.devops.xiaohongshu.com"), "xhs-maas");
+  assert.equal(providerProtocolForBaseUrl("https://internal-maas.example"), "xhs-maas");
   assert.equal(providerProtocolForBaseUrl("https://api.deepseek.com/anthropic"), "anthropic");
-  assert.equal(providerProtocolForBaseUrl("https://maas.devops.rednote.life/hackson"), "anthropic");
+  assert.equal(providerProtocolForBaseUrl("https://external-maas.example/hackson"), "anthropic");
 });
 
 test("buildToolCallRequest builds the xhs-maas OpenAI Chat Completions request", () => {
   const request = buildToolCallRequest({
     protocol: "xhs-maas",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
+    baseUrl: "https://internal-maas.example",
     apiKey: "sk-internal-test-key",
-    userEmail: "someone@xiaohongshu.com",
+    userEmail: "someone@example.com",
     model: "deepseek-v4-pro",
     system: "You are a helpful assistant.",
     userContent: "帮我制定一份五天四夜的旅游攻略",
@@ -45,9 +50,9 @@ test("buildToolCallRequest builds the xhs-maas OpenAI Chat Completions request",
     toolSchema: SCHEMA,
   });
 
-  assert.equal(request.url, "https://maas.devops.xiaohongshu.com/v1/chat/completions");
+  assert.equal(request.url, "https://internal-maas.example/v1/chat/completions");
   assert.equal(request.headers["api-key"], "sk-internal-test-key");
-  assert.equal(request.headers["x-maas-user-email"], "someone@xiaohongshu.com");
+  assert.equal(request.headers["x-maas-user-email"], "someone@example.com");
   assert.equal(request.headers["x-maas-app-id"], XHS_MAAS_APP_ID);
   assert.equal(request.headers.authorization, undefined);
   assert.equal(request.headers["x-api-key"], undefined);
@@ -72,7 +77,7 @@ test("buildToolCallRequest builds the xhs-maas OpenAI Chat Completions request",
 test("buildToolCallRequest disables thinking on the xhs-maas protocol when asked", () => {
   const request = buildToolCallRequest({
     protocol: "xhs-maas",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
+    baseUrl: "https://internal-maas.example",
     apiKey: "sk-internal-test-key",
     model: "deepseek-v4-pro",
     system: "sys",
@@ -90,7 +95,7 @@ test("buildToolCallRequest disables thinking on the xhs-maas protocol when asked
 test("buildToolCallRequest defaults a missing user email to an empty header rather than throwing", () => {
   const request = buildToolCallRequest({
     protocol: "xhs-maas",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
+    baseUrl: "https://internal-maas.example",
     apiKey: "sk-internal-test-key",
     model: "deepseek-v4-pro",
     system: "sys",
@@ -107,7 +112,7 @@ test("buildToolCallRequest defaults a missing user email to an empty header rath
 test("buildToolCallRequest converts Anthropic-style image content blocks to OpenAI image_url parts", () => {
   const request = buildToolCallRequest({
     protocol: "xhs-maas",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
+    baseUrl: "https://internal-maas.example",
     apiKey: "k",
     model: "deepseek-v4-pro",
     system: "sys",
@@ -130,7 +135,7 @@ test("buildToolCallRequest refuses PDF document blocks on the xhs-maas protocol"
   assert.throws(
     () => buildToolCallRequest({
       protocol: "xhs-maas",
-      baseUrl: "https://maas.devops.xiaohongshu.com",
+      baseUrl: "https://internal-maas.example",
       apiKey: "k",
       model: "deepseek-v4-pro",
       system: "sys",
@@ -181,9 +186,9 @@ test("buildToolCallRequest builds the Anthropic Messages request with tool mode"
 test("buildToolCallRequest builds the Anthropic json-schema request without thinking by default", () => {
   const request = buildToolCallRequest({
     protocol: "anthropic",
-    baseUrl: "https://maas.devops.rednote.life/hackson",
+    baseUrl: "https://external-maas.example/hackson",
     apiKey: "k",
-    model: "vertex-claude-sonnet-5/claude-sonnet-5",
+    model: "vertex-claude/claude",
     system: "sys",
     userContent: "hello",
     temperature: 0,
@@ -195,7 +200,7 @@ test("buildToolCallRequest builds the Anthropic json-schema request without thin
     jsonSchemaEffort: "low",
   });
 
-  assert.equal(request.url, "https://maas.devops.rednote.life/hackson/v1/messages");
+  assert.equal(request.url, "https://external-maas.example/hackson/v1/messages");
   assert.deepEqual(request.body.output_config, { effort: "low", format: { type: "json_schema", schema: SCHEMA } });
   assert.equal("tools" in request.body, false);
   assert.equal("tool_choice" in request.body, false);

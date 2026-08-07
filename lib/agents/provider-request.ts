@@ -1,3 +1,4 @@
+import { internalMaasAppId, internalMaasHost } from "./provider-env.ts";
 import type { MaasContentBlock } from "./profile/types.ts";
 
 /**
@@ -7,9 +8,8 @@ import type { MaasContentBlock } from "./profile/types.ts";
  *   Used by the DeepSeek official Anthropic-compatible endpoint, the
  *   external MAAS gateway, and Zhizengzeng. Structured output is either a
  *   forced tool call or `output_config.format` JSON schema.
- * - "xhs-maas": Xiaohongshu's internal MAAS gateway
- *   (maas.devops.xiaohongshu.com), an OpenAI Chat Completions-compatible
- *   proxy in front of internally hosted models (including deepseek-v4-pro).
+ * - "xhs-maas": an internal OpenAI Chat Completions-compatible MAAS
+ *   gateway (host injected via INTERNAL_MAAS_HOST, see provider-env.ts).
  *   Auth is a bespoke header set (`api-key` / `x-maas-user-email` /
  *   `x-maas-app-id`), not `Authorization: Bearer`. Structured output is
  *   OpenAI function calling; there is no `output_config` equivalent.
@@ -22,12 +22,12 @@ import type { MaasContentBlock } from "./profile/types.ts";
  */
 export type ProviderProtocol = "anthropic" | "xhs-maas";
 
-export const XHS_MAAS_APP_ID = "qs-api";
-
 export function isXhsMaasGatewayProvider(value: string) {
+  const host = internalMaasHost();
+  if (!host) return false;
   try {
     const candidate = value.includes("://") ? value : `https://${value}`;
-    return new URL(candidate).hostname === "maas.devops.xiaohongshu.com";
+    return new URL(candidate).hostname.toLowerCase() === host;
   } catch {
     return false;
   }
@@ -106,7 +106,7 @@ export function buildToolCallRequest(input: ToolCallRequestInput): ProviderReque
         "content-type": "application/json",
         "api-key": input.apiKey,
         "x-maas-user-email": input.userEmail || "",
-        "x-maas-app-id": XHS_MAAS_APP_ID,
+        "x-maas-app-id": internalMaasAppId(),
       },
       body: {
         model: input.model,

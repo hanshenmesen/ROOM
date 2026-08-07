@@ -6,6 +6,10 @@ import {
 } from "../lib/agents/provider-capabilities.ts";
 import { buildToolCallRequest } from "../lib/agents/provider-request.ts";
 import { shouldDisableThinking } from "../lib/agents/provider-config.ts";
+// Internal gateway identifiers are injected via env; tests use placeholders.
+process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+process.env.INTERNAL_MAAS_APP_ID = "test-app-id";
+
 
 /**
  * Contract suite for the provider capability matrix. Every row pins the
@@ -37,7 +41,7 @@ const PROVIDER_ROWS: ProviderRow[] = [
   },
   {
     name: "xhs-maas gateway with DeepSeek V4 Pro",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
+    baseUrl: "https://internal-maas.example",
     model: "deepseek-v4-pro",
     expected: {
       protocol: "xhs-maas",
@@ -47,9 +51,9 @@ const PROVIDER_ROWS: ProviderRow[] = [
     },
   },
   {
-    name: "xhs-maas gateway with Qwen 3.5",
-    baseUrl: "https://maas.devops.xiaohongshu.com",
-    model: "qwen3.5-397b-a17b",
+    name: "xhs-maas gateway with a Qwen-class model",
+    baseUrl: "https://internal-maas.example",
+    model: "qwen-internal",
     expected: {
       protocol: "xhs-maas",
       supportsDocumentBlocks: false,
@@ -59,8 +63,8 @@ const PROVIDER_ROWS: ProviderRow[] = [
   },
   {
     name: "external MAAS Claude route",
-    baseUrl: "https://maas.devops.rednote.life/hackson",
-    model: "vertex-claude-sonnet-5/claude-sonnet-5",
+    baseUrl: "https://external-maas.example/hackson",
+    model: "vertex-claude/claude",
     expected: {
       protocol: "anthropic",
       supportsDocumentBlocks: true,
@@ -100,7 +104,7 @@ for (const row of PROVIDER_ROWS) {
       protocol: capabilities.protocol,
       baseUrl: row.baseUrl,
       apiKey: "contract-test-key",
-      userEmail: "contract@xiaohongshu.com",
+      userEmail: "contract@example.com",
       model: row.model,
       system: "sys",
       userContent: "hello",
@@ -115,8 +119,8 @@ for (const row of PROVIDER_ROWS) {
     if (capabilities.protocol === "xhs-maas") {
       assert.equal(request.url, `${row.baseUrl}/v1/chat/completions`);
       assert.equal(request.headers["api-key"], "contract-test-key");
-      assert.equal(request.headers["x-maas-user-email"], "contract@xiaohongshu.com");
-      assert.equal(request.headers["x-maas-app-id"], "qs-api");
+      assert.equal(request.headers["x-maas-user-email"], "contract@example.com");
+      assert.equal(request.headers["x-maas-app-id"], "test-app-id");
       assert.deepEqual(request.body.tool_choice, {
         type: "function",
         function: { name: "submit_result" },
@@ -148,5 +152,5 @@ test("DeepSeek base URL variants all resolve to the official capability row", ()
 });
 
 test("unknown future DeepSeek models on the internal gateway still get thinking disabled", () => {
-  assert.equal(providerCapabilitiesFor("https://maas.devops.xiaohongshu.com", "deepseek-v5-pro").disableThinking, true);
+  assert.equal(providerCapabilitiesFor("https://internal-maas.example", "deepseek-v5-pro").disableThinking, true);
 });

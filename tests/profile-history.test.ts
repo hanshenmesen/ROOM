@@ -5,6 +5,7 @@ import { fictionalDemoProfile } from "../lib/data/fictional-demo-profile.ts";
 import {
   MAX_SAVED_PROFILES,
   isSavedProfileRecord,
+  removeSavedProfile,
   upsertSavedProfile,
 } from "../lib/profile-history.ts";
 
@@ -18,6 +19,22 @@ test("generated profiles are deduplicated, newest-first, and bounded", () => {
   assert.equal(updated[0]?.profile.id, "profile-2");
   assert.equal(updated[0]?.savedAt, "latest");
   assert.equal(updated.filter((record) => record.profile.id === "profile-2").length, 1);
+});
+
+test("removing a saved profile drops it and its satellite keys from local storage", () => {
+  const records = [0, 1, 2].map((index) => ({
+    profile: { ...fictionalDemoProfile, id: `profile-${index}`, name: `Person ${index}` },
+    savedAt: "now",
+  }));
+  const remaining = removeSavedProfile(records, "profile-1");
+  assert.deepEqual(remaining.map((record) => record.profile.id), ["profile-0", "profile-2"]);
+
+  const source = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
+  assert.match(source, /function deleteSavedProfile\(profileId: string\)/);
+  // The deletion also clears the profile's pet customization and project edits.
+  assert.match(source, /removeItem\(profileSpaceStorageKey\(profileId\)\)/);
+  assert.match(source, /removeItem\(`\$\{PROJECT_EDITS_STORAGE_PREFIX\}\$\{profileId\}`\)/);
+  assert.match(source, /demo-saved-delete/);
 });
 
 test("saved profile records reject malformed local data", () => {

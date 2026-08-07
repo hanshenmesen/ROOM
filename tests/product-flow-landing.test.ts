@@ -112,14 +112,20 @@ test("conflicting Agent claims stop at an evidence-backed human checkpoint", () 
   assert.match(reviewSource, /不公开这个字段/);
 });
 
-test("Agent runs expose an expandable redacted Trace timeline in the creation experience", () => {
+test("Agent runs expose a modal-opened redacted Trace panel in the creation experience", () => {
   assert.match(studioSource, /<AgentTracePanel events=\{agentRunEvents\}/);
+  // The panel is a one-line bar; metrics and the timeline open in a modal so
+  // the page never grows or scrolls to accommodate run details.
+  assert.match(tracePanelSource, /className=\{`agent-trace-panel/);
+  assert.match(tracePanelSource, /agent-detail-backdrop/);
+  assert.match(tracePanelSource, /agent-detail-dialog/);
   assert.match(tracePanelSource, /AGENT TRACE \/ LIVE/);
-  assert.match(tracePanelSource, /查看完整运行时间线/);
+  assert.match(tracePanelSource, /agent-trace-timeline/);
   assert.match(tracePanelSource, /overview\.modelCalls/);
   assert.match(tracePanelSource, /overview\.toolCalls/);
   assert.match(tracePanelSource, /overview\.latencyMs/);
   assert.match(tracePanelSource, /overview\.artifacts/);
   assert.match(tracePanelSource, /overview\.estimatedCost/);
-  assert.match(landingStyles, /\.agent-trace-details > ol \{[^}]*max-height: 300px;[^}]*overflow-y: auto;/);
+  assert.match(landingStyles, /\.agent-trace-timeline \{[^}]*max-height: 300px;[^}]*overflow-y: auto;/);
+  assert.match(landingStyles, /\.agent-detail-dialog \{[^}]*max-height: 84vh;[^}]*overflow-y: auto;/);
 });

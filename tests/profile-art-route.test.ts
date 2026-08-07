@@ -149,6 +149,7 @@ test("rejects a private browser-session image provider before calling it", async
 
 test("rejects unsupported source image formats before calling the provider", async () => {
   process.env.IMAGE_MAAS_API_KEY = "test-image-key";
+  process.env.IMAGE_MAAS_BASE_URL = "https://maas.example.test/hackson";
   let calls = 0;
   globalThis.fetch = (async () => {
     calls += 1;
@@ -163,6 +164,7 @@ test("rejects unsupported source image formats before calling the provider", asy
 
 test("maps provider errors without exposing the configured key", async () => {
   process.env.IMAGE_MAAS_API_KEY = "do-not-expose-this-key";
+  process.env.IMAGE_MAAS_BASE_URL = "https://maas.example.test/hackson";
   globalThis.fetch = (async () => Response.json(
     { error: { message: "model unavailable" } },
     { status: 503 },

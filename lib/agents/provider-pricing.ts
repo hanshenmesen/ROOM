@@ -1,3 +1,5 @@
+import { internalMaasHost } from "./provider-env.ts";
+
 /**
  * Per-provider price list for budget reservations and trace cost estimates.
  *
@@ -31,11 +33,12 @@ export function pricingForProvider(baseUrlOrHost: string): ProviderPricing {
     // Already a bare host.
   }
   if (host === "api.deepseek.com") return DEEPSEEK_V4_PRO_PRICING;
-  if (host === "maas.devops.xiaohongshu.com") {
+  const internalHost = internalMaasHost();
+  if (internalHost && host.toLowerCase() === internalHost) {
     // The internal gateway serves deepseek-v4-pro at DeepSeek-tier cost and
-    // qwen3.5 at an unverified but comparable tier. Pricing it at the
-    // Claude fallback overestimated calls ~34x, which exhausted the shared
-    // run budget mid-retry and masked the real provider error behind an
+    // qwen at an unverified but comparable tier. Pricing it at the Claude
+    // fallback overestimated calls ~34x, which exhausted the shared run
+    // budget mid-retry and masked the real provider error behind an
     // estimated_cost exhaustion (observed in the provider smoke gate).
     return DEEPSEEK_V4_PRO_PRICING;
   }
