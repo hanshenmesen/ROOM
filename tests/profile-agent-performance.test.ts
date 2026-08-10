@@ -52,6 +52,10 @@ test("normal profile shards start concurrently with low effort", async () => {
   process.env.MAAS_API_KEY = "performance-test-key";
   let calls = 0;
   const efforts: string[] = [];
+  const concurrentStart = Promise.withResolvers<void>();
+  const concurrentStartTimeout = setTimeout(() => {
+    concurrentStart.reject(new Error("profile shards did not start concurrently"));
+  }, 500);
 
   globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
     calls += 1;
@@ -60,7 +64,11 @@ test("normal profile shards start concurrently with low effort", async () => {
     };
     efforts.push(body.output_config.effort);
     const properties = body.output_config.format.schema.properties;
-    await new Promise((resolve) => setTimeout(resolve, 140));
+    if (calls === 2) {
+      clearTimeout(concurrentStartTimeout);
+      concurrentStart.resolve();
+    }
+    await concurrentStart.promise;
     const result = properties.identity
         ? identity
         : { sourcePageCount: null, items: [item("project", "ROOM")] };
@@ -68,7 +76,6 @@ test("normal profile shards start concurrently with low effort", async () => {
   }) as typeof fetch;
 
   try {
-    const startedAt = performance.now();
     const profile = await extractProfileWithAgent([
       "林遥",
       "交互设计师",
@@ -78,15 +85,14 @@ test("normal profile shards start concurrently with low effort", async () => {
       "Three.js",
       "ROOM 项目",
     ].join("\n"));
-    const elapsed = performance.now() - startedAt;
 
     assert.equal(calls, 2, `expected two parallel provider requests, received ${calls}`);
     assert.deepEqual(efforts, ["low", "low"]);
-    assert.ok(elapsed < 220, `expected <220ms, received ${elapsed.toFixed(1)}ms`);
     assert.equal(profile.items.some((entry) => entry.title === "ROOM"), true);
     assert.deepEqual(profile.foods, ["寿司"]);
     assert.deepEqual(profile.hobbies, ["摄影"]);
   } finally {
+    clearTimeout(concurrentStartTimeout);
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.MAAS_API_KEY;
     else process.env.MAAS_API_KEY = originalKey;
