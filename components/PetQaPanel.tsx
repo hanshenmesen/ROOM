@@ -314,7 +314,7 @@ export function PetQaPanel({ profile, config, name, personality, open, onClose, 
         )) : (
           <p className="pet-qa-empty">我是{companionName}，可以根据已解析的简历和个人网站资料，帮主人回答项目、经历、技能相关问题。</p>
         )}
-        {pending ? <p className="pet-qa-message is-assistant">{companionName}正在翻资料……</p> : null}
+        {pending ? <p className="pet-qa-message is-assistant is-pending">{companionName}正在翻资料……</p> : null}
       </div>
       {citations.length ? (
         <div className="pet-qa-citations" aria-label="回答引用">

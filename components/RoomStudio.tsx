@@ -24,7 +24,7 @@ import { AgentTracePanel } from "@/components/AgentTracePanel";
 import { useAgentRun } from "@/components/use-agent-run";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
-  BROWSER_AGENT_SESSION_KEY,
+  BROWSER_AGENT_STORAGE_KEY,
   browserAgentConfigHeaders,
   browserPortraitArtConfigHeaders,
   normalizeBrowserAgentConfig,
@@ -347,7 +347,14 @@ function readStoredProfileSpace(profileId: string) {
 function readBrowserAgentConfig() {
   if (typeof window === "undefined") return null;
   try {
-    const stored = window.sessionStorage.getItem(BROWSER_AGENT_SESSION_KEY);
+    // One-time migration: configs saved before persistence landed still live
+    // in this tab's sessionStorage — promote them to localStorage once.
+    const legacy = window.sessionStorage.getItem(BROWSER_AGENT_STORAGE_KEY);
+    if (legacy) {
+      window.localStorage.setItem(BROWSER_AGENT_STORAGE_KEY, legacy);
+      window.sessionStorage.removeItem(BROWSER_AGENT_STORAGE_KEY);
+    }
+    const stored = window.localStorage.getItem(BROWSER_AGENT_STORAGE_KEY);
     if (!stored) return null;
     return normalizeBrowserAgentConfig(JSON.parse(stored));
   } catch {
@@ -1246,9 +1253,10 @@ export function RoomStudio() {
   }
 
   function saveBrowserAgentConfig(config: BrowserAgentConfig) {
-    window.sessionStorage.setItem(BROWSER_AGENT_SESSION_KEY, JSON.stringify(config));
+    window.localStorage.setItem(BROWSER_AGENT_STORAGE_KEY, JSON.stringify(config));
+    window.sessionStorage.removeItem(BROWSER_AGENT_STORAGE_KEY);
     setBrowserAgentConfig(config);
-    setMessage("Agent 配置已保存到当前标签页，可以开始解析。");
+    setMessage("Agent 配置已保存在此浏览器，下次打开无需重填。");
     setAgentSetupOpen(false);
   }
 
@@ -1383,9 +1391,10 @@ export function RoomStudio() {
   }
 
   function clearBrowserAgentConfig() {
-    window.sessionStorage.removeItem(BROWSER_AGENT_SESSION_KEY);
+    window.localStorage.removeItem(BROWSER_AGENT_STORAGE_KEY);
+    window.sessionStorage.removeItem(BROWSER_AGENT_STORAGE_KEY);
     setBrowserAgentConfig(null);
-    setMessage(agentConfig?.ready ? "已恢复使用服务端 Agent 配置。" : "当前会话配置已清除。");
+    setMessage(agentConfig?.ready ? "已恢复使用服务端 Agent 配置。" : "此浏览器保存的配置已清除。");
   }
 
   const selectWorldObject = useCallback((id: string) => {
@@ -1673,8 +1682,9 @@ export function RoomStudio() {
           <section className="creation-progress" aria-live="polite">
             <span className="creation-index">ROOM / BUILD 01</span>
             <div className={`creation-orbit ${creationReady ? "is-complete" : reviewActive ? "is-review" : ""}`} aria-hidden="true"><span /></div>
-            <p className="creation-kicker">{creationReady ? "YOUR HOME IS READY" : reviewActive ? "HUMAN CHECKPOINT" : "PROFILE AGENT IS WORKING"}</p>
-            <h1>{creationReady
+            {/* keyed on phase so copy transitions replay their entrance animation */}
+            <p className="creation-kicker" key={creationReady ? "ready" : reviewActive ? "review" : "parsing"}>{creationReady ? "YOUR HOME IS READY" : reviewActive ? "HUMAN CHECKPOINT" : "PROFILE AGENT IS WORKING"}</p>
+            <h1 key={creationReady ? "ready" : reviewActive ? "review" : "parsing"}>{creationReady
               ? "你的小家，正在等待你的最后装扮。"
               : reviewActive
                 ? "有些信息，应该由你来定。"
@@ -1749,7 +1759,7 @@ export function RoomStudio() {
             >
               <span className="agent-status-dot" aria-hidden="true" />
               <span className="agent-status-label">
-                {browserAgentConfig ? "当前会话已配置" : agentConfig?.ready ? "解析服务已就绪" : agentConfigChecked ? "配置解析服务" : "检测解析服务"}
+                {browserAgentConfig ? "本机配置已保存" : agentConfig?.ready ? "解析服务已就绪" : agentConfigChecked ? "配置解析服务" : "检测解析服务"}
               </span>
             </button>
             <span className="edition">PRIVATE BETA · 01</span>
@@ -1844,7 +1854,7 @@ export function RoomStudio() {
               如果资料中识别到头像，ROOM 会自动把它发送至图像服务生成抽象肖像；真人照片不会作为展厅内容展示。
             </p>
 
-            <button className="intake-generate" type="submit" disabled={loading || !hasSourceInput}>
+            <button className="intake-generate" type="submit" disabled={loading || !hasSourceInput} data-loading={loading || undefined}>
               <span>
                 <small>{sourceFile && url.trim() ? "网站 + 简历" : sourceFile ? "简历" : url.trim() ? "个人网站" : "至少选择一项资料"}</small>
                 <strong>{loading ? "Agent 正在搭建" : "生成我的 ROOM"}</strong>

@@ -42,6 +42,8 @@ import {
   PortfolioEnvironment,
   RendererLook,
 } from "./OpenSourceRoomDressing";
+import { SceneDustMotes } from "./SceneDustMotes";
+import { SceneSkyEffects } from "./SceneSkyEffects";
 import {
   MARDOU_AUTO_DOOR,
   MARDOU_ACHIEVEMENT_PLACEMENT,
@@ -2233,15 +2235,15 @@ function LivingInformationWall({ world, activeRoom, selectedId, onSelect }: { wo
           />
         );
       })}
-      <pointLight position={[0, 3, -19.4]} intensity={activeRoom === "room-lobby" ? 14 : 0} distance={13} decay={2} color="#ffe3bd" />
+      <BreathingPointLight position={[0, 3, -19.4]} intensity={activeRoom === "room-lobby" ? 14 : 0} distance={13} decay={2} color="#ffe3bd" phase={0.9} />
     </group>
   );
 }
 
 function ShowroomDetails({ lit }: { lit: boolean }) {
   return <group>
-    <pointLight position={[-2, 3.2, -12]} intensity={lit ? 7 : 0} distance={12} decay={2} color="#ffe2b2" />
-    <pointLight position={[1, 5.4, -19]} intensity={lit ? 3 : 0} distance={9} decay={2} color="#9fc6b8" />
+    <BreathingPointLight position={[-2, 3.2, -12]} intensity={lit ? 7 : 0} distance={12} decay={2} color="#ffe2b2" phase={1.4} />
+    <BreathingPointLight position={[1, 5.4, -19]} intensity={lit ? 3 : 0} distance={9} decay={2} color="#9fc6b8" phase={2.8} />
   </group>;
 }
 
@@ -2664,6 +2666,101 @@ function ProjectImageCard({ exhibit, index, selected }: { exhibit: ExhibitPlan; 
   );
 }
 
+// Musical notes drifting up from the gramophone horn while it is selected —
+// each sprite loops an upward helix with a fade in/out envelope.
+const GRAMOPHONE_NOTE_COUNT = 7;
+const GRAMOPHONE_NOTE_GLYPHS = ["♪", "♫"];
+
+function gramophoneNoteTexture(glyph: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 96;
+  canvas.height = 96;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.font = "700 62px Georgia, serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.shadowColor = "rgba(255, 158, 94, .85)";
+  context.shadowBlur = 12;
+  context.fillStyle = "#ffd9a8";
+  context.fillText(glyph, 48, 52);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function GramophoneNotes({ active }: { active: boolean }) {
+  const group = useRef<THREE.Group>(null);
+  const textures = useMemo(
+    () => GRAMOPHONE_NOTE_GLYPHS.map(gramophoneNoteTexture).filter((texture): texture is THREE.CanvasTexture => Boolean(texture)),
+    [],
+  );
+  useEffect(() => () => textures.forEach((texture) => texture.dispose()), [textures]);
+  useFrame((state) => {
+    const notes = group.current;
+    if (!notes || !notes.visible) return;
+    const time = state.clock.elapsedTime;
+    notes.children.forEach((child, index) => {
+      const sprite = child as THREE.Sprite;
+      const progress = (time * 0.32 + index / GRAMOPHONE_NOTE_COUNT) % 1;
+      sprite.position.set(
+        Math.sin(progress * Math.PI * 2.2 + index) * 0.16,
+        progress * 1.15,
+        Math.cos(progress * Math.PI * 1.7 + index) * 0.12,
+      );
+      const material = sprite.material as THREE.SpriteMaterial;
+      material.opacity = progress < 0.12 ? progress / 0.12 : 1 - (progress - 0.12) / 0.88;
+      material.rotation = Math.sin(time * 1.4 + index) * 0.35;
+      const scale = 0.15 + progress * 0.07;
+      sprite.scale.set(scale, scale, 1);
+    });
+  });
+  if (!textures.length) return null;
+  return (
+    <group ref={group} visible={active} position={[0.16, 1.52, 0.3]}>
+      {Array.from({ length: GRAMOPHONE_NOTE_COUNT }, (_, index) => (
+        <sprite key={index}>
+          <spriteMaterial map={textures[index % textures.length]} transparent opacity={0} depthWrite={false} toneMapped={false} />
+        </sprite>
+      ))}
+    </group>
+  );
+}
+
+// Pulsing ground ring that sweeps beneath a selected exhibit — a rotating
+// open arc reads as a scanner and pulls the eye to the active pedestal.
+// Hovered-but-unselected pedestals get a faint static hint of the ring.
+function SelectionGlowRing({ selected, hovered = false, accent, radius = 0.94 }: { selected: boolean; hovered?: boolean; accent: string; radius?: number }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (!mesh.current) return;
+    const material = mesh.current.material as THREE.MeshBasicMaterial;
+    const time = state.clock.elapsedTime;
+    const target = selected ? 0.46 + Math.sin(time * 2.6) * 0.13 : hovered ? 0.17 : 0;
+    material.opacity = THREE.MathUtils.lerp(material.opacity, target, 0.14);
+    mesh.current.rotation.z = time * 0.55;
+    const scale = 1 + Math.sin(time * 1.3) * 0.035;
+    mesh.current.scale.setScalar(scale);
+  });
+  return (
+    <mesh ref={mesh} position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
+      <ringGeometry args={[radius - 0.16, radius, 56, 1, 0, Math.PI * 1.62]} />
+      <meshBasicMaterial color={accent} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  );
+}
+
+// Museum lights gently breathe so the hall feels alive even when idle.
+function BreathingPointLight({ intensity, phase = 0, ...props }: { intensity: number; phase?: number } & Omit<React.ComponentProps<"pointLight">, "intensity">) {
+  const light = useRef<THREE.PointLight>(null);
+  useFrame((state) => {
+    if (!light.current) return;
+    const wave = 1 + Math.sin(state.clock.elapsedTime * 1.15 + phase) * 0.055;
+    light.current.intensity = THREE.MathUtils.lerp(light.current.intensity, intensity * wave, 0.2);
+  });
+  return <pointLight ref={light} intensity={intensity} {...props} />;
+}
+
 function GramophoneExhibit({
   interactive,
   selected,
@@ -2706,6 +2803,8 @@ function GramophoneExhibit({
         <meshBasicMaterial color={selected ? CORAL : TEAL} transparent opacity={0.001} depthWrite={false} toneMapped={false} />
       </mesh>
       <pointLight position={[0, 1.55, 0.35]} intensity={interactive ? selected ? 2.8 : hovered ? 1.6 : 0.35 : 0} distance={2.8} color={selected ? CORAL : "#d3aa54"} />
+      <SelectionGlowRing selected={selected} hovered={hovered} accent={CORAL} />
+      <GramophoneNotes active={selected} />
     </group>
   );
 }
@@ -2750,6 +2849,7 @@ function ProjectPedestal({ exhibit, position, displayIndex, selected, interactiv
         </>
       ) : null}
       <pointLight position={[0, 1.42, 0.35]} intensity={interactive ? selected ? 3.2 : hovered ? 2 : 0.65 : 0} distance={2.5} color={selected ? CORAL : projectAccent(exhibit.title)} />
+      <SelectionGlowRing selected={selected} hovered={hovered} accent={selected ? CORAL : projectAccent(exhibit.title)} />
     </group>
   );
 }
@@ -2957,8 +3057,19 @@ function WorldCanvasImpl({
         <ambientLight intensity={0.5} color="#ead9c4" />
         <hemisphereLight intensity={0.65} color="#bfd6e8" groundColor="#432f2a" />
         <directionalLight castShadow position={[14, 22, 12]} intensity={2.35} color="#ffd8ad" shadow-mapSize={[1024, 1024]} shadow-camera-left={-26} shadow-camera-right={26} shadow-camera-top={24} shadow-camera-bottom={-24} />
-        <pointLight position={[-7, 5, 5]} intensity={activeRoom !== "room-private" ? 12 : 0} distance={12} decay={2} color={CORAL} />
-        <pointLight position={[6, 4, -3]} intensity={activeRoom !== "room-private" ? 3.8 : 0} distance={9} decay={2} color="#9fc6b8" />
+        <BreathingPointLight position={[-7, 5, 5]} intensity={activeRoom !== "room-private" ? 12 : 0} distance={12} decay={2} color={CORAL} />
+        <BreathingPointLight position={[6, 4, -3]} intensity={activeRoom !== "room-private" ? 3.8 : 0} distance={9} decay={2} color="#9fc6b8" phase={2.1} />
+        {/* A welcoming glow spills from the entrance while the visitor is outside */}
+        <BreathingPointLight
+          position={[MARDOU_AUTO_DOOR.position[0] - 0.9, MARDOU_AUTO_DOOR.position[1] + 1.6, MARDOU_AUTO_DOOR.position[2]]}
+          intensity={activeRoom === "exterior" ? 5.5 : 0}
+          distance={4.5}
+          decay={2}
+          color="#ffd8a0"
+          phase={0.4}
+        />
+        <SceneDustMotes activeRoom={activeRoom} />
+        <SceneSkyEffects activeRoom={activeRoom} />
         <RendererLook />
         <CameraRig
           activeRoom={activeRoom}

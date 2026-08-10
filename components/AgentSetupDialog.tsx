@@ -37,10 +37,10 @@ function freshConfig(config: BrowserAgentConfig | null): BrowserAgentConfig {
   return config
     ? { maas: { ...config.maas }, website: { ...config.website }, image: { ...config.image }, petQa: { ...config.petQa } }
     : {
-        // Start from empty fields: no preset values are pre-filled. The user
-        // picks a Provider (which fills baseUrl/model) or types everything
-        // by hand; saving persists to this tab's sessionStorage as before.
-        maas: { ...EMPTY_PROVIDER_DRAFT },
+      // Start from empty fields: no preset values are pre-filled. The user
+      // picks a Provider (which fills baseUrl/model) or types everything
+      // by hand; saving persists to this browser's localStorage.
+      maas: { ...EMPTY_PROVIDER_DRAFT },
         website: { ...DEFAULT_BROWSER_AGENT_CONFIG.website },
         image: { ...EMPTY_IMAGE_DRAFT },
         petQa: { ...EMPTY_PROVIDER_DRAFT },
@@ -222,11 +222,11 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
           }
         : { ...maas, apiKey: "" },
     });
-    setFeedback("当前标签页的主服务与能力路由已保存，可以直接开始使用。");
+    setFeedback("主服务与能力路由已保存到此浏览器，下次打开无需重填。");
   }
 
   const readyLabel = config
-    ? "当前标签页已配置"
+    ? "本机已保存配置"
     : status?.ready ? "服务端环境变量已就绪" : "填写 Key 后即可解析";
 
   return (
@@ -533,12 +533,12 @@ export function AgentSetupDialog({ status, config, onClose, onSave, onClear }: A
             </details>
 
             <p className="agent-security-note">
-              Key 仅保存在当前标签页的 sessionStorage，并只随对应请求发送给 ROOM 服务端代理；不会写入代码仓库或 localStorage。
+              Key 会保存在此浏览器的 localStorage（本机持久，下次打开自动带入），并只随对应请求发送给 ROOM 服务端代理；不会写入代码仓库。公用设备上使用完请点下方“清除”。
             </p>
             <div className="agent-setup-feedback" aria-live="polite">{feedback}</div>
           </div>
           <footer className={config ? undefined : "is-single"}>
-            {config ? <button type="button" onClick={onClear}>清除当前会话配置</button> : <span />}
+            {config ? <button type="button" onClick={onClear}>清除本机保存的配置</button> : <span />}
             <button type="submit">保存并开始使用</button>
           </footer>
         </form>

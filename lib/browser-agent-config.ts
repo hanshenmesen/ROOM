@@ -1,4 +1,7 @@
-export const BROWSER_AGENT_SESSION_KEY = "room:agent-config:v1";
+// Browser-entered Agent config persists in localStorage so users do not have
+// to re-enter keys on every visit; the pre-rename sessionStorage entry with
+// the same key string is migrated on first read.
+export const BROWSER_AGENT_STORAGE_KEY = "room:agent-config:v1";
 export const CUSTOM_BROWSER_AGENT_PROVIDER_ID = "custom";
 
 export type BrowserAgentProviderMode = "json-schema" | "tool";

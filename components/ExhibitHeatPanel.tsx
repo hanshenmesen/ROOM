@@ -10,11 +10,13 @@ type ExhibitHeatPanelProps = {
 };
 
 export function ExhibitHeatPanel({ items, open, onToggle, onSelect }: ExhibitHeatPanelProps) {
+  const totalHeat = items.reduce((total, item) => total + item.total, 0);
   return (
     <aside className={`heat-sidebar ${open ? "is-open" : ""}`} aria-label="展台热度统计">
       <button className="heat-toggle" type="button" onClick={onToggle} aria-expanded={open}>
         <span>{open ? "收起热度" : "展台热度"}</span>
-        <strong>{items.reduce((total, item) => total + item.total, 0)}</strong>
+        {/* key remounts the badge on change so the pop animation replays */}
+        <strong key={totalHeat}>{totalHeat}</strong>
       </button>
       {open ? (
         <div className="heat-panel">

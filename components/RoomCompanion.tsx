@@ -120,6 +120,7 @@ export function RoomCompanion({
   onOpenQa,
 }: RoomCompanionProps) {
   const root = useRef<THREE.Group>(null);
+  const hovered = useRef(false);
   const head = useRef<THREE.Group>(null);
   const tail = useRef<THREE.Group>(null);
   const leftFrontLeg = useRef<THREE.Mesh>(null);
@@ -322,8 +323,10 @@ export function RoomCompanion({
     if (leftBackLeg.current) leftBackLeg.current.rotation.x = -gait;
     if (signalRing.current) {
       signalRing.current.rotation.y = clock.current % TWO_PI;
-      const ringScale = entrancePetting ? 1.1 + Math.sin(clock.current * 9) * 0.14 : 1;
+      const ringScale = entrancePetting ? 1.1 + Math.sin(clock.current * 9) * 0.14 : hovered.current ? 1.16 : 1;
       signalRing.current.scale.setScalar(ringScale);
+      const ringMaterial = signalRing.current.material as THREE.MeshBasicMaterial;
+      ringMaterial.opacity = THREE.MathUtils.lerp(ringMaterial.opacity, hovered.current ? 0.92 : 0.58, 0.18);
     }
     if (normalFace.current) normalFace.current.visible = !entrancePetting;
     if (happyFace.current) happyFace.current.visible = entrancePetting;
@@ -352,9 +355,11 @@ export function RoomCompanion({
       onClick={handleClick}
       onPointerOver={(event) => {
         event.stopPropagation();
+        hovered.current = true;
         document.body.style.cursor = "pointer";
       }}
       onPointerOut={() => {
+        hovered.current = false;
         document.body.style.cursor = "default";
       }}
     >

@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ASSET_ROOT = "/assets/blueprint/parts";
 
@@ -15,6 +15,24 @@ const AGENT_STEPS = [
 
 export function ProductFlowLanding({ onEnter }: { onEnter: () => void }) {
   const [leaving, setLeaving] = useState(false);
+  const rootRef = useRef<HTMLElement>(null);
+
+  // Mouse parallax: the three stage visuals drift at different depths.
+  // CSS custom properties + transitions do the smoothing, so this stays cheap.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    const onMove = (event: PointerEvent) => {
+      const x = ((event.clientX / window.innerWidth) - 0.5) * 2;
+      const y = ((event.clientY / window.innerHeight) - 0.5) * 2;
+      root.style.setProperty("--par-x", x.toFixed(3));
+      root.style.setProperty("--par-y", y.toFixed(3));
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
 
   function enterIntake() {
     if (leaving) return;
@@ -24,7 +42,7 @@ export function ProductFlowLanding({ onEnter }: { onEnter: () => void }) {
   }
 
   return (
-    <main className={`flow-landing ${leaving ? "is-leaving" : ""}`}>
+    <main ref={rootRef} className={`flow-landing ${leaving ? "is-leaving" : ""}`}>
       <header className="flow-header">
         <img className="flow-logo" src={`${ASSET_ROOT}/room-logo.webp`} alt="ROOM" width={438} height={160} fetchPriority="high" decoding="async" />
         <h1 id="flow-title">把你的经历，变成你的世界。</h1>

@@ -2240,6 +2240,1040 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   .private-gate-card { padding: 24px 20px; box-shadow: 7px 7px 0 rgba(25, 23, 27, .25); }
 }
 
+/* ============================================================
+   Voice & route FX — the ROOM route node breathes, the voice
+   toggle pulses while enabled, voice notices slide in.
+   ============================================================ */
+
+@keyframes fx-room-node-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(28, 51, 72, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(28, 51, 72, .12); }
+}
+.intake-preview-route strong { animation: fx-room-node-breathe 2.6s ease-in-out infinite; }
+
+.pet-voice-toggle[aria-pressed="true"] > span { display: inline-block; animation: fx-rec-pulse 1.6s ease-in-out infinite; }
+.pet-voice-notice { animation: fx-msg-slide .3s ease-out; }
+
+/* ============================================================
+   Work-state FX — the generate button keeps its dark working
+   treatment with a shimmer while the agent is building.
+   ============================================================ */
+
+.intake-generate[data-loading]:disabled {
+  border-color: #1c3348;
+  background: #1c3348;
+  color: #fff;
+  cursor: wait;
+}
+.intake-generate[data-loading]:disabled small { color: rgba(255, 255, 255, .62); }
+.intake-generate[data-loading]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .14), transparent);
+  transform: translateX(-100%);
+  animation: fx-track-shimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Scrolling FX — long panels glide instead of jumping; section
+   tags respond to hover.
+   ============================================================ */
+
+.agent-trace-timeline, .heat-panel ol, .pet-qa-panel, .memory-panel, .agent-config-scroll, .exhibit-focus-scroll-region { scroll-behavior: smooth; }
+
+.exhibit-focus-section-tags span { transition: transform .2s ease, filter .2s ease; }
+.exhibit-focus-section-tags span:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
+/* ============================================================
+   Companion preview FX — halo sways, shadow breathes in sync
+   with the body, studio headings and demo heading fade in.
+   ============================================================ */
+
+@keyframes fx-ring-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+.pet-preview-ring { animation: fx-ring-sway 3.2s ease-in-out infinite; }
+
+@keyframes fx-shadow-breathe {
+  0%, 100% { transform: scaleX(1); opacity: .9; }
+  50% { transform: scaleX(1.06); opacity: .72; }
+}
+.pet-preview-shadow { animation: fx-shadow-breathe 2.8s ease-in-out infinite; }
+
+.creation-studio-heading, .demo-heading { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) backwards; }
+
+/* ============================================================
+   Decorative-layer governance — halos, trails, grain and
+   vignettes step aside for forced colours and print.
+   ============================================================ */
+
+@media (forced-colors: active) {
+  .cursor-halo, .cursor-dot, .trail-effect-canvas { display: none; }
+  body::after, .world-stage::after, .scene-loading-screen::before, .intake-page::before { content: none; }
+}
+@media print {
+  .cursor-halo, .cursor-dot, .trail-effect-canvas { display: none; }
+  body::after, .world-stage::after { content: none; opacity: 0; }
+}
+
+.demo-panel > p { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Navigation FX — focus-screen pager buttons lift and gleam.
+   ============================================================ */
+
+.exhibit-focus-navigation button { position: relative; overflow: hidden; transition: transform .18s ease, background .22s ease, box-shadow .22s ease; }
+.exhibit-focus-navigation button:not(:disabled):hover { transform: translateY(-2px); background: #2b3433; box-shadow: 0 8px 18px rgba(18, 20, 20, .3); }
+.exhibit-focus-navigation button::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .24), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.exhibit-focus-navigation button:not(:disabled):hover::after {
+  transform: translateX(460%) skewX(-18deg);
+  transition: transform .68s cubic-bezier(.3, .6, .2, 1);
+}
+
+/* ============================================================
+   Playful FX — pixel folks bob faster under the cursor, and the
+   PDF card rewrites its lines on hover.
+   ============================================================ */
+
+.flow-owner:hover { animation-duration: 2.2s; }
+.flow-visitor-avatar:hover { animation-duration: 2s; }
+
+.flow-paper-lines i { transform-origin: left center; }
+@keyframes fx-line-write { from { transform: scaleX(0); opacity: .3; } to { transform: scaleX(1); opacity: 1; } }
+.flow-pdf-card:hover .flow-paper-lines i { animation: fx-line-write .5s cubic-bezier(.2, .7, .2, 1) backwards; }
+.flow-pdf-card:hover .flow-paper-lines i:nth-child(2) { animation-delay: .07s; }
+.flow-pdf-card:hover .flow-paper-lines i:nth-child(3) { animation-delay: .14s; }
+.flow-pdf-card:hover .flow-paper-lines i:nth-child(4) { animation-delay: .21s; }
+
+/* ============================================================
+   Timeline FX — the active trace dot emits a slow sonar ring;
+   the top three heat ranks get podium colours.
+   ============================================================ */
+
+@keyframes fx-dot-ring {
+  0% { box-shadow: 0 0 0 0 rgba(189, 81, 53, .4); }
+  100% { box-shadow: 0 0 0 6px rgba(189, 81, 53, 0); }
+}
+.agent-trace-timeline > li.is-active > i { animation: fx-dot-ring 1.4s ease-out infinite; }
+
+.heat-panel li:first-child button > span { color: #ffb087; }
+.heat-panel li:nth-child(2) button > span { color: #65d7c3; }
+.heat-panel li:nth-child(3) button > span { color: #9fc6b8; }
+
+/* ============================================================
+   Numeric FX — tabular figures keep ticking readouts stable.
+   ============================================================ */
+
+.scene-loading-screen strong,
+.heat-panel em,
+.heat-toggle strong,
+.agent-trace-panel small,
+.exhibit-focus-window-controls span { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   Phase FX — creation headline/kicker re-enter on phase change
+   (they are keyed in RoomStudio), stage chips pop when done.
+   ============================================================ */
+
+.creation-progress h1, .creation-progress .creation-kicker { animation: fx-creation-rise .55s cubic-bezier(.2, .7, .2, 1) backwards; }
+.agent-stage-progress li.is-done { animation: fx-stage-pop .4s cubic-bezier(.2, .7, .2, 1); }
+
+/* ============================================================
+   Responsiveness FX — bridges speed up under the cursor, nav
+   buttons join with a rise, wrong passwords tint the field.
+   ============================================================ */
+
+.flow-bridge:hover span { animation-duration: .6s; }
+.flow-bridge:hover::after { animation-duration: 1.4s; }
+.flow-agent-stack:hover .flow-agent::before { animation-duration: 3.2s; }
+
+.journey-nav button { animation: fx-focus-rise .35s cubic-bezier(.2, .7, .2, 1) backwards; }
+
+.private-gate-card form:has(.private-gate-error:not(:empty)) input:not(:disabled) {
+  border-color: #9b3e32;
+  box-shadow: 0 0 0 3px rgba(155, 62, 50, .22);
+  animation: fx-shake .45s cubic-bezier(.36, .07, .19, .97);
+}
+
+/* ============================================================
+   Artifact FX — the generated world.json card breathes; file
+   picker chips ease and lift.
+   ============================================================ */
+
+@keyframes fx-world-file-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(190, 132, 25, 0); }
+  50% { box-shadow: 0 6px 20px rgba(190, 132, 25, .2); }
+}
+.flow-world-file { animation: fx-world-file-glow 3.4s ease-in-out infinite; }
+
+.picture-file-button { transition: background .22s ease, color .22s ease, transform .18s ease; }
+.picture-file-button:hover { transform: translateY(-1px); }
+
+/* ============================================================
+   State-change FX — ready marks pop, and the creation orbit
+   fires a single celebration ripple when the build completes.
+   ============================================================ */
+
+.source-ready-mark.is-ready, .intake-preview-route span.is-ready { animation: fx-stage-pop .32s cubic-bezier(.2, .7, .2, 1); }
+
+@keyframes fx-orbit-celebrate {
+  0% { box-shadow: 0 0 0 0 rgba(47, 139, 98, .42); }
+  100% { box-shadow: 0 0 0 24px rgba(47, 139, 98, 0); }
+}
+.creation-orbit.is-complete { animation: fx-orbit-celebrate .7s ease-out; }
+
+/* ============================================================
+   Feedback FX — inline errors shake, previews pop in, diary
+   photos respond to hover, setup feedback slides.
+   ============================================================ */
+
+.memory-error:not(:empty) { animation: fx-shake .45s cubic-bezier(.36, .07, .19, .97); }
+.agent-setup-feedback:not(:empty) { animation: fx-msg-slide .3s ease-out; }
+.diary-preview, .project-cover-preview { animation: fx-demo-pop .4s cubic-bezier(.2, .7, .2, 1) backwards; }
+.diary-entries article img { transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
+.diary-entries article img:hover { transform: scale(1.03); }
+
+/* ============================================================
+   Completion FX — finished steps and stages earn a check mark.
+   ============================================================ */
+
+.creation-steps li.is-complete > span::after { content: " ✓"; color: #2f7658; }
+.agent-stage-progress li.is-done strong::before { content: "✓ "; color: #2f7658; font-weight: 700; }
+.agent-stage-progress li.is-failed strong::before { content: "✕ "; color: #b23a2a; font-weight: 700; }
+
+/* ============================================================
+   Loading-state FX — pending chat shimmer, exhibit image
+   pre-load sheen, wrong-password shake.
+   ============================================================ */
+
+.pet-qa-message.is-pending { position: relative; overflow: hidden; }
+.pet-qa-message.is-pending::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(77, 115, 111, .12), transparent);
+  transform: translateX(-100%);
+  animation: fx-track-shimmer 1.5s ease-in-out infinite;
+}
+
+.exhibit-focus-image { position: relative; }
+.exhibit-focus-image::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .09) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: fx-sheen-slide 1.6s linear infinite;
+}
+.exhibit-focus-image img { position: relative; z-index: 1; }
+@keyframes fx-sheen-slide { from { background-position: 180% 0; } to { background-position: -80% 0; } }
+
+@keyframes fx-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+.private-gate-error:not(:empty) { animation: fx-shake .45s cubic-bezier(.36, .07, .19, .97); }
+
+/* ============================================================
+   Terminal FX — blinking carets on kickers, a recording dot on
+   the live trace bar.
+   ============================================================ */
+
+@keyframes fx-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.creation-page.is-parsing .creation-kicker::after { content: " _"; animation: fx-blink 1.1s steps(2) infinite; }
+.scene-loading-brand::after { content: " _"; animation: fx-blink 1.1s steps(2) infinite; }
+
+@keyframes fx-rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.agent-trace-panel.is-running > span::before {
+  content: "●";
+  margin-right: 5px;
+  color: #bd5135;
+  font-size: 7px;
+  animation: fx-rec-pulse 1.2s ease-in-out infinite;
+}
+
+/* ============================================================
+   Disclosure FX — details bodies fade in, summary markers spin,
+   move-in tabs ease, voice toolbar buttons lift.
+   ============================================================ */
+
+.agent-advanced[open] .agent-advanced-body { animation: fx-focus-rise .35s cubic-bezier(.2, .7, .2, 1) backwards; }
+.agent-advanced > summary { transition: background .2s ease; }
+.agent-advanced > summary:hover { background: rgba(11, 11, 11, .04); }
+.agent-advanced > summary::after { display: inline-block; transition: transform .3s cubic-bezier(.2, .7, .2, 1); }
+.agent-advanced[open] > summary::after { transform: rotate(180deg); }
+
+.agent-trace-timeline details > summary { cursor: pointer; transition: color .2s ease; }
+.agent-trace-timeline details[open] > dl { animation: fx-focus-rise .3s ease backwards; }
+
+.move-in-tabs button { transition: background .25s ease, color .25s ease; }
+.move-in-tabs button:not(.is-selected):hover { background: #e4dccd; }
+
+.pet-qa-voice-toolbar button { transition: transform .18s ease, border-color .2s ease, background .2s ease, color .2s ease; }
+.pet-qa-voice-toolbar button:hover { transform: translateY(-1px); }
+
+/* ============================================================
+   Section FX — flow steps gain a tinted aura on hover, config
+   inputs ease their focus ring, exhibit sections lift and the
+   index chip fills in.
+   ============================================================ */
+
+.flow-step { position: relative; }
+.flow-step::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .45s ease;
+  background: radial-gradient(circle at 50% -4%, color-mix(in srgb, var(--step-accent) 8%, transparent), transparent 62%);
+}
+.flow-step:hover::after { opacity: 1; }
+
+.agent-config-form input:not([type="checkbox"]), .agent-config-form select { transition: border-color .2s ease, box-shadow .2s ease; }
+
+.exhibit-focus-section { transition: transform .3s cubic-bezier(.2, .7, .2, 1), box-shadow .3s ease, border-color .3s ease; }
+.exhibit-focus-section:hover { transform: translateY(-3px); border-color: rgba(77, 115, 111, .42); box-shadow: 0 16px 36px rgba(46, 54, 51, .1); }
+.exhibit-focus-section-header > span { transition: background .25s ease, color .25s ease, transform .25s ease; }
+.exhibit-focus-section:hover .exhibit-focus-section-header > span { background: #4d736f; color: #fff; transform: scale(1.08); }
+
+/* ============================================================
+   Arrow FX — directional glyphs slide towards their direction
+   of travel on hover, across every navigation control.
+   ============================================================ */
+
+.demo-panel > button span[aria-hidden],
+.intake-back span[aria-hidden],
+.home-return span[aria-hidden],
+.creation-next span[aria-hidden],
+.creation-enter span[aria-hidden],
+.intake-generate > span:last-child { display: inline-block; transition: transform .25s cubic-bezier(.2, .7, .2, 1); }
+.demo-panel > button:hover span[aria-hidden],
+.creation-next:hover span[aria-hidden],
+.creation-enter:hover:not(:disabled) span[aria-hidden] { transform: translateX(3px); }
+.intake-back:hover span[aria-hidden],
+.home-return:hover span[aria-hidden] { transform: translateX(-3px); }
+.intake-generate:hover:not(:disabled) > span:last-child { transform: translateX(4px); }
+
+/* ============================================================
+   Close-button FX — every × spins a quarter turn on hover;
+   portrait thumbnail and routing card respond too.
+   ============================================================ */
+
+.detail-close,
+.agent-detail-dialog header button,
+.agent-setup-dialog > header button,
+.exhibit-focus-window-controls button,
+.demo-saved-delete { transition: transform .3s cubic-bezier(.34, .9, .3, 1.2), border-color .2s ease, background .2s ease, color .2s ease; }
+.detail-close:hover,
+.agent-detail-dialog header button:hover,
+.agent-setup-dialog > header button:hover,
+.exhibit-focus-window-controls button:hover,
+.demo-saved-delete:hover:not(:disabled) { transform: rotate(90deg); }
+
+.portrait-art-heading img { transition: transform .3s cubic-bezier(.2, .7, .2, 1); }
+.portrait-art-heading img:hover { transform: scale(1.1) rotate(-2.5deg); }
+
+.agent-routing-card { transition: box-shadow .25s ease, border-color .25s ease; }
+.agent-routing-card:hover { box-shadow: 0 8px 22px rgba(11, 11, 11, .07); }
+
+/* ============================================================
+   Guidance FX — bridge arrows nudge, world hint joins the HUD,
+   review submit lifts, project editor save sweep, heat toggle.
+   ============================================================ */
+
+.flow-bridge i { animation: flow-enter-nudge 1.8s ease-in-out infinite; }
+
+.world-stage.is-ready .world-hint { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .35s backwards; }
+
+.profile-review-submit button { transition: transform .18s ease, background .2s ease; }
+.profile-review-submit button:not(:disabled):hover { transform: translateY(-1px); }
+
+.project-editor > button { position: relative; overflow: hidden; }
+.project-editor > button::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .28), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.project-editor > button:hover::after {
+  transform: translateX(460%) skewX(-18deg);
+  transition: transform .72s cubic-bezier(.3, .6, .2, 1);
+}
+
+.heat-toggle { transition: border-color .25s ease, background .25s ease, transform .16s ease; }
+.heat-toggle:hover { border-color: rgba(101, 215, 195, .55); }
+.heat-toggle:active { transform: scale(.97); }
+
+/* ============================================================
+   Chrome FX — header rule draws itself in, demo list cascade,
+   status pill lift on hover.
+   ============================================================ */
+
+@keyframes fx-header-line {
+  from { width: 0; left: 50%; opacity: 0; }
+  22% { opacity: .6; }
+  to { width: 100%; left: 0; opacity: .6; }
+}
+.flow-header::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: 0;
+  height: 1px;
+  background: var(--flow-blue);
+  animation: fx-header-line 1.15s cubic-bezier(.2, .7, .2, 1) .55s forwards;
+}
+.minimal-header { position: relative; }
+.minimal-header::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: 0;
+  height: 1px;
+  background: rgba(82, 127, 174, .5);
+  animation: fx-header-line 1s cubic-bezier(.2, .7, .2, 1) .3s forwards;
+}
+
+.demo-profile-list > * { animation: fx-demo-pop .5s cubic-bezier(.2, .7, .2, 1) backwards; }
+.demo-profile-list > *:nth-child(2) { animation-delay: .07s; }
+.demo-profile-list > *:nth-child(3) { animation-delay: .14s; }
+.demo-profile-list > *:nth-child(n+4) { animation-delay: .21s; }
+
+.agent-status-button { transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.agent-status-button:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(54, 80, 103, .1); }
+
+/* ============================================================
+   Guestbook & archive FX — note pop-in, link slide, library
+   rows, portrait generating shimmer, guestbook submit sweep.
+   ============================================================ */
+
+.memory-entries article { transform-origin: left top; animation: fx-bubble-pop .4s cubic-bezier(.2, .75, .25, 1.06) backwards; }
+.memory-entries article:nth-child(2) { animation-delay: .05s; }
+.memory-entries article:nth-child(3) { animation-delay: .1s; }
+.memory-entries article:nth-child(4) { animation-delay: .15s; }
+
+.source-browser-links a { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.source-browser-links a:hover { transform: translateX(3px); }
+
+.gramophone-library > button { transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.gramophone-library > button:hover { transform: translateX(3px); }
+
+.portrait-art-generate:disabled { position: relative; overflow: hidden; }
+.portrait-art-generate:disabled::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .22), transparent);
+  transform: translateX(-100%);
+  animation: fx-track-shimmer 1.4s ease-in-out infinite;
+}
+
+.memory-form > button { position: relative; overflow: hidden; }
+.memory-form > button::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .3), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.memory-form > button:hover::after {
+  transform: translateX(460%) skewX(-18deg);
+  transition: transform .72s cubic-bezier(.3, .6, .2, 1);
+}
+
+/* ============================================================
+   Tactile detail FX — heat badge pop on change, pet-qa send
+   sweep, diagonal shine reused from the CTA language.
+   ============================================================ */
+
+.heat-toggle strong { animation: fx-stage-pop .32s cubic-bezier(.2, .7, .2, 1); }
+
+.pet-qa-panel > form button { position: relative; overflow: hidden; }
+.pet-qa-panel > form button::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .3), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.pet-qa-panel > form button:hover::after {
+  transform: translateX(460%) skewX(-18deg);
+  transition: transform .72s cubic-bezier(.3, .6, .2, 1);
+}
+
+/* ============================================================
+   Page atmosphere FX — intake aurora drift, loading-screen
+   cascade, brand marks respond to hover.
+   ============================================================ */
+
+.intake-page { position: relative; }
+.intake-page::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -15%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 62% 28%, rgba(111, 164, 209, .09), transparent 34%),
+    radial-gradient(circle at 28% 80%, rgba(101, 215, 195, .05), transparent 30%);
+  animation: fx-loading-drift 12s ease-in-out infinite alternate;
+}
+/* Keep the aurora under the content without disturbing fixed overlays */
+.intake-page > .minimal-header,
+.intake-page > .minimal-footer,
+.intake-page > .intake-hero { position: relative; z-index: 1; }
+
+.scene-loading-brand { animation: fx-focus-rise .55s cubic-bezier(.2, .7, .2, 1) backwards; }
+.scene-loading-spinner { animation: fx-complete-pop .5s cubic-bezier(.2, .7, .2, 1) .1s backwards; }
+.scene-loading-screen strong { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .18s backwards; }
+.scene-loading-track { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .26s backwards; }
+.scene-loading-screen p { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .34s backwards; }
+
+.flow-logo { transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
+.flow-logo:hover { transform: rotate(-1.6deg) scale(1.025); }
+.intake-wordmark img { transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
+.intake-wordmark:hover img { transform: scale(1.04); }
+
+.hero-index { animation: fx-creation-rise .7s cubic-bezier(.2, .7, .2, 1) .05s backwards; }
+
+/* ============================================================
+   Exhibit detail FX — image ken-burns hover, source links slide,
+   private-gate mode cards lift.
+   ============================================================ */
+
+.exhibit-focus-image { overflow: hidden; }
+.exhibit-focus-image img { transition: transform .65s cubic-bezier(.2, .7, .2, 1); }
+.exhibit-focus-image:hover img { transform: scale(1.045); }
+
+.exhibit-focus-sources a { transition: transform .2s ease, background .2s ease, color .2s ease; }
+.exhibit-focus-sources a:hover { transform: translateX(3px); background: #202322; color: #f7f2e8; }
+
+.private-mode-picker button { transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.private-mode-picker button:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(25, 23, 27, .12); }
+
+/* ============================================================
+   Fleet & music FX — metrics bar lift, grid cell cascade,
+   the music note bobs while a track is playing.
+   ============================================================ */
+
+.agent-metrics-panel { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease; }
+.agent-metrics-panel:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(25, 23, 27, .1); }
+.agent-metrics-grid > div { animation: fx-focus-rise .4s cubic-bezier(.2, .7, .2, 1) backwards; }
+.agent-metrics-grid > div:nth-child(2) { animation-delay: .04s; }
+.agent-metrics-grid > div:nth-child(3) { animation-delay: .08s; }
+.agent-metrics-grid > div:nth-child(4) { animation-delay: .12s; }
+.agent-metrics-grid > div:nth-child(n+5) { animation-delay: .16s; }
+
+@keyframes fx-music-note {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-2px) rotate(8deg); }
+}
+.background-music-control button > span { display: inline-block; }
+.background-music-control button[aria-pressed="true"] > span { animation: fx-music-note 1.1s ease-in-out infinite; }
+
+/* ============================================================
+   Agent console FX — trace dialog entrance, timeline rows pop,
+   review conflicts stagger, setup dialog content cascade.
+   ============================================================ */
+
+.agent-detail-backdrop { animation: fx-backdrop-in .3s ease backwards; }
+.agent-detail-dialog { animation: fx-dialog-in .42s cubic-bezier(.2, .75, .25, 1.05) .05s backwards; }
+.agent-trace-timeline li { animation: fx-focus-rise .4s cubic-bezier(.2, .7, .2, 1) backwards; }
+
+.agent-trace-panel { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.agent-trace-panel:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(25, 23, 27, .1); }
+.agent-trace-panel.is-running { animation: fx-stage-breathe 1.8s ease-in-out infinite; }
+
+.profile-review-options > * { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.profile-review-options > *:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(25, 23, 27, .1); }
+.profile-review-conflict { animation: fx-creation-rise .5s cubic-bezier(.2, .7, .2, 1) backwards; }
+.profile-review-conflict:nth-child(2) { animation-delay: .07s; }
+.profile-review-conflict:nth-child(3) { animation-delay: .14s; }
+.profile-review-conflict:nth-child(n+4) { animation-delay: .21s; }
+
+.agent-setup-dialog > * { animation: fx-focus-rise .42s cubic-bezier(.2, .7, .2, 1) backwards; }
+.agent-setup-dialog > *:nth-child(2) { animation-delay: .06s; }
+.agent-setup-dialog > *:nth-child(3) { animation-delay: .12s; }
+.agent-setup-dialog > *:nth-child(n+4) { animation-delay: .18s; }
+
+/* ============================================================
+   Companion builder FX — the CSS pet blinks, breathes and wags
+   its tail; picker chips lift; studio CTAs get the shine sweep.
+   ============================================================ */
+
+@keyframes fx-pet-blink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(.12); }
+}
+.pet-preview-eye { animation: fx-pet-blink 4.4s ease-in-out infinite; }
+
+@keyframes fx-pet-breathe {
+  0%, 100% { transform: rotate(-3deg) scaleY(1); }
+  50% { transform: rotate(-3deg) scaleY(1.035); }
+}
+.pet-preview-body { transform-origin: center bottom; animation: fx-pet-breathe 2.8s ease-in-out infinite; }
+
+@keyframes fx-tail-wag {
+  0%, 100% { transform: rotate(-28deg); }
+  50% { transform: rotate(-8deg); }
+}
+.pet-preview-tail { transform-origin: left bottom; animation: fx-tail-wag 1.6s ease-in-out infinite; }
+
+.pet-color-options button { transition: transform .18s ease; }
+.pet-color-options button:hover { transform: scale(1.16); }
+.pet-text-options button, .pet-personality-picker button { transition: transform .18s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.pet-text-options button:hover, .pet-personality-picker button:hover { transform: translateY(-2px); }
+
+.move-in-photo-grid article { transition: transform .22s ease, box-shadow .22s ease; }
+.move-in-photo-grid article:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(25, 23, 27, .12); }
+
+.creation-next, .creation-enter { position: relative; overflow: hidden; }
+.creation-next::after, .creation-enter::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .28), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.creation-next:hover::after, .creation-enter:hover:not(:disabled)::after {
+  transform: translateX(460%) skewX(-18deg);
+  transition: transform .72s cubic-bezier(.3, .6, .2, 1);
+}
+
+.exhibit-focus-backdrop { animation: fx-backdrop-in .32s ease backwards; }
+
+@keyframes fx-hint-breathe {
+  0%, 100% { opacity: .8; }
+  50% { opacity: 1; text-shadow: 0 0 12px rgba(101, 215, 195, .4); }
+}
+.journey-primary { animation: fx-hint-breathe 2.6s ease-in-out infinite; }
+
+/* ============================================================
+   Micro-interaction FX — agent icon hop, comment bob, intake
+   form stagger, avatar pop, chat input focus glow.
+   ============================================================ */
+
+@keyframes fx-agent-icon-hop {
+  0%, 100% { transform: scale(1.08) translateY(0); }
+  40% { transform: scale(1.16) translateY(-4px); }
+}
+.flow-agent:hover img { animation: fx-agent-icon-hop .5s ease; }
+
+.flow-comment { animation: flow-float 5s -2s ease-in-out infinite; }
+
+.intake-form > * { animation: fx-creation-rise .6s cubic-bezier(.2, .7, .2, 1) backwards; }
+.intake-form > *:nth-child(2) { animation-delay: .05s; }
+.intake-form > *:nth-child(3) { animation-delay: .1s; }
+.intake-form > *:nth-child(4) { animation-delay: .15s; }
+.intake-form > *:nth-child(5) { animation-delay: .2s; }
+.intake-form > *:nth-child(6) { animation-delay: .25s; }
+.intake-form > *:nth-child(7) { animation-delay: .3s; }
+.intake-form > *:nth-child(8) { animation-delay: .35s; }
+.intake-form > *:nth-child(9) { animation-delay: .4s; }
+.intake-form > *:nth-child(n+10) { animation-delay: .45s; }
+
+.demo-person > span { transition: transform .3s cubic-bezier(.2, .7, .2, 1); }
+.demo-panel:hover .demo-person > span { transform: scale(1.08); }
+
+.pet-qa-panel > form input:focus { box-shadow: inset 0 0 0 2px rgba(77, 115, 111, .42); }
+
+/* ============================================================
+   Dialog & panel FX — modal entrances, chat bubbles, heat-list
+   stagger, tactile press states on HUD controls.
+   ============================================================ */
+
+@keyframes fx-backdrop-in { from { opacity: 0; } }
+@keyframes fx-dialog-in { from { opacity: 0; transform: translateY(26px) scale(.97); } }
+
+.agent-setup-backdrop { animation: fx-backdrop-in .3s ease backwards; }
+.agent-setup-dialog { animation: fx-dialog-in .42s cubic-bezier(.2, .75, .25, 1.05) .06s backwards; }
+.private-gate.is-open { animation: fx-backdrop-in .3s ease backwards; }
+.private-gate.is-open .private-gate-card { animation: fx-dialog-in .45s cubic-bezier(.2, .75, .25, 1.06) backwards; }
+
+@keyframes fx-bubble-pop { from { opacity: 0; transform: translateY(8px) scale(.92); } }
+.pet-qa-message { transform-origin: left bottom; animation: fx-bubble-pop .38s cubic-bezier(.2, .75, .25, 1.08) backwards; }
+.pet-qa-message.is-user { transform-origin: right bottom; }
+
+.heat-panel { transform-origin: left top; animation: fx-dialog-in .4s cubic-bezier(.2, .75, .25, 1.04) backwards; }
+.heat-panel li { animation: fx-focus-rise .4s cubic-bezier(.2, .7, .2, 1) backwards; }
+.heat-panel li:nth-child(2) { animation-delay: .05s; }
+.heat-panel li:nth-child(3) { animation-delay: .1s; }
+.heat-panel li:nth-child(4) { animation-delay: .15s; }
+.heat-panel li:nth-child(n+5) { animation-delay: .2s; }
+.heat-panel button { transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.heat-panel button:hover { transform: translateX(3px); }
+
+.journey-nav button { transition: transform .16s ease, background .2s ease, color .2s ease; }
+.journey-nav button:not(:disabled):active { transform: scale(.95); }
+.home-return, .companion-qa-launch { transition: transform .16s ease, background .22s ease, color .22s ease, border-color .22s ease; }
+.home-return:active, .companion-qa-launch:active { transform: scale(.95); }
+
+/* ============================================================
+   World FX — loading-screen aurora drift, track shimmer, ready
+   pop, HUD entrance, companion pulse ring, focus-screen stagger.
+   ============================================================ */
+
+/* Cinematic vignette over the 3D canvas, fades in once ready */
+.world-stage::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 108% 88% at 50% 46%, transparent 62%, rgba(12, 10, 9, .3) 100%);
+  opacity: 0;
+  transition: opacity 1.2s ease .3s;
+}
+.world-stage.is-ready::after { opacity: 1; }
+
+.scene-loading-screen::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -20%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 28% 62%, rgba(101, 215, 195, .13), transparent 38%),
+    radial-gradient(circle at 74% 30%, rgba(255, 139, 97, .12), transparent 34%);
+  animation: fx-loading-drift 9s ease-in-out infinite alternate;
+}
+.scene-loading-screen > * { position: relative; z-index: 1; }
+@keyframes fx-loading-drift {
+  from { transform: translate3d(-2.5%, 1.5%, 0) scale(1); }
+  to { transform: translate3d(2.5%, -1.5%, 0) scale(1.06); }
+}
+
+.scene-loading-track { position: relative; }
+.scene-loading-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+  transform: translateX(-100%);
+  animation: fx-track-shimmer 1.7s ease-in-out infinite;
+}
+@keyframes fx-track-shimmer { 55%, 100% { transform: translateX(100%); } }
+
+.scene-loading-complete { animation: fx-complete-pop .45s cubic-bezier(.2, .7, .2, 1) backwards; }
+@keyframes fx-complete-pop {
+  0% { opacity: 0; transform: scale(.55); }
+  62% { opacity: 1; transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fx-world-ui-in { from { opacity: 0; transform: translateY(-8px); } }
+.world-stage.is-ready :is(.home-return, .journey-nav, .companion-qa-launch, .heat-sidebar, .background-music-control) {
+  animation: fx-world-ui-in .55s cubic-bezier(.2, .7, .2, 1) backwards;
+}
+.world-stage.is-ready .journey-nav { animation-delay: .08s; }
+.world-stage.is-ready .companion-qa-launch { animation-delay: .14s; }
+.world-stage.is-ready .heat-sidebar { animation-delay: .18s; }
+.world-stage.is-ready .background-music-control { animation-delay: .22s; }
+
+.companion-qa-launch::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: fx-qa-ring 2.8s ease-out infinite;
+}
+@keyframes fx-qa-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 176, 135, .34); }
+  60% { box-shadow: 0 0 0 9px rgba(255, 176, 135, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 176, 135, 0); }
+}
+.companion-qa-launch:hover::after, .companion-qa-launch[aria-expanded="true"]::after { animation: none; }
+
+@keyframes fx-focus-rise { from { opacity: 0; transform: translateY(12px); } }
+.exhibit-focus-header > div:first-child { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .05s backwards; }
+.exhibit-focus-window-controls { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .1s backwards; }
+.exhibit-focus-image { animation: fx-focus-rise .55s cubic-bezier(.2, .7, .2, 1) .12s backwards; }
+.exhibit-focus-copy { animation: fx-focus-rise .55s cubic-bezier(.2, .7, .2, 1) .18s backwards; }
+.exhibit-focus-section { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) backwards; }
+.exhibit-focus-section:nth-child(2) { animation-delay: .08s; }
+.exhibit-focus-section:nth-child(3) { animation-delay: .14s; }
+.exhibit-focus-section:nth-child(4) { animation-delay: .2s; }
+.exhibit-focus-section:nth-child(n+5) { animation-delay: .26s; }
+.exhibit-focus-sources, .exhibit-focus-actions { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .22s backwards; }
+.exhibit-focus-navigation { animation: fx-focus-rise .5s cubic-bezier(.2, .7, .2, 1) .24s backwards; }
+
+.memory-panel.is-open > *, .pet-qa-panel > * { animation: fx-focus-rise .45s cubic-bezier(.2, .7, .2, 1) backwards; }
+.memory-panel.is-open > *:nth-child(2), .pet-qa-panel > *:nth-child(2) { animation-delay: .06s; }
+.memory-panel.is-open > *:nth-child(3), .pet-qa-panel > *:nth-child(3) { animation-delay: .12s; }
+.memory-panel.is-open > *:nth-child(n+4), .pet-qa-panel > *:nth-child(n+4) { animation-delay: .18s; }
+
+/* ============================================================
+   Creation FX — staggered workspace rise, step ignition line,
+   stage-chip breathing, orbit status halo, panel entrance.
+   ============================================================ */
+
+@keyframes fx-creation-rise { from { opacity: 0; transform: translateY(18px); } }
+.creation-progress > * { animation: fx-creation-rise .72s cubic-bezier(.2, .7, .2, 1) backwards; }
+.creation-progress > *:nth-child(2) { animation-delay: .08s; }
+.creation-progress > *:nth-child(3) { animation-delay: .16s; }
+.creation-progress > *:nth-child(4) { animation-delay: .24s; }
+.creation-progress > *:nth-child(5) { animation-delay: .32s; }
+.creation-progress > *:nth-child(6) { animation-delay: .4s; }
+.creation-progress > *:nth-child(n+7) { animation-delay: .48s; }
+.creation-studio { animation: fx-creation-rise .72s cubic-bezier(.2, .7, .2, 1) .3s backwards; }
+
+.creation-steps li { position: relative; transition: opacity .45s ease, background .45s ease; }
+.creation-steps li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 0;
+  height: 1px;
+  background: #bd5135;
+  transition: width .55s cubic-bezier(.2, .7, .2, 1);
+}
+.creation-steps li.is-active { background: linear-gradient(90deg, rgba(189, 81, 53, .06), transparent 72%); }
+.creation-steps li.is-active::after { width: 100%; }
+.creation-steps li > span { transition: color .35s ease; }
+
+@keyframes fx-stage-pop { from { opacity: 0; transform: scale(.92) translateY(4px); } }
+@keyframes fx-stage-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(28, 51, 72, .16); }
+  50% { box-shadow: 0 0 0 5px rgba(28, 51, 72, 0); }
+}
+.agent-stage-progress li { animation: fx-stage-pop .38s cubic-bezier(.2, .7, .2, 1) backwards; transition: border-color .3s ease, background .3s ease; }
+.agent-stage-progress li.is-active { animation: fx-stage-pop .38s cubic-bezier(.2, .7, .2, 1) backwards, fx-stage-breathe 1.7s ease-in-out .45s infinite; }
+
+.creation-orbit { transition: box-shadow .45s ease; }
+.creation-page.is-parsing .creation-orbit { box-shadow: 0 0 0 7px rgba(238, 118, 84, .06), 0 0 26px rgba(238, 118, 84, .14); }
+.creation-page.is-reviewing .creation-orbit { box-shadow: 0 0 0 7px rgba(189, 81, 53, .07), 0 0 26px rgba(189, 81, 53, .13); }
+.creation-page.is-ready .creation-orbit { box-shadow: 0 0 0 7px rgba(47, 139, 98, .08), 0 0 26px rgba(47, 139, 98, .16); }
+
+/* ============================================================
+   Intake FX — 3D card tilt (driven by TiltEffect), drag pulse on
+   the upload zone, preview-item stagger, focus glow, status dot.
+   ============================================================ */
+
+.demo-panel {
+  --rx: 0deg;
+  --ry: 0deg;
+  transform: perspective(760px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform .18s ease-out, border-color .25s ease, box-shadow .25s ease;
+}
+.demo-panel:hover { border-color: rgba(82, 127, 174, .52); box-shadow: 0 16px 32px rgba(54, 80, 103, .13); }
+
+.intake-preview-items > div {
+  transform: perspective(760px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+}
+.intake-preview-items > div:hover {
+  transform: perspective(760px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-2px);
+}
+
+@keyframes fx-demo-pop { from { opacity: 0; transform: perspective(760px) translateY(12px) scale(.96); } }
+.demo-saved { animation: fx-demo-pop .5s cubic-bezier(.2, .7, .2, 1) backwards; }
+
+@keyframes fx-preview-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } }
+.intake-preview-items > div { animation: fx-preview-pop .55s cubic-bezier(.2, .7, .2, 1) backwards; }
+.intake-preview-items > div:nth-child(2) { animation-delay: .08s; }
+.intake-preview-items > div:nth-child(3) { animation-delay: .16s; }
+.intake-preview-items > div:nth-child(4) { animation-delay: .24s; }
+.intake-preview-items > div:nth-child(5) { animation-delay: .32s; }
+
+@keyframes fx-upload-pulse {
+  0%, 100% { box-shadow: 0 13px 30px rgba(54, 80, 103, .07), 0 0 0 0 rgba(82, 127, 174, .3); }
+  55% { box-shadow: 0 13px 30px rgba(54, 80, 103, .07), 0 0 0 13px rgba(82, 127, 174, 0); }
+}
+.upload-zone.is-dragging { animation: fx-upload-pulse 1.15s ease-out infinite; }
+@keyframes fx-upload-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.upload-zone:hover .upload-icon, .upload-zone.is-dragging .upload-icon { animation: fx-upload-bob 1s ease-in-out infinite; }
+
+.url-row { transition: border-color .25s ease, box-shadow .25s ease; }
+.url-row:focus-within { border-color: var(--intake-blue); box-shadow: 0 8px 24px rgba(54, 80, 103, .06), 0 0 0 4px rgba(82, 127, 174, .12); }
+
+@keyframes fx-dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(47, 139, 98, .14); }
+  50% { box-shadow: 0 0 0 6px rgba(47, 139, 98, .05); }
+}
+.agent-status-button.is-ready .agent-status-dot { animation: fx-dot-pulse 2.2s ease-in-out infinite; }
+
+@keyframes fx-msg-slide { from { opacity: 0; transform: translateY(-4px); } }
+.form-message.is-visible { animation: fx-msg-slide .3s ease-out; }
+
+/* ============================================================
+   Landing FX — staggered entrance, headline reveal, parallax
+   depth on the three stage visuals, enter-button breathing glow.
+   ============================================================ */
+
+.flow-landing { --par-x: 0; --par-y: 0; }
+
+@keyframes fx-landing-rise {
+  from { opacity: 0; transform: translateY(26px); filter: blur(4px); }
+}
+@keyframes fx-landing-title {
+  from { opacity: 0; transform: translateY(18px); filter: blur(7px); letter-spacing: -.02em; }
+}
+@keyframes fx-landing-enter {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+}
+@keyframes fx-enter-glow {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(38, 76, 110, 0)); }
+  50% { filter: drop-shadow(0 0 13px rgba(38, 76, 110, .38)); }
+}
+
+.flow-header h1 { animation: fx-landing-title .9s cubic-bezier(.2, .7, .2, 1) .04s backwards; }
+.flow-logo { animation: fx-landing-rise .7s cubic-bezier(.2, .7, .2, 1) backwards; }
+.flow-step-source { animation: fx-landing-rise .82s cubic-bezier(.19, .7, .22, 1) .12s backwards; }
+.flow-bridge-input { animation: fx-landing-rise .82s cubic-bezier(.19, .7, .22, 1) .3s backwards; }
+.flow-step-agents { animation: fx-landing-rise .82s cubic-bezier(.19, .7, .22, 1) .44s backwards; }
+.flow-bridge-output { animation: fx-landing-rise .82s cubic-bezier(.19, .7, .22, 1) .58s backwards; }
+.flow-step-result { animation: fx-landing-rise .82s cubic-bezier(.19, .7, .22, 1) .72s backwards; }
+.flow-enter { animation: fx-landing-enter .8s cubic-bezier(.2, .7, .2, 1) .95s backwards, fx-enter-glow 2.9s ease-in-out 1.9s infinite; }
+
+/* Parallax depth: each visual layer drifts at its own rate.
+   The containers own no keyframed transform, so this is conflict-free. */
+.flow-source-visual, .flow-agent-visual, .flow-house-visual { transition: transform .32s ease-out; will-change: transform; }
+.flow-source-visual { transform: translate3d(calc(var(--par-x) * -9px), calc(var(--par-y) * -7px), 0); }
+.flow-agent-visual { transform: translate3d(calc(var(--par-x) * 6px), calc(var(--par-y) * 5px), 0); }
+.flow-house-visual { transform: translate3d(calc(var(--par-x) * -13px), calc(var(--par-y) * -9px), 0); }
+
+/* ============================================================
+   Ambient FX layer — cursor glow, film grain, shine sweeps,
+   selection & scrollbar polish. All decorative; the global
+   reduced-motion block below still neutralises every animation.
+   ============================================================ */
+
+::selection { background: rgba(79, 126, 174, .88); color: #fff; }
+
+/* Slimmer, quieter scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(11, 11, 11, .3) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(11, 11, 11, .2); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(11, 11, 11, .38); border: 3px solid transparent; background-clip: padding-box; }
+
+/* Pointer sparkle trail — fixed canvas painted by TrailEffect */
+.trail-effect-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482900;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+/* Cursor glow — the elements come from CursorGlow; JS owns the transform,
+   CSS owns the look and the pressed-state pulse. */
+.cursor-halo, .cursor-dot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .45s ease;
+  will-change: transform;
+}
+.cursor-halo::after {
+  content: "";
+  position: absolute;
+  left: -230px;
+  top: -230px;
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(79, 126, 174, .11) 0%, rgba(79, 126, 174, .05) 42%, transparent 68%);
+  transition: transform .32s ease;
+}
+.cursor-halo.is-interactive::after {
+  transform: scale(.52);
+  background: radial-gradient(circle, rgba(79, 126, 174, .17) 0%, rgba(79, 126, 174, .08) 42%, transparent 68%);
+}
+.cursor-halo.is-pressed::after { transform: scale(.72); }
+.cursor-halo.is-interactive.is-pressed::after { transform: scale(.44); }
+.cursor-dot::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(28, 51, 72, .5);
+  box-shadow: 0 0 0 4px rgba(79, 126, 174, .13);
+}
+
+/* Film grain above everything — extremely faint, keeps the paper texture alive */
+body::after {
+  content: "";
+  position: fixed;
+  inset: -120%;
+  z-index: 2147483100;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='220' height='220' filter='url(%23n)' opacity='0.55'/></svg>");
+  background-size: 220px 220px;
+  opacity: .05;
+  animation: fx-grain 1.15s steps(4) infinite;
+}
+@keyframes fx-grain {
+  0% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(-1.6%, 1.2%, 0); }
+  50% { transform: translate3d(1.3%, -.9%, 0); }
+  75% { transform: translate3d(-.8%, -1.5%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Shine sweep on the two primary CTAs — the beam is clipped by the pill radius */
+.flow-enter, .intake-generate { overflow: hidden; }
+.intake-generate { position: relative; }
+.flow-enter::after, .intake-generate::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  left: -30%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .3), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+}
+.flow-enter:hover::after, .intake-generate:hover:not(:disabled)::after {
+  transform: translateX(460%) skewX(-18deg);
+  transition: transform .72s cubic-bezier(.3, .6, .2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; animation: none !important; }
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

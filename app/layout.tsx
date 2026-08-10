@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { CursorGlow } from "@/components/CursorGlow";
+import { TiltEffect } from "@/components/TiltEffect";
+import { TrailEffect } from "@/components/TrailEffect";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,6 +47,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <CursorGlow />
+        <TiltEffect />
+        <TrailEffect />
       </body>
     </html>
   );
