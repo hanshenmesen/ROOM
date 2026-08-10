@@ -8,6 +8,38 @@
 
 ROOM converts a résumé or public portfolio into an evidence-backed, explorable two-floor 3D home. LLMs handle semantic extraction and bounded planning; deterministic code owns validation, conflict review, world compilation, safety checks, persistence boundaries, and rendering.
 
+## Product gallery
+
+### 1. From experience to world
+
+Import a résumé or public portfolio, let the Agent pipeline extract and organize evidence, and compile the result into an explorable 3D home.
+
+![ROOM product flow from source material through the Agent pipeline to a 3D world](./room-pic/room-1.png)
+
+### 2. Visitor-configured Provider
+
+Visitors can configure their own Provider, model, Base URL, API protocol, and API Key, with capability routing shown before use.
+
+![ROOM visitor Provider configuration dialog](./room-pic/room-2.png)
+
+### 3. Source intake
+
+Start with a personal website, upload a résumé or portfolio file, or reopen a recently generated demo.
+
+![ROOM source intake for website and résumé content](./room-pic/room-3.png)
+
+### 4. Move-in customization
+
+After the Agent run completes, review the build status and customize the companion and local room photos before entering the world.
+
+![ROOM move-in studio and companion customization](./room-pic/room-4.png)
+
+### 5. Agent Trace
+
+Inspect redacted model and tool events together with retries, artifacts, latency, token usage, and estimated cost.
+
+![ROOM redacted Agent Trace panel](./room-pic/room-5.png)
+
 ## What you can do
 
 - Import résumé text, PDF, image, Markdown, or a public portfolio URL.

@@ -8,6 +8,38 @@
 
 ROOM 可以把简历或公开作品集转换成一座可追溯来源、可自由探索的双层 3D 家园。LLM 负责语义提取和受限规划；确定性代码负责验证、冲突审核、世界编译、安全检查、持久化边界和渲染。
 
+## 产品展示
+
+### 1. 从经历到世界
+
+导入简历或公开作品集，由 Agent Pipeline 提取并整理证据，再将结果编译成一座可以自由探索的 3D 家园。
+
+![ROOM 从资料来源经过 Agent Pipeline 生成 3D 世界的产品流程](./room-pic/room-1.png)
+
+### 2. 访客自定义 Provider
+
+访客可以填写自己的 Provider、模型、Base URL、API 协议和 API Key，并在使用前查看对应的能力路由。
+
+![ROOM 访客自定义 Provider 配置对话框](./room-pic/room-2.png)
+
+### 3. 资料导入
+
+可以从个人网站开始，上传简历或作品集文件，也可以重新打开最近生成的 Demo。
+
+![ROOM 个人网站和简历资料导入界面](./room-pic/room-3.png)
+
+### 4. 入住定制
+
+Agent 运行完成后，可以查看构建状态，并在进入世界前定制 Companion 和保存在本地的空间照片。
+
+![ROOM 入住配置与 Companion 定制界面](./room-pic/room-4.png)
+
+### 5. Agent Trace
+
+查看经过脱敏的模型与工具事件，以及重试、Artifact、延迟、Token 用量和预估成本。
+
+![ROOM 脱敏后的 Agent Trace 面板](./room-pic/room-5.png)
+
 ## ROOM 能做什么
 
 - 导入简历文本、PDF、图片、Markdown 或公开作品集网址。
