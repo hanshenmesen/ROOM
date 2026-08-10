@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-data-scientist",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "data",
+    "experience"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-data-scientist.txt",
+    "label": "Generated fictional Eval fixture: full-data-scientist"
+  },
+  "expected": {
+    "identity": {
+      "name": "Diego Santos",
+      "headline": "Data Scientist"
+    },
+    "items": [
+      {
+        "id": "harbor-analytics",
+        "kind": "experience",
+        "canonicalTitle": "Harbor Analytics Data Scientist",
+        "expectedEvidence": [
+          "forecasting pipelines for transit demand"
+        ]
+      },
+      {
+        "id": "shift-forecast",
+        "kind": "project",
+        "canonicalTitle": "Shift Forecast",
+        "timeRange": "2024",
+        "techStack": [
+          "Python",
+          "pandas",
+          "LightGBM"
+        ],
+        "expectedEvidence": [
+          "calibration reports for every model version"
+        ]
+      }
+    ],
+    "skills": [
+      "Python",
+      "pandas",
+      "LightGBM"
+    ],
+    "forbiddenClaims": []
+  }
+}

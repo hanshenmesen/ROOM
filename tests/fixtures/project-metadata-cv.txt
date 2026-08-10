@@ -1,0 +1,13 @@
+Jordan Rivera
+Creative Technologist
+Builds accessible spatial interfaces for public-interest tools.
+
+Projects
+Signal Room — 2024-01 - 2024-06
+- Role: Lead developer
+- Tech Stack: Three.js, TypeScript, Web Audio
+- Link: https://example.com/signal-room
+- An interactive room that turns environmental signals into a navigable archive.
+
+Contact
+jordan@example.com

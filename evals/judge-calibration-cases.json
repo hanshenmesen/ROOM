@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "judge-calibration-dataset.v1",
+  "label": "ROOM narrative quality judge calibration fixture",
+  "reviewStatus": "synthetic-pre-labeled",
+  "notes": "合成演示数据：仅证明 Judge 校准管线（一致性指标、加权 Kappa、门禁）可运行，不能作为 Judge 已校准的证据。真实校准需要人工对真实 Agent 输出评分。",
+  "thresholds": {
+    "minWeightedKappa": 0.6,
+    "minWithinOneAgreement": 0.9
+  },
+  "dimensions": [
+    {
+      "id": "narrative-coherence",
+      "label": "叙事连贯性",
+      "scale": [1, 5],
+      "description": "展品叙事是否连贯、有空间引导感"
+    },
+    {
+      "id": "evidence-fidelity",
+      "label": "证据忠实度",
+      "scale": [1, 5],
+      "description": "生成文案是否严格忠于 Evidence，无夸大或编造"
+    }
+  ],
+  "samples": [
+    { "sampleId": "cal-01", "humanScores": { "narrative-coherence": 1, "evidence-fidelity": 5 }, "judgeScores": { "narrative-coherence": 1, "evidence-fidelity": 5 } },
+    { "sampleId": "cal-02", "humanScores": { "narrative-coherence": 2, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 2, "evidence-fidelity": 4 } },
+    { "sampleId": "cal-03", "humanScores": { "narrative-coherence": 3, "evidence-fidelity": 3 }, "judgeScores": { "narrative-coherence": 3, "evidence-fidelity": 3 } },
+    { "sampleId": "cal-04", "humanScores": { "narrative-coherence": 4, "evidence-fidelity": 5 }, "judgeScores": { "narrative-coherence": 4, "evidence-fidelity": 5 } },
+    { "sampleId": "cal-05", "humanScores": { "narrative-coherence": 5, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 5, "evidence-fidelity": 4 } },
+    { "sampleId": "cal-06", "humanScores": { "narrative-coherence": 2, "evidence-fidelity": 2 }, "judgeScores": { "narrative-coherence": 2, "evidence-fidelity": 2 } },
+    { "sampleId": "cal-07", "humanScores": { "narrative-coherence": 3, "evidence-fidelity": 5 }, "judgeScores": { "narrative-coherence": 3, "evidence-fidelity": 5 } },
+    { "sampleId": "cal-08", "humanScores": { "narrative-coherence": 4, "evidence-fidelity": 3 }, "judgeScores": { "narrative-coherence": 4, "evidence-fidelity": 3 } },
+    { "sampleId": "cal-09", "humanScores": { "narrative-coherence": 1, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 1, "evidence-fidelity": 4 } },
+    { "sampleId": "cal-10", "humanScores": { "narrative-coherence": 5, "evidence-fidelity": 5 }, "judgeScores": { "narrative-coherence": 5, "evidence-fidelity": 5 } },
+    { "sampleId": "cal-11", "humanScores": { "narrative-coherence": 3, "evidence-fidelity": 2 }, "judgeScores": { "narrative-coherence": 3, "evidence-fidelity": 2 } },
+    { "sampleId": "cal-12", "humanScores": { "narrative-coherence": 4, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 4, "evidence-fidelity": 4 } },
+    { "sampleId": "cal-13", "humanScores": { "narrative-coherence": 1, "evidence-fidelity": 3 }, "judgeScores": { "narrative-coherence": 2, "evidence-fidelity": 3 } },
+    { "sampleId": "cal-14", "humanScores": { "narrative-coherence": 2, "evidence-fidelity": 5 }, "judgeScores": { "narrative-coherence": 1, "evidence-fidelity": 4 } },
+    { "sampleId": "cal-15", "humanScores": { "narrative-coherence": 3, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 2, "evidence-fidelity": 5 } },
+    { "sampleId": "cal-16", "humanScores": { "narrative-coherence": 3, "evidence-fidelity": 3 }, "judgeScores": { "narrative-coherence": 4, "evidence-fidelity": 4 } },
+    { "sampleId": "cal-17", "humanScores": { "narrative-coherence": 4, "evidence-fidelity": 2 }, "judgeScores": { "narrative-coherence": 3, "evidence-fidelity": 3 } },
+    { "sampleId": "cal-18", "humanScores": { "narrative-coherence": 4, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 5, "evidence-fidelity": 3 } },
+    { "sampleId": "cal-19", "humanScores": { "narrative-coherence": 2, "evidence-fidelity": 4 }, "judgeScores": { "narrative-coherence": 4, "evidence-fidelity": 2 } },
+    { "sampleId": "cal-20", "humanScores": { "narrative-coherence": 5, "evidence-fidelity": 2 }, "judgeScores": { "narrative-coherence": 3, "evidence-fidelity": 4 } }
+  ]
+}

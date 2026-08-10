@@ -1,0 +1,18 @@
+陈宇 Chen Yu
+Machine Learning Researcher
+
+About
+研究 grounded generation and evidence-backed agents.
+
+Research
+Grounded Agents — ACL 2025
+- Proposed a citation verifier for multi-step research agents.
+
+Education
+清河大学 计算机科学博士 | 2022 - 2026
+
+Skills
+Python, PyTorch, Agent Evaluation
+
+Contact
+chenyu@example.com

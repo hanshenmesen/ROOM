@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-partial-record",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "partial",
+    "missing-fields"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-partial-record.txt",
+    "label": "Generated fictional Eval fixture: full-partial-record"
+  },
+  "expected": {
+    "identity": {
+      "name": "Dana Wu",
+      "headline": "Systems Engineer"
+    },
+    "items": [
+      {
+        "id": "independent-systems",
+        "kind": "experience",
+        "canonicalTitle": "Independent Systems Engineer",
+        "expectedEvidence": [
+          "reproducible build and release pipelines"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

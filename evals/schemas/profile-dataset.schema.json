@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "profile-eval-dataset.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "description", "runner", "cases", "thresholds"],
+  "properties": {
+    "schemaVersion": { "const": "profile-eval-dataset.v1" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "description": { "type": "string", "minLength": 1 },
+    "runner": { "enum": ["deterministic-pipeline", "profile-agent"] },
+    "includeDatasets": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "uniqueItems": true
+    },
+    "cases": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "uniqueItems": true
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    }
+  }
+}

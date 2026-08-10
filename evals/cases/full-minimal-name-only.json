@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-minimal-name-only",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "minimal",
+    "missing-fields"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-minimal-name-only.txt",
+    "label": "Generated fictional Eval fixture: full-minimal-name-only"
+  },
+  "expected": {
+    "identity": {
+      "name": "Taylor Kim"
+    },
+    "items": [],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

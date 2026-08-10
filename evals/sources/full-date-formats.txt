@@ -1,0 +1,11 @@
+Casey Morgan
+ML Engineer
+
+Projects
+Model Garden — Mar 2023 – Jul 2024
+- Role: ML engineer
+- Tech Stack: Python, FastAPI
+- Versioned evaluation results alongside deployments.
+
+Skills
+Python, FastAPI

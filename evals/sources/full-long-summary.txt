@@ -1,0 +1,9 @@
+Fatima Noor
+AI Systems Designer
+
+About
+Designs evidence-backed tools for teams working across research, policy, and engineering. Focuses on observable model behavior, reversible review decisions, and accessible interfaces that keep source material close to every generated claim.
+
+Projects
+Decision Loom — 2025
+- Maps claims, evidence, conflicts, and reviewer decisions into one workspace.

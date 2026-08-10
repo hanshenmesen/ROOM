@@ -1,0 +1,9 @@
+Lee Chen
+Open Source Engineer
+
+Open Source
+TraceKit — 2025
+- A TypeScript library for redacted Agent event logs.
+
+Skills
+TypeScript, Observability

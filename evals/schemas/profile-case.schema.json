@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "profile-eval-case.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "dataset", "reviewStatus", "tags", "source", "expected"],
+  "properties": {
+    "schemaVersion": { "const": "profile-eval-case.v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "dataset": { "type": "string", "minLength": 1 },
+    "reviewStatus": { "enum": ["prelabeled", "human-verified"] },
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "path", "label"],
+      "properties": {
+        "type": { "const": "text" },
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "items"],
+      "properties": {
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "$ref": "#/$defs/expectedText" },
+            "headline": { "$ref": "#/$defs/expectedText" },
+            "location": { "$ref": "#/$defs/expectedText" },
+            "personalWebsite": { "$ref": "#/$defs/expectedText" }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/item" }
+        },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "forbiddenClaims": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "expectedText": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value"],
+          "properties": {
+            "value": { "type": "string" },
+            "aliases": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          }
+        }
+      ]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "canonicalTitle"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["project", "experience", "education", "achievement"] },
+        "canonicalTitle": { "type": "string", "minLength": 1 },
+        "aliases": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "contentFamily": { "enum": ["publication", "talk", "exhibition", "open-source", "media-coverage"] },
+        "timeRange": { "$ref": "#/$defs/expectedText" },
+        "role": { "$ref": "#/$defs/expectedText" },
+        "techStack": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "projectUrl": { "$ref": "#/$defs/expectedText" },
+        "expectedEvidence": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  }
+}

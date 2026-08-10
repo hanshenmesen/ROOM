@@ -1,0 +1,165 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  providerCapabilitiesFor,
+  type ProviderCapabilities,
+} from "../lib/agents/provider-capabilities.ts";
+import { buildToolCallRequest } from "../lib/agents/provider-request.ts";
+import { shouldDisableThinking } from "../lib/agents/provider-config.ts";
+// Internal gateway identifiers are injected via env; tests use placeholders.
+process.env.INTERNAL_MAAS_HOST = "internal-maas.example";
+process.env.INTERNAL_MAAS_APP_ID = "test-app-id";
+
+
+/**
+ * Contract suite for the provider capability matrix. Every row pins the
+ * facts that were previously discovered by production failures: wire
+ * protocol, document/image support, thinking-mode handling, and the
+ * resulting request shape. Adding a provider means adding a row here --
+ * the matrix times call-site combinations are asserted exhaustively so a
+ * mismatch cannot reach production again unnoticed.
+ */
+
+type ProviderRow = {
+  name: string;
+  baseUrl: string;
+  model: string;
+  expected: ProviderCapabilities;
+};
+
+const PROVIDER_ROWS: ProviderRow[] = [
+  {
+    name: "DeepSeek official Anthropic endpoint",
+    baseUrl: "https://api.deepseek.com/anthropic",
+    model: "deepseek-v4-pro",
+    expected: {
+      protocol: "anthropic",
+      supportsDocumentBlocks: false,
+      supportsImageBlocks: false,
+      disableThinking: true,
+    },
+  },
+  {
+    name: "internal-maas gateway with DeepSeek V4 Pro",
+    baseUrl: "https://internal-maas.example",
+    model: "deepseek-v4-pro",
+    expected: {
+      protocol: "internal-maas",
+      supportsDocumentBlocks: false,
+      supportsImageBlocks: false,
+      disableThinking: true,
+    },
+  },
+  {
+    name: "internal-maas gateway with a Qwen-class model",
+    baseUrl: "https://internal-maas.example",
+    model: "qwen-internal",
+    expected: {
+      protocol: "internal-maas",
+      supportsDocumentBlocks: false,
+      supportsImageBlocks: false,
+      disableThinking: false,
+    },
+  },
+  {
+    name: "external MAAS Claude route",
+    baseUrl: "https://external-maas.example/hackson",
+    model: "vertex-claude/claude",
+    expected: {
+      protocol: "anthropic",
+      supportsDocumentBlocks: true,
+      supportsImageBlocks: true,
+      disableThinking: false,
+    },
+  },
+  {
+    name: "custom Anthropic-compatible route",
+    baseUrl: "https://custom-provider.example/anthropic",
+    model: "custom-claude-model",
+    expected: {
+      protocol: "anthropic",
+      supportsDocumentBlocks: true,
+      supportsImageBlocks: true,
+      disableThinking: false,
+    },
+  },
+];
+
+const SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: { answer: { type: "string" } },
+  required: ["answer"],
+} as const;
+
+for (const row of PROVIDER_ROWS) {
+  test(`capability matrix: ${row.name}`, () => {
+    assert.deepEqual(providerCapabilitiesFor(row.baseUrl, row.model), row.expected);
+    assert.equal(shouldDisableThinking(row.baseUrl, row.model), row.expected.disableThinking);
+  });
+
+  test(`wire contract: ${row.name}`, () => {
+    const capabilities = providerCapabilitiesFor(row.baseUrl, row.model);
+    const request = buildToolCallRequest({
+      protocol: capabilities.protocol,
+      baseUrl: row.baseUrl,
+      apiKey: "contract-test-key",
+      userEmail: "contract@example.com",
+      model: row.model,
+      system: "sys",
+      userContent: "hello",
+      temperature: 0,
+      maxOutputTokens: 1_024,
+      toolName: "submit_result",
+      toolDescription: "Submit the result.",
+      toolSchema: SCHEMA,
+      disableThinking: capabilities.disableThinking,
+    });
+
+    if (capabilities.protocol === "internal-maas") {
+      assert.equal(request.url, `${row.baseUrl}/v1/chat/completions`);
+      assert.equal(request.headers["api-key"], "contract-test-key");
+      assert.equal(request.headers["x-maas-user-email"], "contract@example.com");
+      assert.equal(request.headers["x-maas-app-id"], "test-app-id");
+      assert.deepEqual(request.body.tool_choice, {
+        type: "function",
+        function: { name: "submit_result" },
+      });
+    } else {
+      assert.match(request.url, /\/v1\/messages$/);
+      assert.equal(request.headers.authorization, "Bearer contract-test-key");
+      assert.deepEqual(request.body.tool_choice, { type: "any" });
+    }
+
+    // The thinking field must be present exactly when the matrix says the
+    // model needs it disabled -- never for Qwen or Claude routes.
+    if (capabilities.disableThinking) {
+      assert.deepEqual(request.body.thinking, { type: "disabled" });
+    } else {
+      assert.equal("thinking" in request.body, false);
+    }
+  });
+}
+
+test("DeepSeek base URL variants all resolve to the official capability row", () => {
+  for (const baseUrl of [
+    "https://api.deepseek.com",
+    "https://api.deepseek.com/v1",
+    "https://api.deepseek.com/anthropic",
+  ]) {
+    assert.deepEqual(providerCapabilitiesFor(baseUrl, "deepseek-v4-pro"), PROVIDER_ROWS[0].expected);
+  }
+});
+
+test("unknown future DeepSeek models on the internal gateway still get thinking disabled", () => {
+  assert.equal(providerCapabilitiesFor("https://internal-maas.example", "deepseek-v5-pro").disableThinking, true);
+});
+
+test("visitor OpenAI gateways use the conservative Chat Completions capability row", () => {
+  assert.deepEqual(providerCapabilitiesFor("https://gateway.example/v1", "custom-model", "openai"), {
+    protocol: "openai",
+    supportsDocumentBlocks: false,
+    supportsImageBlocks: false,
+    disableThinking: false,
+  });
+});

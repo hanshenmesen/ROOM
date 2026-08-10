@@ -1,0 +1,11 @@
+Noor Hassan
+Application Security Engineer
+
+Projects
+Redirect Guard — 2025
+- Role: Maintainer
+- Tech Stack: TypeScript, Node.js
+- Blocks private-network redirects after DNS resolution.
+
+Skills
+TypeScript, Node.js, Security Testing

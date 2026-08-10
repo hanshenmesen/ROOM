@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-security-engineer",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "security",
+    "engineering"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-security-engineer.txt",
+    "label": "Generated fictional Eval fixture: full-security-engineer"
+  },
+  "expected": {
+    "identity": {
+      "name": "Noor Hassan",
+      "headline": "Application Security Engineer"
+    },
+    "items": [
+      {
+        "id": "redirect-guard",
+        "kind": "project",
+        "canonicalTitle": "Redirect Guard",
+        "timeRange": "2025",
+        "role": "Maintainer",
+        "techStack": [
+          "TypeScript",
+          "Node.js"
+        ],
+        "expectedEvidence": [
+          "private-network redirects after DNS resolution"
+        ]
+      }
+    ],
+    "skills": [
+      "TypeScript",
+      "Node.js",
+      "Security Testing"
+    ],
+    "forbiddenClaims": []
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-conflicting-headline",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "conflict",
+    "identity"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-conflicting-headline.txt",
+    "label": "Generated fictional Eval fixture: full-conflicting-headline"
+  },
+  "expected": {
+    "identity": {
+      "name": "Emery Quinn",
+      "headline": {
+        "value": "Research Engineer",
+        "aliases": [
+          "Current role: Research Engineer"
+        ]
+      }
+    },
+    "items": [
+      {
+        "id": "merge-notes",
+        "kind": "project",
+        "canonicalTitle": "Merge Notes",
+        "timeRange": "2025",
+        "expectedEvidence": [
+          "without silently overwriting them"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

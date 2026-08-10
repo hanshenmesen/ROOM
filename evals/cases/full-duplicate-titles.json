@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-duplicate-titles",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "duplicate-title",
+    "matching"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-duplicate-titles.txt",
+    "label": "Generated fictional Eval fixture: full-duplicate-titles"
+  },
+  "expected": {
+    "identity": {
+      "name": "Alex Monroe",
+      "headline": "Creative Developer"
+    },
+    "items": [
+      {
+        "id": "atlas-audio",
+        "kind": "project",
+        "canonicalTitle": "Atlas",
+        "timeRange": "2022",
+        "role": "Developer",
+        "expectedEvidence": [
+          "river recordings"
+        ]
+      },
+      {
+        "id": "atlas-provenance",
+        "kind": "project",
+        "canonicalTitle": "Atlas",
+        "timeRange": "2025",
+        "role": "Lead developer",
+        "expectedEvidence": [
+          "research claims"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

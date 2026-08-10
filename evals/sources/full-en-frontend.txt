@@ -1,0 +1,11 @@
+Avery Brooks
+Frontend Engineer
+
+Projects
+Civic Map — 2024
+- Role: UI engineer
+- Tech Stack: React, TypeScript, MapLibre
+- Built keyboard-accessible map navigation for public datasets.
+
+Skills
+React, TypeScript, MapLibre

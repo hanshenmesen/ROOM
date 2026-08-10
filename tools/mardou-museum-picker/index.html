@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Mardou Museum — Coordinate Picker</title>
+<link rel="stylesheet" href="picker.css" />
+</head>
+<body>
+
+  <div id="canvas-host"></div>
+
+  <!-- flashes briefly when the camera is held back at the containment boundary -->
+  <div id="wallVignette"></div>
+
+  <!-- crosshair reticle at screen center is drawn in CSS; this is the hover readout -->
+  <div id="hoverBadge" class="mono">—</div>
+
+  <!-- shown until the pointer is locked (first click, or after Esc) -->
+  <div id="lockOverlay">
+    <div class="lockCard">
+      <div class="eyebrow mono" id="lockEyebrow">加载中</div>
+      <h2>点击画面开始第一人称漫游</h2>
+      <p class="lockHint">
+        <b>WASD</b> 或方向键 移动　·　<b>鼠标移动</b> 360° 环视　·
+        <b>空格</b> 上升　·　<b>Shift</b> 下降　·　<b>左键</b> 在准星处取点<br>
+        按 <b>Esc</b> 可随时退出漫游、找回鼠标指针
+      </p>
+    </div>
+  </div>
+
+  <!-- top-left: tool title + how-to -->
+  <div id="panelTop">
+    <div class="eyebrow mono">COORDINATE PICKER</div>
+    <h1>The Mardou Museum</h1>
+    <p class="hint">WASD 移动　·　鼠标 360° 环视　·　<b>左键＝在准星处取点</b><br>Esc 退出漫游　·　移动被限制在模型内部，不会穿墙</p>
+  </div>
+
+  <!-- right: picked points list -->
+  <div id="panelPoints">
+    <div class="panelHead">
+      <span class="eyebrow mono">采样点 <span id="ptCount">0</span></span>
+      <div class="headBtns">
+        <button id="copyAllBtn" class="chip" title="复制全部坐标为 JSON">复制全部</button>
+        <button id="clearBtn" class="chip chip-danger" title="清空所有采样点">清空</button>
+      </div>
+    </div>
+    <div id="pointList"></div>
+    <p id="emptyNote" class="mono empty">点击画面进入漫游，左键在准星处取点，坐标会出现在这里</p>
+  </div>
+
+  <!-- bottom-left: loading -->
+  <div id="loadWrap">
+    <div id="loadBar"><div id="loadFill"></div></div>
+    <div id="loadLabel" class="mono">加载模型中… 0%</div>
+  </div>
+
+  <!-- toast -->
+  <div id="toast"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="picker.js"></script>
+</body>
+</html>

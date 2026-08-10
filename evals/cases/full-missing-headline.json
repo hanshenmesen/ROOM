@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-missing-headline",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "zh",
+    "partial",
+    "missing-fields"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-missing-headline.txt",
+    "label": "Generated fictional Eval fixture: full-missing-headline"
+  },
+  "expected": {
+    "identity": {
+      "name": "顾遥"
+    },
+    "items": [
+      {
+        "id": "open-budget",
+        "kind": "project",
+        "canonicalTitle": "开放预算表",
+        "timeRange": "2024",
+        "expectedEvidence": [
+          "城市预算转换为可搜索的数据表"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const source = readFileSync(new URL("../components/RoomStudio.tsx", import.meta.url), "utf8");
+const setupDialog = readFileSync(new URL("../components/AgentSetupDialog.tsx", import.meta.url), "utf8");
+const browserConfig = readFileSync(new URL("../lib/browser-agent-config.ts", import.meta.url), "utf8");
+const design = readFileSync(new URL("../DESIGN.md", import.meta.url), "utf8");
+const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+const viteConfig = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
+
+test("world opening replaces a source portrait before compiling the visible scene", () => {
+  assert.match(source, /profileWithPortraitUrl\(editedProfile, abstractPortraitPlaceholder\(\)\)/);
+  assert.match(source, /const next = compileProfile\(displayProfile, \{/);
+  assert.match(source, /priorEvents: agentRunProfileId === profile\.id \? agentRunEvents : undefined/);
+  assert.match(source, /if \(shouldGeneratePortraitArt\) void generateAbstractPortrait\(sourcePortrait, next\.profile\)/);
+  assert.match(source, /profile\.id !== FICTIONAL_DEMO_PROFILE_ID/);
+});
+
+test("scene reveal waits for automatic abstract portrait generation to settle", () => {
+  assert.match(source, /sceneCommitted && sceneResourcesReady && portraitGenerationSettled/);
+  assert.match(source, /正在创作抽象肖像，真人照片不会出现在展厅/);
+});
+
+test("portrait detail exposes only abstract art and a retry action", () => {
+  assert.match(source, /AI ABSTRACT ART · ALWAYS ON/);
+  assert.match(source, /展厅只展示抽象画/);
+  assert.match(source, /重试生成/);
+  assert.doesNotMatch(source, /applyPortraitMode|选择头像表现方式|已恢复展示解析得到的原始照片/);
+});
+
+test("intake discloses automatic photo transformation", () => {
+  assert.match(source, /自动把它发送至图像服务生成抽象肖像/);
+  assert.match(design, /source photo is an identity input, never a public exhibit/i);
+});
+
+test("second-page Agent settings keep portrait configuration behind progressive disclosure", () => {
+  assert.match(setupDialog, /能力路由/);
+  assert.match(setupDialog, /高级设置/);
+  assert.match(setupDialog, /自定义抽象肖像图像服务/);
+  assert.match(setupDialog, /图像 API Key（可选）/);
+  assert.match(setupDialog, /Image Base URL/);
+  assert.match(setupDialog, /Image Model/);
+  assert.match(setupDialog, /customPetQaProvider[\s\S]*\{ \.\.\.maas, apiKey: "" \}/);
+  assert.match(source, /browserPortraitArtConfigHeaders\(browserAgentConfig\)/);
+});
+
+test("visitors can enter a custom primary provider without a tracked aggregator preset", () => {
+  assert.match(setupDialog, /自定义 Provider/);
+  assert.match(setupDialog, /<span>Base URL<\/span>/);
+  assert.match(setupDialog, /Anthropic Messages/);
+  assert.match(setupDialog, /OpenAI Chat Completions/);
+  assert.match(setupDialog, /Authorization: Bearer/);
+  assert.match(setupDialog, /x-maas-user-email/);
+  assert.match(setupDialog, /x-maas-app-id/);
+  assert.doesNotMatch(setupDialog, /default_headers|自定义 Header 名称/);
+  assert.match(setupDialog, /value=\{draft\.maas\.apiKey\}/);
+  assert.doesNotMatch(`${setupDialog}\n${browserConfig}`, /智增增|zhizengzeng/i);
+});
+
+test("the optional website Agent starts from the Qwen 3.5 public defaults", () => {
+  assert.match(setupDialog, /website: \{ \.\.\.DEFAULT_BROWSER_AGENT_CONFIG\.website \}/);
+  assert.match(browserConfig, /https:\/\/dashscope\.aliyuncs\.com\/apps\/anthropic/);
+  assert.match(browserConfig, /qwen3\.5-plus/);
+});
+
+test("multipart runtime limit remains just above the route's explicit image limit", () => {
+  assert.match(nextConfig, /bodySizeLimit: "9mb"/);
+});
+
+test("local Cloudflare runtime receives image-provider settings", () => {
+  assert.match(viteConfig, /IMAGE_MAAS_API_KEY/);
+  assert.match(viteConfig, /IMAGE_MAAS_BASE_URL/);
+  assert.match(viteConfig, /IMAGE_MAAS_MODEL/);
+});

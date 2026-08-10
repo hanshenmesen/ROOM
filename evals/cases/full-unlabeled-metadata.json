@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-unlabeled-metadata",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "unlabeled",
+    "structured-fields"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-unlabeled-metadata.txt",
+    "label": "Generated fictional Eval fixture: full-unlabeled-metadata"
+  },
+  "expected": {
+    "identity": {
+      "name": "Cameron Wells",
+      "headline": "Software Maker"
+    },
+    "items": [
+      {
+        "id": "quiet-cache",
+        "kind": "project",
+        "canonicalTitle": "Quiet Cache",
+        "expectedEvidence": [
+          "offline data synchronized"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

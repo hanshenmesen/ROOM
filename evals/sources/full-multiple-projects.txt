@@ -1,0 +1,13 @@
+Jamie Park
+Software Engineer
+
+Projects
+Archive Lens — 2022
+- Search interface for local history collections.
+Queue Sketch — 2023
+- Visual debugger for background tasks.
+Schema Dock — 2024
+- Contract explorer for JSON APIs.
+
+Skills
+TypeScript

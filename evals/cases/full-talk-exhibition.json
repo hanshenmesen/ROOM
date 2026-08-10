@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-talk-exhibition",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "talk",
+    "exhibition",
+    "content-family"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-talk-exhibition.txt",
+    "label": "Generated fictional Eval fixture: full-talk-exhibition"
+  },
+  "expected": {
+    "identity": {
+      "name": "Iris Bell",
+      "headline": "Interaction Artist"
+    },
+    "items": [
+      {
+        "id": "verifiable-worlds-talk",
+        "kind": "project",
+        "contentFamily": "talk",
+        "canonicalTitle": "Designing Verifiable Worlds",
+        "expectedEvidence": [
+          "evidence-first spatial interfaces"
+        ]
+      },
+      {
+        "id": "soft-machines-exhibition",
+        "kind": "project",
+        "contentFamily": "exhibition",
+        "canonicalTitle": "Soft Machines",
+        "expectedEvidence": [
+          "interactive archive of repair stories"
+        ]
+      }
+    ],
+    "skills": [],
+    "forbiddenClaims": []
+  }
+}

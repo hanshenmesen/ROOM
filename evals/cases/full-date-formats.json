@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-date-formats",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "dates",
+    "structured-fields"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-date-formats.txt",
+    "label": "Generated fictional Eval fixture: full-date-formats"
+  },
+  "expected": {
+    "identity": {
+      "name": "Casey Morgan",
+      "headline": "ML Engineer"
+    },
+    "items": [
+      {
+        "id": "model-garden",
+        "kind": "project",
+        "canonicalTitle": "Model Garden",
+        "timeRange": "Mar 2023 – Jul 2024",
+        "role": "ML engineer",
+        "techStack": [
+          "Python",
+          "FastAPI"
+        ],
+        "expectedEvidence": [
+          "Versioned evaluation results"
+        ]
+      }
+    ],
+    "skills": [
+      "Python",
+      "FastAPI"
+    ],
+    "forbiddenClaims": []
+  }
+}

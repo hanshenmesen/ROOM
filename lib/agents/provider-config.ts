@@ -1,0 +1,282 @@
+import { providerCapabilitiesFor } from "./provider-capabilities.ts";
+import {
+  externalMaasBaseUrl,
+  externalMaasModel,
+  internalMaasHost,
+  internalMaasModels,
+} from "./provider-env.ts";
+import {
+  isDeepSeekProvider as isDeepSeekProviderHost,
+  providerProtocolForBaseUrl,
+  type ProviderProtocol,
+} from "./provider-request.ts";
+import {
+  BROWSER_AGENT_PROVIDER_PRESETS,
+  type BrowserAgentProviderPreset,
+} from "../browser-agent-config.ts";
+
+// The primary provider slot defaults to DeepSeek's official Anthropic-
+// compatible endpoint: every ROOM model path (profile shards, website
+// planner, pet QA) speaks Anthropic Messages there, and DeepSeek fully
+// supports the fields ROOM uses (system, tools/input_schema,
+// tool_choice=any, max_tokens). This keeps the public demo path usable
+// without any internal-network access.
+// Boundary: DeepSeek does not support image/document content blocks, so
+// PDF-vision and image inputs need a multimodal provider (e.g. MAAS).
+//
+// Internal/external MAAS gateways are deliberately NOT referenced here by
+// hostname or model id: those are deployment-specific details injected via
+// environment variables (see provider-env.ts and .env.example), so the
+// tracked repository stays free of internal infrastructure identifiers.
+export const DEFAULT_MAAS_BASE_URL = "https://api.deepseek.com/anthropic";
+export const DEFAULT_MAAS_MODEL = "deepseek-v4-pro";
+export const DEFAULT_WEBSITE_AGENT_BASE_URL = "https://dashscope.aliyuncs.com/apps/anthropic";
+export const DEFAULT_WEBSITE_AGENT_MODEL = "qwen3.5-plus";
+export const DEFAULT_PET_QA_BASE_URL = DEFAULT_MAAS_BASE_URL;
+export const DEFAULT_PET_QA_MODEL = DEFAULT_MAAS_MODEL;
+
+export type AgentProviderOverride = {
+  maasApiKey?: string;
+  maasBaseUrl?: string;
+  maasModel?: string;
+  maasMode?: "json-schema" | "tool";
+  maasUserEmail?: string;
+  maasProtocol?: "anthropic" | "openai";
+  maasAuthMode?: "bearer" | "api-key";
+  maasAppId?: string;
+  websiteApiKey?: string;
+  websiteBaseUrl?: string;
+  websiteModel?: string;
+  websiteMode?: "json-schema" | "tool";
+  websiteUserEmail?: string;
+  websiteProtocol?: "anthropic" | "openai";
+  websiteAuthMode?: "bearer" | "api-key";
+  websiteAppId?: string;
+  petQaApiKey?: string;
+  petQaBaseUrl?: string;
+  petQaModel?: string;
+  petQaMode?: "json-schema" | "tool";
+  petQaUserEmail?: string;
+  petQaProtocol?: "anthropic" | "openai";
+  petQaAuthMode?: "bearer" | "api-key";
+  petQaAppId?: string;
+};
+
+function configuredValues(...values: Array<string | undefined>) {
+  return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
+}
+
+export function isDeepSeekProvider(value: string) {
+  return isDeepSeekProviderHost(value);
+}
+
+export { isInternalMaasGatewayProvider } from "./provider-request.ts";
+
+/**
+ * Whether a provider host serves a model route that defaults reasoning
+ * ("thinking") on and must be told to disable it. Backed by the provider
+ * capability matrix so the rule lives next to the other per-provider
+ * facts instead of being re-derived at each call site.
+ */
+export function shouldDisableThinking(baseUrl: string, model = "") {
+  return providerCapabilitiesFor(baseUrl, model).disableThinking;
+}
+
+/**
+ * Normalizes a base URL and picks the default request protocol/mode. Users
+ * frequently paste DeepSeek's OpenAI-style base URL (https://api.deepseek.com
+ * or .../v1); on that host ROOM must always call /anthropic (the only
+ * format it speaks) and default to tool mode (its output_config.format is
+ * unsupported). The Xiaohongshu internal MAAS gateway host is detected as
+ * its own protocol and passed through unchanged (its URL is already
+ * correct as typed). All other hosts pass through unchanged on the
+ * Anthropic protocol.
+ */
+function normalizeProviderBaseUrl(
+  rawBaseUrl: string,
+  explicitMode: "json-schema" | "tool" | undefined,
+  jsonSchemaDefault: "json-schema" | "tool",
+  explicitProtocol?: "anthropic" | "openai",
+) {
+  const trimmed = rawBaseUrl.replace(/\/$/, "");
+  const deepSeek = isDeepSeekProvider(trimmed);
+  const baseUrl = deepSeek && !trimmed.startsWith(DEFAULT_MAAS_BASE_URL) ? DEFAULT_MAAS_BASE_URL : trimmed;
+  const inferredProtocol = providerProtocolForBaseUrl(baseUrl);
+  const protocol = inferredProtocol === "internal-maas"
+    ? inferredProtocol
+    : deepSeek ? "anthropic" as const : explicitProtocol || inferredProtocol;
+  // The internal-maas protocol always uses OpenAI function calling; "mode" (tool
+  // vs json-schema) only meaningfully distinguishes Anthropic request
+  // shapes, so it is fixed to "tool" there for callers that still read it.
+  const mode = protocol !== "anthropic" ? "tool" as const : explicitMode || (deepSeek ? "tool" as const : jsonSchemaDefault);
+  return { baseUrl, mode, protocol };
+}
+
+export function getAgentProviderConfig(override?: AgentProviderOverride) {
+  const maasApiKeys = override
+    ? configuredValues(override.maasApiKey)
+    : configuredValues(process.env.MAAS_API_KEY, process.env.MAAS_API_KEY_FALLBACK);
+  const websiteApiKeys = override
+    ? configuredValues(override.websiteApiKey)
+    : configuredValues(process.env.WEBSITE_AGENT_API_KEY, process.env.WEBSITE_AGENT_API_KEY_FALLBACK);
+  const petQaApiKeys = override
+    ? configuredValues(override.petQaApiKey, override.maasApiKey)
+    : configuredValues(
+      process.env.PET_QA_API_KEY,
+      process.env.PET_QA_API_KEY_FALLBACK,
+      process.env.MAAS_API_KEY,
+      process.env.MAAS_API_KEY_FALLBACK,
+    );
+
+  // A browser override is a complete trust boundary: never supplement its
+  // fixed header values with deployment-side identity data, or an arbitrary
+  // visitor URL could receive the operator's configured enterprise email.
+  const maasUserEmail = override
+    ? override.maasUserEmail?.trim() || ""
+    : process.env.MAAS_USER_EMAIL?.trim() || "";
+  const websiteUserEmail = override
+    ? override.websiteUserEmail?.trim() || override.maasUserEmail?.trim() || ""
+    : process.env.WEBSITE_AGENT_USER_EMAIL?.trim() || maasUserEmail;
+  const petQaUserEmail = override
+    ? override.petQaUserEmail?.trim() || override.maasUserEmail?.trim() || ""
+    : process.env.PET_QA_USER_EMAIL?.trim() || maasUserEmail;
+  const maasAppId = override?.maasAppId?.trim() || "";
+  const websiteAppId = override?.websiteAppId?.trim() || "";
+  const petQaAppId = override?.petQaAppId?.trim() || maasAppId;
+
+  const maasNormalized = normalizeProviderBaseUrl(
+    override?.maasBaseUrl || process.env.MAAS_BASE_URL || DEFAULT_MAAS_BASE_URL,
+    override?.maasMode,
+    "json-schema",
+    override?.maasProtocol,
+  );
+  // Falls back to the already-normalized maas base URL (not the raw
+  // override/env value): otherwise a normalized maas config would silently
+  // un-normalize once it reached the petQa slot.
+  const petQaNormalized = normalizeProviderBaseUrl(
+    override?.petQaBaseUrl || process.env.PET_QA_BASE_URL || maasNormalized.baseUrl || DEFAULT_PET_QA_BASE_URL,
+    override?.petQaMode || override?.maasMode,
+    "json-schema",
+    override?.petQaProtocol || override?.maasProtocol,
+  );
+  const websiteNormalized = normalizeProviderBaseUrl(
+    override?.websiteBaseUrl || process.env.WEBSITE_AGENT_BASE_URL || DEFAULT_WEBSITE_AGENT_BASE_URL,
+    override?.websiteMode,
+    "tool",
+    override?.websiteProtocol,
+  );
+  return {
+    maas: {
+      apiKeys: maasApiKeys,
+      baseUrl: maasNormalized.baseUrl,
+      model: override?.maasModel || process.env.MAAS_MODEL || DEFAULT_MAAS_MODEL,
+      mode: maasNormalized.mode,
+      protocol: maasNormalized.protocol,
+      userEmail: maasUserEmail,
+      authMode: maasNormalized.protocol === "internal-maas" ? "api-key" as const : override?.maasAuthMode || "bearer" as const,
+      appId: maasAppId,
+    },
+    website: {
+      apiKeys: websiteApiKeys,
+      baseUrl: websiteNormalized.baseUrl,
+      model: override?.websiteModel || process.env.WEBSITE_AGENT_MODEL || DEFAULT_WEBSITE_AGENT_MODEL,
+      mode: websiteNormalized.mode,
+      protocol: websiteNormalized.protocol,
+      userEmail: websiteUserEmail,
+      authMode: websiteNormalized.protocol === "internal-maas" ? "api-key" as const : override?.websiteAuthMode || "bearer" as const,
+      appId: websiteAppId,
+    },
+    petQa: {
+      apiKeys: petQaApiKeys,
+      baseUrl: petQaNormalized.baseUrl,
+      model: override?.petQaModel || process.env.PET_QA_MODEL || override?.maasModel || process.env.MAAS_MODEL || DEFAULT_PET_QA_MODEL,
+      mode: petQaNormalized.mode,
+      protocol: petQaNormalized.protocol,
+      userEmail: petQaUserEmail,
+      authMode: petQaNormalized.protocol === "internal-maas" ? "api-key" as const : override?.petQaAuthMode || override?.maasAuthMode || "bearer" as const,
+      appId: petQaAppId,
+    },
+  };
+}
+
+export type AgentProviderSlot = ReturnType<typeof getAgentProviderConfig>["maas"];
+export type { ProviderProtocol };
+
+export type PublicAgentConfigStatus = ReturnType<typeof getPublicAgentConfigStatus>;
+
+/**
+ * Provider presets offered in the browser setup dialog. The tracked
+ * repository ships only public providers; internal/external MAAS gateways
+ * appear only when their env identifiers are present (i.e. a local or
+ * properly configured deployment), never from git-tracked defaults.
+ */
+function runtimeProviderPresets(): BrowserAgentProviderPreset[] {
+  const presets: BrowserAgentProviderPreset[] = [...BROWSER_AGENT_PROVIDER_PRESETS];
+  const internalHost = internalMaasHost();
+  if (internalHost) {
+    internalMaasModels().forEach((model, index) => {
+      presets.push({
+        id: `internal-maas-${index}`,
+        label: `内部 MAAS 网关 · ${model}`,
+        baseUrl: `https://${internalHost}`,
+        model,
+        mode: "tool",
+        protocol: "openai",
+        authMode: "api-key",
+        requiresUserEmail: true,
+      });
+    });
+  }
+  if (externalMaasBaseUrl() && externalMaasModel()) {
+    presets.push({
+      id: "external-maas",
+      label: "MAAS 外部网关",
+      baseUrl: externalMaasBaseUrl(),
+      model: externalMaasModel(),
+      mode: "json-schema",
+      protocol: "anthropic",
+      authMode: "bearer",
+    });
+  }
+  return presets;
+}
+
+export function getPublicAgentConfigStatus() {
+  const config = getAgentProviderConfig();
+  const ready = config.maas.apiKeys.length > 0 || config.website.apiKeys.length > 0;
+  const resumeProvider = config.maas.apiKeys.length > 0
+    ? config.maas
+    : config.website.apiKeys.length > 0 ? config.website : config.maas;
+  const websiteProvider = config.website.apiKeys.length > 0
+    ? config.website
+    : config.maas.apiKeys.length > 0 ? config.maas : config.website;
+  const petQaDedicated = configuredValues(process.env.PET_QA_API_KEY, process.env.PET_QA_API_KEY_FALLBACK).length > 0;
+  const petQaReady = config.petQa.apiKeys.length > 0;
+
+  return {
+    ready,
+    demoAvailable: true,
+    secretsExposed: false,
+    presets: runtimeProviderPresets(),
+    resume: {
+      ready,
+      provider: config.maas.apiKeys.length ? "MAAS" : config.website.apiKeys.length ? "Website fallback" : "未配置",
+      baseUrl: resumeProvider.baseUrl,
+      model: resumeProvider.model,
+    },
+    website: {
+      ready,
+      dedicatedProviderConfigured: config.website.apiKeys.length > 0,
+      provider: config.website.apiKeys.length ? "Website Agent" : config.maas.apiKeys.length ? "MAAS fallback" : "未配置",
+      baseUrl: websiteProvider.baseUrl,
+      model: websiteProvider.model,
+    },
+    petQa: {
+      ready: petQaReady,
+      dedicatedProviderConfigured: petQaDedicated,
+      provider: petQaDedicated ? "Pet QA Agent" : config.maas.apiKeys.length ? "MAAS fallback" : "未配置",
+      baseUrl: config.petQa.baseUrl,
+      model: config.petQa.model,
+    },
+  };
+}

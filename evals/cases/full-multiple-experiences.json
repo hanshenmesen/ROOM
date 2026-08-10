@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "profile-eval-case.v1",
+  "id": "full-multiple-experiences",
+  "dataset": "full",
+  "reviewStatus": "prelabeled",
+  "tags": [
+    "en",
+    "experience",
+    "multi-item"
+  ],
+  "source": {
+    "type": "text",
+    "path": "../sources/full-multiple-experiences.txt",
+    "label": "Generated fictional Eval fixture: full-multiple-experiences"
+  },
+  "expected": {
+    "identity": {
+      "name": "Samira Cole",
+      "headline": "Product Designer"
+    },
+    "items": [
+      {
+        "id": "northstar-studio",
+        "kind": "experience",
+        "canonicalTitle": "Northstar Studio Senior Product Designer",
+        "expectedEvidence": [
+          "evidence-centered AI workflow design"
+        ]
+      },
+      {
+        "id": "civic-works",
+        "kind": "experience",
+        "canonicalTitle": "Civic Works Product Designer",
+        "expectedEvidence": [
+          "accessible case-management tools"
+        ]
+      }
+    ],
+    "skills": [
+      "Product Design",
+      "Prototyping"
+    ],
+    "forbiddenClaims": []
+  }
+}

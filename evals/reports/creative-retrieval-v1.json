@@ -1,0 +1,236 @@
+{
+  "schemaVersion": "creative-retrieval-eval-report.v1",
+  "dataset": "creative-retrieval-v1",
+  "catalogSize": 13,
+  "topK": 3,
+  "caseCount": 10,
+  "reviewStatus": "prelabeled",
+  "thresholds": {
+    "recallAtK": 0.95,
+    "precisionAtK": 0.5,
+    "ndcg": 0.95,
+    "licenseViolationRate": 0,
+    "creativeBriefCitationRate": 1
+  },
+  "summary": {
+    "recallAtK": 1,
+    "precisionAtK": 0.6,
+    "ndcg": 1,
+    "licenseViolationRate": 0,
+    "creativeBriefCitationRate": 1
+  },
+  "vectorRetrievalRecommended": false,
+  "passed": true,
+  "results": [
+    {
+      "id": "low-poly-room",
+      "retrievedIds": [
+        "maxime-morel",
+        "sooah-room-folio",
+        "joan-ramos"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 0.3333,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 6,
+        "licenseEligible": 3,
+        "blockedByLicense": [
+          "andrii-babintsev",
+          "at-room",
+          "rowobin-room"
+        ],
+        "selected": 3
+      }
+    },
+    {
+      "id": "guided-personal-room",
+      "retrievedIds": [
+        "sooah-room-folio",
+        "joan-ramos",
+        "maxime-morel"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 0.3333,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 6,
+        "licenseEligible": 3,
+        "blockedByLicense": [
+          "andrii-babintsev",
+          "at-room",
+          "rowobin-room"
+        ],
+        "selected": 3
+      }
+    },
+    {
+      "id": "world-onboarding-recovery",
+      "retrievedIds": [
+        "bruno-simon"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 1,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 1,
+        "licenseEligible": 1,
+        "blockedByLicense": [],
+        "selected": 1
+      }
+    },
+    {
+      "id": "accessible-react-fallback",
+      "retrievedIds": [
+        "react18-portfolio"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 1,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 2,
+        "licenseEligible": 1,
+        "blockedByLicense": [
+          "mingpv"
+        ],
+        "selected": 1
+      }
+    },
+    {
+      "id": "computer-gallery-room",
+      "retrievedIds": [
+        "joan-ramos",
+        "maxime-morel",
+        "sooah-room-folio"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 0.3333,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 6,
+        "licenseEligible": 3,
+        "blockedByLicense": [
+          "andrii-babintsev",
+          "at-room",
+          "rowobin-room"
+        ],
+        "selected": 3
+      }
+    },
+    {
+      "id": "bilingual-low-poly-room",
+      "retrievedIds": [
+        "maxime-morel",
+        "joan-ramos",
+        "sooah-room-folio"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 0.3333,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 6,
+        "licenseEligible": 3,
+        "blockedByLicense": [
+          "andrii-babintsev",
+          "at-room",
+          "rowobin-room"
+        ],
+        "selected": 3
+      }
+    },
+    {
+      "id": "bilingual-world-recovery",
+      "retrievedIds": [
+        "bruno-simon"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 1,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 1,
+        "licenseEligible": 1,
+        "blockedByLicense": [],
+        "selected": 1
+      }
+    },
+    {
+      "id": "cyberpunk-visual-inspiration",
+      "retrievedIds": [
+        "jesses-ramen",
+        "thibault-gamefolio",
+        "david-heckhoff"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 0.3333,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 3,
+        "licenseEligible": 3,
+        "blockedByLicense": [],
+        "selected": 3
+      }
+    },
+    {
+      "id": "space-career-inspiration",
+      "retrievedIds": [
+        "thibault-gamefolio",
+        "jesses-ramen",
+        "david-heckhoff"
+      ],
+      "recallAtK": 1,
+      "precisionAtK": 0.3333,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 3,
+        "licenseEligible": 3,
+        "blockedByLicense": [],
+        "selected": 3
+      }
+    },
+    {
+      "id": "quarantined-retro-implementation",
+      "retrievedIds": [],
+      "recallAtK": 1,
+      "precisionAtK": 1,
+      "ndcg": 1,
+      "licenseViolations": 0,
+      "forbiddenHits": [],
+      "audit": {
+        "catalogSize": 13,
+        "metadataEligible": 1,
+        "licenseEligible": 0,
+        "blockedByLicense": [
+          "henry-heffernan"
+        ],
+        "selected": 0
+      }
+    }
+  ]
+}

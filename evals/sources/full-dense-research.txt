@@ -1,0 +1,16 @@
+Priya Shah
+NLP Researcher
+
+Research
+TraceBench — EMNLP 2025
+- Introduced a benchmark for evidence-preserving long-form generation.
+Grounded Merge — ACL 2024
+- Studied conflict resolution across heterogeneous profile sources.
+Citation Graphs — NAACL 2023
+- Released a graph dataset with sentence-level provenance.
+
+Education
+Westbridge University Computer Science PhD | 2021 - 2026
+
+Skills
+Python, PyTorch, Evaluation

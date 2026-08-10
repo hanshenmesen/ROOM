@@ -1,0 +1,7 @@
+Cameron Wells
+Software Maker
+
+Projects
+Quiet Cache
+- Built during 2024 with Rust and SQLite while acting as maintainer.
+- Keeps offline data synchronized without a network dependency.
