@@ -333,12 +333,15 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
   options.tracer.emit({ type: "step.started", step: RESEARCH_STEP, attempt: 1 });
 
   while (state.pendingUrls.length && state.visitedUrls.length < budget.maxPages) {
-    if (!canCallTool(state)) break;
     const candidate = preferredCandidateUrl
       ? state.pendingUrls.find((entry) => entry.url === preferredCandidateUrl) || selectNextCandidate(state.pendingUrls)
       : selectNextCandidate(state.pendingUrls);
     preferredCandidateUrl = undefined;
     if (!candidate) break;
+    const isRootCandidate = candidate.depth === 0;
+    // Always let the mandatory root fetch start. If it crosses the navigation
+    // deadline, finish inspecting that page and return it as a partial result.
+    if (!canCallTool(state, isRootCandidate)) break;
     state.pendingUrls = state.pendingUrls.filter((entry) => entry.url !== candidate.url);
     let page: WebsiteFetchedPage;
     try {
@@ -364,6 +367,7 @@ export async function runWebsiteResearchAgent(options: WebsiteResearchOptions): 
             signal: options.signal,
           }),
           (output) => ({ url: output.url, contentType: output.contentType, byteLength: output.byteLength }),
+          { ignoreNavigationTime: isRootCandidate },
         );
       }
     } catch {
