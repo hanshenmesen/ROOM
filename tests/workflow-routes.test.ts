@@ -22,6 +22,9 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/server") return nextResolve("next/server.js", context);
     if (workflowAliases[specifier]) return { url: workflowAliases[specifier], shortCircuit: true };
+    if (specifier.startsWith("@/lib/")) {
+      return { url: new URL(`../lib/${specifier.slice("@/lib/".length)}.ts`, import.meta.url).href, shortCircuit: true };
+    }
     return nextResolve(specifier, context);
   },
 });
@@ -85,7 +88,7 @@ test("Workflow routes create, deduplicate, resume, query and cursor events witho
   assert.equal(resumedResponse.status, 200);
   const resumed = await resumedResponse.json() as { run: { status: string; completedNodes: string[] } };
   assert.equal(resumed.run.status, "completed");
-  assert.equal(resumed.run.completedNodes.length, 6);
+  assert.equal(resumed.run.completedNodes.length, 10);
 
   const stateResponse = await getRoute.GET(
     new Request(`https://room.test/api/runs/${created.run.runId}`),
@@ -159,4 +162,75 @@ test("Workflow review route validates decisions and rejects Runs that are not wa
     context(created.run.runId),
   );
   assert.equal(notWaiting.status, 409);
+});
+
+test("Workflow create route runs the checkpointed online Agent path for text sources", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.MAAS_API_KEY;
+  const originalBaseUrl = process.env.MAAS_BASE_URL;
+  const originalModel = process.env.MAAS_MODEL;
+  process.env.MAAS_API_KEY = "workflow-route-agent-key";
+  process.env.MAAS_BASE_URL = "https://external-maas.example/hackson";
+  process.env.MAAS_MODEL = "vertex-claude/claude";
+  const identity = {
+    sourcePageCount: null, personalWebsite: null,
+    identity: {
+      name: { value: "林遥", evidenceLines: [1], evidenceExcerpt: "林遥" },
+      headline: { value: "交互设计师", evidenceLines: [2], evidenceExcerpt: "交互设计师" },
+      location: null,
+      summary: { value: "设计数字空间。", evidenceLines: [3], evidenceExcerpt: "设计数字空间。" },
+    },
+    contacts: [], foods: [], hobbies: [], skills: [],
+  };
+  const inventory = {
+    sourcePageCount: null,
+    items: [{
+      kind: "project", contentFamily: null, title: "ROOM", subtitle: null, detail: "ROOM",
+      bullets: [], tags: [], timeRange: null, role: null, techStack: [], projectUrl: null,
+      fieldEvidence: {}, sourceUrl: null, mediaIndex: null, evidenceLines: [4], evidenceExcerpt: "ROOM",
+    }],
+  };
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { output_config: { format: { schema: { properties: Record<string, unknown> } } } };
+    const output = body.output_config.format.schema.properties.identity ? identity : inventory;
+    return Response.json({ content: [{ type: "text", text: JSON.stringify(output) }] });
+  }) as typeof fetch;
+  try {
+    const response = await createRoute.POST(new Request("https://room.test/api/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json", "idempotency-key": "workflow-agent-route-0001" },
+      body: JSON.stringify({
+        source: { type: "text", label: "Agent fixture", text: "林遥\n交互设计师\n设计数字空间。\nROOM" },
+        mode: "agent",
+        followWebsite: false,
+        autoStart: true,
+      }),
+    }));
+    assert.equal(response.status, 201);
+    const body = await response.json() as {
+      run: { status: string; completedNodes: string[] };
+      result?: { profile?: { name: string } };
+    };
+    assert.equal(body.run.status, "completed");
+    assert.ok(body.run.completedNodes.includes("extract_identity"));
+    assert.ok(body.run.completedNodes.includes("extract_inventory"));
+    assert.equal(body.result?.profile?.name, "林遥");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.MAAS_API_KEY; else process.env.MAAS_API_KEY = originalKey;
+    if (originalBaseUrl === undefined) delete process.env.MAAS_BASE_URL; else process.env.MAAS_BASE_URL = originalBaseUrl;
+    if (originalModel === undefined) delete process.env.MAAS_MODEL; else process.env.MAAS_MODEL = originalModel;
+  }
+});
+
+test("Workflow create route rejects a non-public URL source before Agent execution", async () => {
+  const response = await createRoute.POST(new Request("https://room.test/api/runs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      source: { type: "url", label: "Local portfolio", text: "http://127.0.0.1/private" },
+      mode: "agent",
+    }),
+  }));
+  assert.equal(response.status, 400);
 });

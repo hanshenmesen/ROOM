@@ -17,7 +17,7 @@ The Phase 6 red-team suite lives in `tests/security/` and runs without API keys 
 | Private-data inference | Companion context is a field allowlist built only from public `ParsedProfile`; explicit diary, guestbook, password, private-message, and private-photo requests are refused before a Provider call. |
 | Runaway Provider failure | Each Profile Run has a shared call/token/output/cost/time budget, a three-failure circuit breaker, bounded exponential backoff, and request cancellation. |
 | Duplicate execution | Workflow creation supports Idempotency Keys bound to a source hash; reuse with different source input is rejected. |
-| Resource exhaustion by one client | Parse and Companion routes use privacy-preserving, process-local per-client concurrency leases and return HTTP 429 when full. |
+| Resource exhaustion by one client | Parse, Workflow, and Companion routes use privacy-preserving, process-local per-client concurrency leases and return HTTP 429 when full. |
 
 ## Default model budget
 
@@ -27,13 +27,13 @@ A Profile Agent Run reserves budget before every Provider call. Reservation is c
 - 600,000 estimated input tokens.
 - 160,000 reserved output tokens.
 - USD 20 conservative estimated maximum.
-- 240 seconds wall-clock duration.
+- 40 minutes of active Run duration. A single slow Provider request is capped at 20 minutes and by the Run's remaining duration; the 45-minute execution lease cannot expire first.
 - Three consecutive transient failures before the per-Run Provider circuit opens.
 - Exponential retry delay starts at 50 ms and is capped at 400 ms.
 
 Tests may lower limits but callers cannot bypass the shared reservation within a Run. A budget stop emits `budget.exhausted` with aggregate counts, not prompts or source content.
 
-Website research has an independent navigation budget documented in [Website Research Agent](./WEBSITE_RESEARCH_AGENT.md). Companion QA allows at most three model calls and reserves at most 1,000 output tokens per attempt.
+Website research has an independent navigation budget documented in [Website Research Agent](./WEBSITE_RESEARCH_AGENT.md). Companion QA allows at most three model calls and reserves 4,000 output tokens per attempt for thinking-mode compatibility.
 
 ## Abort, timeout, and partial failure
 

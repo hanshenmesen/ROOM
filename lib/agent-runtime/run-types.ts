@@ -2,6 +2,21 @@ import type { DiagnosticNode } from "./diagnostics.ts";
 
 export type AgentCallMode = "json-schema" | "tool";
 
+/**
+ * A non-sensitive reference to one piece of content a model call consumed
+ * (an Artifact, a prompt fragment, ...), identified by type/version/hash
+ * instead of by copying the content itself. See `AgentCallMeta.inputRefs`.
+ */
+export type AgentCallInputRef = {
+  /** e.g. "resume-profile", "website-research-observation", "system-prompt". */
+  artifactType: string;
+  schemaVersion: string;
+  /** sha256 hex digest of the exact content sent, for cross-run reproducibility checks without storing the content. */
+  contentHash: string;
+  /** Which part of the artifact was actually selected/sent, if less than the whole thing. */
+  selection?: { field?: string; range?: [number, number] };
+};
+
 export type AgentCallMeta = {
   callId: string;
   agent: string;
@@ -18,6 +33,19 @@ export type AgentCallMeta = {
   attempt: number;
   fallbackCount: number;
   stopReason?: string;
+  /**
+   * Model context should be rebuildable without recording sensitive
+   * positional content: a template/adapter identity plus references to
+   * whatever was fed into the call, so a Provider or
+   * Prompt regression can be localized to an exact template+artifact
+   * version pairing purely from the trace, without ever persisting the
+   * prompt or source text itself.
+   */
+  templateId?: string;
+  adapterVersion?: string;
+  inputRefs?: AgentCallInputRef[];
+  /** sha256 hex digest of the exact `userContent` sent for this call, computed unconditionally by `ModelService`. */
+  contentHash?: string;
 };
 export type AgentCallResult<T> = {
   data: T;

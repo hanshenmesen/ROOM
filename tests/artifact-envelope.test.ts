@@ -5,6 +5,7 @@ import {
   InvalidArtifactEnvelopeError,
   UnsupportedArtifactVersionError,
   migrateArtifact,
+  registerArtifactCodec,
   wrapArtifact,
 } from "../lib/agent-runtime/artifact-envelope.ts";
 import { runPipeline } from "../lib/agents/pipeline.ts";
@@ -55,4 +56,33 @@ test("migrateArtifact rejects malformed or mismatched envelopes", () => {
     artifactType: "profile",
     schemaVersion: "profile.v1",
   }), InvalidArtifactEnvelopeError);
+});
+
+test("registerArtifactCodec dispatches a registered migrator for an old version", () => {
+  const dispose = registerArtifactCodec({
+    artifactType: "check-report",
+    migrate: (data, fromVersion) => {
+      assert.equal(fromVersion, "check-report.v0");
+      const legacy = data as { passed: boolean; score: number; summary: string; checks: { name: string; passed: boolean; detail: string }[] };
+      return { ...legacy, issues: [] };
+    },
+  });
+  try {
+    const migrated = migrateArtifact("check-report", {
+      artifactType: "check-report",
+      schemaVersion: "check-report.v0",
+      data: { passed: true, score: 100, summary: "legacy", checks: [] },
+    });
+    assert.equal(migrated.schemaVersion, ARTIFACT_SCHEMA_VERSIONS["check-report"]);
+    assert.deepEqual(migrated.data.issues, []);
+  } finally {
+    dispose();
+  }
+  // Once disposed, the same legacy version fails loud again instead of
+  // silently reusing the unregistered codec.
+  assert.throws(() => migrateArtifact("check-report", {
+    artifactType: "check-report",
+    schemaVersion: "check-report.v0",
+    data: { passed: true, score: 100, summary: "legacy", checks: [] },
+  }), UnsupportedArtifactVersionError);
 });

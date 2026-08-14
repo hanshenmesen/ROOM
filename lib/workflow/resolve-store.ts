@@ -3,6 +3,7 @@ import { createD1WorkflowMetadataStore } from "./d1-metadata-store.ts";
 import { DurableWorkflowStore } from "./durable-workflow-store.ts";
 import { inMemoryWorkflowStore } from "./in-memory-workflow-store.ts";
 import { R2ObjectStore, type R2BucketLike } from "./object-store.ts";
+import { ensureWorkflowSchema } from "./schema-bootstrap.ts";
 import type { WorkflowStore } from "./types.ts";
 
 /**
@@ -23,6 +24,14 @@ export async function resolveWorkflowStore(): Promise<WorkflowStore> {
     const db = env.DB;
     const objects = env.WORKFLOW_OBJECTS;
     if (db && objects) {
+      // A freshly bound D1 (including the local miniflare simulation) has
+      // no tables yet. Bootstrap them once so "bind D1/R2 → Runs survive a
+      // restart" works without a separate migration step.
+      await ensureWorkflowSchema(db as AnyD1Database).catch(() => {
+        // Swallow bootstrap failures (e.g. a real migration already owns
+        // this database) and let the durable store surface the real error
+        // on first use instead of silently downgrading to in-memory.
+      });
       return new DurableWorkflowStore(
         createD1WorkflowMetadataStore(db as AnyD1Database),
         new R2ObjectStore(objects as R2BucketLike),

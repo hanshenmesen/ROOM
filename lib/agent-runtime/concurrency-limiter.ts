@@ -5,14 +5,18 @@
  * isolate dies (or a client disconnect skips the `finally` release) the
  * lease lapses on its own instead of permanently consuming the client's
  * slots. The TTL comfortably covers the slowest downstream call (provider
- * timeout 120s) plus orchestration slack. Normal completions still release
+ * timeout) plus orchestration slack. Normal completions still release
  * immediately — the TTL only bounds failure modes.
  */
 
-const DEFAULT_LEASE_TTL_MS = 180_000;
+import { PROFILE_AGENT_LEASE_TTL_MS } from "./run-controls.ts";
 
-/** Per client key: expiry timestamps of active leases. */
-const activeRequests = new Map<string, number[]>();
+const DEFAULT_LEASE_TTL_MS = PROFILE_AGENT_LEASE_TTL_MS;
+
+type ConcurrencyLease = { id: string; expiresAt: number };
+
+/** Per client key: individually releasable active leases. */
+const activeRequests = new Map<string, ConcurrencyLease[]>();
 
 let acquiredTotal = 0;
 let rejectedTotal = 0;
@@ -30,7 +34,7 @@ export async function privacySafeRequestKey(request: Request) {
 }
 
 function liveLeases(key: string, now: number) {
-  const alive = (activeRequests.get(key) || []).filter((expiresAt) => expiresAt > now);
+  const alive = (activeRequests.get(key) || []).filter((lease) => lease.expiresAt > now);
   if (alive.length) activeRequests.set(key, alive);
   else activeRequests.delete(key);
   return alive;
@@ -44,18 +48,17 @@ export function tryAcquireConcurrencyLease(key: string, maximum: number, ttlMs =
     return undefined;
   }
   acquiredTotal += 1;
-  alive.push(now + ttlMs);
+  const lease = { id: crypto.randomUUID(), expiresAt: now + ttlMs };
+  alive.push(lease);
   activeRequests.set(key, alive);
   let released = false;
   return () => {
     if (released) return;
     released = true;
     const leases = activeRequests.get(key);
-    if (!leases || !leases.length) return;
-    // Counter semantics: dropping the earliest expiry is equivalent, since
-    // only the number of live leases gates acquisition.
-    leases.shift();
-    if (leases.length) activeRequests.set(key, leases);
+    if (!leases?.length) return;
+    const remaining = leases.filter((activeLease) => activeLease.id !== lease.id);
+    if (remaining.length) activeRequests.set(key, remaining);
     else activeRequests.delete(key);
   };
 }

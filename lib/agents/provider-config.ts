@@ -1,4 +1,4 @@
-import { providerCapabilitiesFor } from "./provider-capabilities.ts";
+import { providerCapabilitiesFor, routeProviderModes, type ProviderCapabilities } from "./provider-capabilities.ts";
 import {
   externalMaasBaseUrl,
   externalMaasModel,
@@ -239,6 +239,99 @@ function runtimeProviderPresets(): BrowserAgentProviderPreset[] {
     });
   }
   return presets;
+}
+
+export type ProviderConfigScope = "maas" | "website" | "petQa";
+
+/**
+ * A fully-judged provider slot: everything `getAgentProviderConfig()`
+ * resolves (baseUrl/model/mode/protocol/authMode/apiKeys), plus the
+ * capability facts and structured-output mode order Consumers previously
+ * had to re-derive themselves by calling `providerCapabilitiesFor()` and
+ * `shouldDisableThinking()` a second time. `ModelService` and route
+ * handlers read `capabilities`/`disableThinking`/`modes` straight off the
+ * slot instead of recomputing them.
+ */
+export type ResolvedProviderSlot = AgentProviderSlot & {
+  scope: ProviderConfigScope;
+  capabilities: ProviderCapabilities;
+  disableThinking: boolean;
+  modes: readonly ("tool" | "json-schema")[];
+};
+
+export class ProviderConfigError extends Error {
+  readonly slot: ProviderConfigScope;
+
+  constructor(slot: ProviderConfigScope, message: string) {
+    super(`[${slot}] ${message}`);
+    this.name = "ProviderConfigError";
+    this.slot = slot;
+  }
+}
+
+function resolveSlot(scope: ProviderConfigScope, raw: AgentProviderSlot): ResolvedProviderSlot {
+  const capabilities = providerCapabilitiesFor(raw.baseUrl, raw.model, raw.protocol);
+  return {
+    ...raw,
+    scope,
+    capabilities,
+    disableThinking: capabilities.disableThinking,
+    modes: routeProviderModes({ protocol: raw.protocol, mode: raw.mode, deepSeek: isDeepSeekProvider(raw.baseUrl) }),
+  };
+}
+
+/**
+ * Single resolution + capability-judgment exit point for provider
+ * configuration. Where `getAgentProviderConfig()` only merges the
+ * override/env/default layers, this additionally computes each slot's
+ * capability row and structured-output mode order once, so callers never
+ * re-derive `shouldDisableThinking()`/`providerCapabilitiesFor()` /
+ * `routeProviderModes()` themselves and cannot drift from each other.
+ */
+export function resolveProviderConfig(override?: AgentProviderOverride): {
+  maas: ResolvedProviderSlot;
+  website: ResolvedProviderSlot;
+  petQa: ResolvedProviderSlot;
+} {
+  const config = getAgentProviderConfig(override);
+  return {
+    maas: resolveSlot("maas", config.maas),
+    website: resolveSlot("website", config.website),
+    petQa: resolveSlot("petQa", config.petQa),
+  };
+}
+
+/**
+ * Fail-loud validation for a resolved provider configuration. Intended to
+ * run at request-acceptance time (before a Run is created/queued), not at
+ * the first model call: a caller with a broken provider override currently
+ * only discovers it deep inside a model call as a 503/429, or -- for
+ * Workflow Runs, whose node handlers catch node failures into `state.failure`
+ * instead of rejecting the request -- not as an HTTP error at all. This
+ * throws a `ProviderConfigError` naming the offending slot instead.
+ */
+export function assertProviderConfigUsable(
+  config: ReturnType<typeof resolveProviderConfig>,
+): void {
+  const slots = Object.values(config);
+  if (!slots.some((slot) => slot.apiKeys.length > 0)) {
+    throw new ProviderConfigError("maas", "No provider slot (maas/website/petQa) has an API key configured.");
+  }
+  for (const slot of slots) {
+    if (!slot.apiKeys.length) continue; // An unconfigured slot just falls back elsewhere; only configured slots must be internally consistent.
+    try {
+      const url = new URL(slot.baseUrl);
+      if (url.protocol !== "https:") throw new Error("not https");
+    } catch {
+      throw new ProviderConfigError(slot.scope, `baseUrl is not a valid HTTPS URL: ${slot.baseUrl}`);
+    }
+    if (slot.protocol === "internal-maas" && slot.authMode !== "api-key") {
+      throw new ProviderConfigError(slot.scope, "the internal-maas protocol requires authMode \"api-key\".");
+    }
+    if (!slot.model.trim()) {
+      throw new ProviderConfigError(slot.scope, "model is empty.");
+    }
+  }
 }
 
 export function getPublicAgentConfigStatus() {

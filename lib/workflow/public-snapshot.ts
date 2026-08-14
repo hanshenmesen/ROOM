@@ -1,14 +1,22 @@
 import type { RoomWorkflowState, WorkflowStorePersistence } from "./types.ts";
+import type { PublicRunView } from "./public-view.ts";
 
 const DEFAULT_PERSISTENCE: WorkflowStorePersistence = {
   mode: "in-memory",
   survivesProcessRestart: false,
 };
 
+/**
+ * Produces the one stable `PublicRunView` contract every `app/api/runs/*`
+ * route returns. The explicit `: PublicRunView` return annotation means a
+ * change here that silently reintroduces an Artifact `data` payload, a
+ * `failure.message`, or an internal-only field fails `tsc`, not just an
+ * eyeballed code review -- see `PublicRunView`'s own doc comment.
+ */
 export function publicWorkflowSnapshot(
   state: RoomWorkflowState,
   persistence: WorkflowStorePersistence = DEFAULT_PERSISTENCE,
-) {
+): PublicRunView {
   return {
     schemaVersion: state.schemaVersion,
     runId: state.runId,
@@ -49,3 +57,6 @@ export function publicWorkflowSnapshot(
     persistence,
   };
 }
+
+/** Alias matching the `toPublicRunView(record) => PublicRunView` naming used elsewhere in ROOM's projection functions (e.g. `projectStepsFromEvents`, `projectMetricsFromEvents`). */
+export const toPublicRunView = publicWorkflowSnapshot;

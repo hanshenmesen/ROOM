@@ -44,6 +44,13 @@ function createLocalBindingConfig(env: Record<string, string | undefined>) {
         },
       ]
     : [],
+  // Only keep short-lived Runs: once both bindings are active, this local
+  // Cron Trigger calls the worker's scheduled() handler hourly, which runs
+  // lib/workflow/retention.ts (terminal Runs lose their source body after
+  // 24h and their full record after 30 days). `wrangler dev` supports
+  // manually firing this via `wrangler dev --test-scheduled`; production
+  // fires it on the real schedule.
+  triggers: d1 && r2 ? { crons: ["0 * * * *"] } : undefined,
   };
 }
 

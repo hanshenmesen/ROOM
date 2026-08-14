@@ -18,10 +18,9 @@ import {
 import { compileProfile } from "@/lib/agents/pipeline";
 import { latestAgentRunMessage } from "@/lib/agent-runtime/events";
 import { agentRunStages } from "@/lib/agent-runtime/trace-inspector";
-import type { AgentRunSnapshot } from "@/lib/agent-runtime/run-types";
 import { AgentMetricsPanel } from "@/components/AgentMetricsPanel";
 import { AgentTracePanel } from "@/components/AgentTracePanel";
-import { useAgentRun } from "@/components/use-agent-run";
+import { useWorkflowRun, type WorkflowRunSnapshot } from "@/components/use-workflow-run";
 import type { PublicAgentConfigStatus } from "@/lib/agents/provider-config";
 import {
   BROWSER_AGENT_STORAGE_KEY,
@@ -30,11 +29,9 @@ import {
   normalizeBrowserAgentConfig,
   type BrowserAgentConfig,
 } from "@/lib/browser-agent-config";
-import type { ExtractedMedia } from "@/lib/extract-webpage";
-import {
-  resolveProfileMergeReview,
-  type ProfileMergeReport,
-  type ProfileReviewResolution,
+import type {
+  ProfileMergeReport,
+  ProfileReviewResolution,
 } from "@/lib/profile-merge";
 import { FICTIONAL_DEMO_PROFILE_ID, fictionalDemoProfile } from "@/lib/data/fictional-demo-profile";
 import {
@@ -121,6 +118,12 @@ const HOBBIES_ID = "showroom-hobbies";
 const SNACKS_ID = "showroom-snacks";
 const PROJECT_EDITS_STORAGE_PREFIX = "room:project-edits:v1:";
 const EMPTY_PROJECT_EDIT: ProjectEdit = { title: "", summary: "" };
+// Mirrors /api/parse's plain-text detection: these upload straight to the
+// Run API's text source path (no prepare_source attachment needed), while
+// PDF/image uploads go through createFileRun()'s multipart path.
+const TEXT_UPLOAD_EXTENSIONS = new Set([
+  "txt", "md", "markdown", "html", "htm", "json", "csv", "tsv", "xml", "yaml", "yml", "rtf", "log",
+]);
 function profileStats(profile: ParsedProfile) {
   return {
     projects: profile.items.filter((item) => item.kind === "project").length,
@@ -519,9 +522,24 @@ export function RoomStudio() {
   const {
     agentRunEvents,
     resetAgentRunEvents,
-    requestTrackedAgentRun,
-    cancelAgentRun,
-  } = useAgentRun({ onMessage: setMessage });
+    createTextRun,
+    createFileRun,
+    startRun,
+    resumeRun,
+    submitReview,
+    cancelWorkflowRun,
+    fetchSnapshot,
+    fetchResult,
+    getStoredRunId,
+    clearStoredRun,
+  } = useWorkflowRun({ onMessage: setMessage });
+  // The anonymous local Run recovery pointer: the workflow runId currently
+  // driving Profile extraction, if any. Kept separate from agentRunProfileId
+  // (identifies whose trace events are shown) because a Run keeps this id
+  // through queued/running/waiting_for_review, but only gets an
+  // agentRunProfileId once a Profile actually exists.
+  const [activeWorkflowRunId, setActiveWorkflowRunId] = useState("");
+  const recoveryAttempted = useRef(false);
   const [agentRunProfileId, setAgentRunProfileId] = useState("");
   const [pendingProfile, setPendingProfile] = useState<ParsedProfile | null>(null);
   const [profileMergeReport, setProfileMergeReport] = useState<ProfileMergeReport | null>(null);
@@ -1035,55 +1053,71 @@ export function RoomStudio() {
       : "你的小家已经准备好；浏览器空间不足，暂时没有加入最近生成。");
   }
 
-  function confirmProfileReview(resolutions: ProfileReviewResolution[]) {
-    if (!profileMergeReport) return;
-    try {
-      const reviewed = resolveProfileMergeReview(profileMergeReport, resolutions);
-      setPendingProfile(reviewed.profile);
-      setProfileMergeReport(null);
-      const remembered = rememberGeneratedProfile(reviewed.profile);
-      setMessage(remembered
-        ? "冲突字段已按你的决定锁定，Agent 从检查点继续生成。"
-        : "冲突字段已确认；浏览器空间不足，本次结果仅在当前会话保留。");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "无法应用这次确认，请重试。");
+  /**
+   * Turns a Workflow Run snapshot (from create+start, resume, or a review
+   * submission) into either a usable Profile or a thrown error the caller's
+   * catch block already knows how to show. This is also the single place
+   * that keeps `activeWorkflowRunId` -- and therefore this browser's
+   * recoverable runId -- in sync with the Run's actual status.
+   */
+  async function handleWorkflowOutcome(
+    runId: string,
+    envelope: { run?: WorkflowRunSnapshot; error?: string },
+  ): Promise<{ profile: ParsedProfile; mergeReport?: ProfileMergeReport } | null> {
+    if (!envelope.run) throw new Error(envelope.error || "Agent 解析失败。");
+    const snapshot = envelope.run;
+    if (snapshot.status === "cancelled") {
+      setActiveWorkflowRunId("");
+      throw new DOMException("已取消", "AbortError");
     }
+    if (snapshot.status === "failed") {
+      setActiveWorkflowRunId(runId);
+      throw new Error(
+        `生成在“${snapshot.failure?.node || "某个步骤"}”失败（${snapshot.failure?.code || "未知错误"}）。请重试，Agent 会从检查点继续，不会重复已完成的步骤。`,
+      );
+    }
+    if (snapshot.status === "queued" || snapshot.status === "running") {
+      // Execution lease from another tab/request is still active; the
+      // client that owns it will finish the Run, this one just waits.
+      setActiveWorkflowRunId(runId);
+      throw new Error("生成仍在后台执行，请稍候片刻后重试或刷新页面查看进度。");
+    }
+    if (snapshot.status === "waiting_for_review") {
+      const resultResponse = await fetchResult(runId);
+      const mergeReport = "result" in resultResponse ? resultResponse.result.mergeReport : undefined;
+      if (!mergeReport) {
+        throw new Error(("error" in resultResponse && resultResponse.error) || "审核数据缺失，请重试。");
+      }
+      setActiveWorkflowRunId(runId);
+      return { profile: mergeReport.merged, mergeReport };
+    }
+    // completed
+    const resultResponse = await fetchResult(runId);
+    const profile = "result" in resultResponse ? resultResponse.result.profile : undefined;
+    if (!profile) throw new Error(("error" in resultResponse && resultResponse.error) || "生成结果缺失，请重试。");
+    setActiveWorkflowRunId("");
+    setAgentRunProfileId(profile.id);
+    return { profile, mergeReport: "result" in resultResponse ? resultResponse.result.mergeReport : undefined };
   }
 
-  async function parseTextWithAgent(
-    text: string,
-    label: string,
-    type: "text" | "url" = "text",
-    media: ExtractedMedia[] = [],
-    sourceUrl?: string,
-    followWebsite = true,
-  ) {
-    const { response, data } = await requestTrackedAgentRun<{
-      profile?: ParsedProfile;
-      mergeReport?: ProfileMergeReport;
-      error?: string;
-      details?: string[];
-      run?: AgentRunSnapshot;
-    }>("/api/parse", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...browserAgentConfigHeaders(browserAgentConfig),
-      },
-      body: JSON.stringify({
-        text,
-        label,
-        sourceType: type,
-        sourceId: type === "url" ? sourceUrl || label : undefined,
-        media,
-        followWebsite,
-      }),
-    });
-    if (!response.ok || !data.profile) {
-      throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
+  async function confirmProfileReview(resolutions: ProfileReviewResolution[]) {
+    if (!profileMergeReport || !activeWorkflowRunId) return;
+    const runId = activeWorkflowRunId;
+    setLoading(true);
+    setMessage("正在提交你的确认，Agent 从检查点继续生成…");
+    try {
+      const envelope = await submitReview(runId, resolutions);
+      const outcome = await handleWorkflowOutcome(runId, envelope);
+      if (outcome) acceptParsedProfile(outcome.profile, outcome.mergeReport);
+    } catch (error) {
+      setMessage(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "已取消本次生成。"
+          : error instanceof Error ? error.message : "无法应用这次确认，请重试。",
+      );
+    } finally {
+      setLoading(false);
     }
-    setAgentRunProfileId(data.profile.id);
-    return { profile: data.profile, mergeReport: data.mergeReport };
   }
 
   const requestRoomChange = useCallback((roomId: string) => {
@@ -1153,8 +1187,17 @@ export function RoomStudio() {
     setLoading(true);
     setMessage("Website Research Agent 正在规划并读取公开页面…");
     try {
-      const parsed = await parseTextWithAgent("", value, "url", [], value, true);
-      acceptParsedProfile(parsed.profile, parsed.mergeReport);
+      const headers = browserAgentConfigHeaders(browserAgentConfig);
+      // Step 1: create the Run and persist its runId to this browser
+      // *before* starting execution, so a refresh mid-generation can find
+      // it again instead of just losing the request.
+      const created = await createTextRun({ text: value, label: value, sourceType: "url", followWebsite: true, headers });
+      if ("error" in created) throw new Error(created.error);
+      setActiveWorkflowRunId(created.runId);
+      // Step 2: start it.
+      const envelope = await startRun(created.runId, headers);
+      const outcome = await handleWorkflowOutcome(created.runId, envelope);
+      if (outcome) acceptParsedProfile(outcome.profile, outcome.mergeReport);
     } catch (error) {
       setMessage(
         error instanceof DOMException && error.name === "AbortError"
@@ -1164,6 +1207,11 @@ export function RoomStudio() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function isTextUpload(file: File) {
+    const extension = file.name.split(".").pop()?.toLowerCase() || "";
+    return file.type.startsWith("text/") || TEXT_UPLOAD_EXTENSIONS.has(extension);
   }
 
   async function readFile(file?: File, website?: string) {
@@ -1179,26 +1227,19 @@ export function RoomStudio() {
       ? "Profile Agent 正在并行读取简历和个人网站…"
       : "Profile Agent 正在读取简历，并准备追踪个人网站…");
     try {
-      const form = new FormData();
-      form.set("file", file);
-      form.set("followWebsite", "true");
-      if (website) form.set("website", website);
-      const { response, data } = await requestTrackedAgentRun<{
-        profile?: ParsedProfile;
-        mergeReport?: ProfileMergeReport;
-        error?: string;
-        details?: string[];
-        run?: AgentRunSnapshot;
-      }>("/api/parse", {
-        method: "POST",
-        headers: browserAgentConfigHeaders(browserAgentConfig),
-        body: form,
-      });
-      if (!response.ok || !data.profile) {
-        throw new Error([data.error, ...(data.details || [])].filter(Boolean).join(" · ") || "Agent 解析失败。");
-      }
-      setAgentRunProfileId(data.profile.id);
-      acceptParsedProfile(data.profile, data.mergeReport);
+      const headers = browserAgentConfigHeaders(browserAgentConfig);
+      // PDF/image uploads checkpoint their local read/extraction in the
+      // Run's prepare_source node; plain text files skip straight to the
+      // text source path (Run API has no deterministic-free way to read a
+      // binary attachment, but plain text needs no such step).
+      const created = isTextUpload(file)
+        ? await createTextRun({ text: await file.text(), label: file.name, sourceType: "text", followWebsite: true, headers, website })
+        : await createFileRun({ file, followWebsite: true, website, headers });
+      if ("error" in created) throw new Error(created.error);
+      setActiveWorkflowRunId(created.runId);
+      const envelope = await startRun(created.runId, headers);
+      const outcome = await handleWorkflowOutcome(created.runId, envelope);
+      if (outcome) acceptParsedProfile(outcome.profile, outcome.mergeReport);
     } catch (error) {
       setMessage(
         error instanceof DOMException && error.name === "AbortError"
@@ -1247,6 +1288,65 @@ export function RoomStudio() {
     }
     void extractUrl();
   }
+
+  // Anonymous local Run recovery: once per mount, after the provider-config
+  // check settles (so Provider headers are available), look for a runId
+  // this browser saved before a previous generation. queued/failed/running
+  // resume from the first incomplete node; waiting_for_review restores the
+  // review panel; completed restores the generated Profile directly;
+  // cancelled is a terminal state the plan says must never auto-resume, so
+  // it just clears the stale pointer.
+  useEffect(() => {
+    if (!agentConfigChecked || recoveryAttempted.current) return;
+    recoveryAttempted.current = true;
+    const runId = getStoredRunId();
+    if (!runId) return;
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      setMessage("检测到上次未完成的生成任务，正在恢复…");
+      try {
+        const snapshotResponse = await fetchSnapshot(runId);
+        if (cancelled) return;
+        if ("notFound" in snapshotResponse || "error" in snapshotResponse) {
+          clearStoredRun();
+          setMessage("");
+          return;
+        }
+        const snapshot = snapshotResponse.snapshot;
+        if (snapshot.status === "cancelled") {
+          clearStoredRun();
+          setMessage("");
+          return;
+        }
+        beginMoveInDraft();
+        setActiveWorkflowRunId(runId);
+        const needsResume = snapshot.status === "queued" || snapshot.status === "failed" || snapshot.status === "running";
+        let envelope: { run?: WorkflowRunSnapshot; error?: string } = { run: snapshot };
+        if (needsResume) {
+          setMessage(snapshot.status === "failed"
+            ? "正在从上次的检查点继续生成…"
+            : "正在恢复上次未完成的生成任务…");
+          const headers = browserAgentConfigHeaders(browserAgentConfig);
+          envelope = await resumeRun(runId, headers);
+        }
+        if (cancelled) return;
+        const outcome = await handleWorkflowOutcome(runId, envelope);
+        if (outcome) acceptParsedProfile(outcome.profile, outcome.mergeReport);
+      } catch (error) {
+        if (cancelled) return;
+        setMessage(
+          error instanceof DOMException && error.name === "AbortError"
+            ? "已取消本次生成。"
+            : error instanceof Error ? error.message : "恢复上次生成任务失败，请重新开始。",
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentConfigChecked]);
 
   function openDemo() {
     openWorld(fictionalDemoProfile);
@@ -1708,7 +1808,15 @@ export function RoomStudio() {
               </ol>
             ) : null}
             {loading ? (
-              <button type="button" className="agent-run-cancel" onClick={cancelAgentRun}>
+              <button
+                type="button"
+                className="agent-run-cancel"
+                onClick={() => {
+                  const runId = activeWorkflowRunId;
+                  if (runId) void cancelWorkflowRun(runId);
+                  setActiveWorkflowRunId("");
+                }}
+              >
                 取消本次生成
               </button>
             ) : null}

@@ -92,8 +92,13 @@ export type WorkflowMetadataStore = {
 };
 
 const ARTIFACT_PRODUCING_NODE: Record<keyof RoomWorkflowArtifacts, RoomWorkflowNode> = {
-  profile: "extract_profile",
-  mergeReport: "extract_profile",
+  preparedSource: "prepare_source",
+  identityDraft: "extract_identity",
+  inventoryDraft: "extract_inventory",
+  resumeProfile: "extract_inventory",
+  websiteResearch: "research_website",
+  profile: "merge_profile",
+  mergeReport: "merge_profile",
   creativeBrief: "direct_world",
   world: "compile_world",
   checkReport: "check_world",

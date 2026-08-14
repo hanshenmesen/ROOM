@@ -24,7 +24,7 @@ import type { WorkflowNodeHandlers } from "../lib/workflow/types.ts";
 function metadataRow(runId: string, status: string, createdAt: Date): WorkflowRunMetadataRow {
   return {
     runId,
-    schemaVersion: "room-workflow-state.v2",
+    schemaVersion: "room-workflow-state.v3",
     status,
     sourceHash: "b".repeat(64),
     sourceType: "text",
@@ -108,7 +108,7 @@ test("failed runs past the source window cannot resume after retention cleanup",
   const store = new DurableWorkflowStore(metadata, objects);
   const handlers: WorkflowNodeHandlers = {
     ...defaultRoomWorkflowHandlers,
-    extract_profile: async () => {
+    extract_inventory: async () => {
       throw new WorkflowNodeError("simulated_failure", "Simulated extraction failure.");
     },
   };

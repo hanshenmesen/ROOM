@@ -1,4 +1,6 @@
 import { runTracedTool } from "../../agent-runtime/tool-call.ts";
+import { ToolPipeline } from "../../agent-runtime/tool-pipeline.ts";
+import { budgetGuard } from "../../agent-runtime/tool-guards.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
 import type { ParsedProfile, SourceEvidence } from "../../types.ts";
 import {
@@ -101,6 +103,14 @@ function canCallTool(state: WebsiteResearchState, ignoreNavigationTime = false) 
   return true;
 }
 
+// Every research-loop tool call (list_links/inspect_page/extract_media/
+// fetch_page/validate_claim) goes through this one `ToolPipeline`
+// invocation: registering a one-off `ToolDefinition` per call keeps this
+// helper's external signature (and every one of its call sites below)
+// unchanged, while routing the budget check through a reusable
+// `budgetGuard` instead of a hand-inlined `if`. `prefetchWebsiteResearchRoot`
+// and the finalization `submit_profile` call are deliberately exempt from
+// this budget (see their own `runTracedTool` calls below) and stay as-is.
 async function callTool<T>(
   state: WebsiteResearchState,
   tracer: AgentTracer,
@@ -110,11 +120,29 @@ async function callTool<T>(
   summarizeOutput: (output: T) => Record<string, string | number | boolean | null>,
   options: { ignoreNavigationTime?: boolean } = {},
 ) {
-  if (!canCallTool(state, options.ignoreNavigationTime)) {
-    throw new WebsiteResearchError("research_budget_exhausted", "Website research budget exhausted.");
+  const pipeline = new ToolPipeline({ tracer, step: RESEARCH_STEP });
+  const dispose = pipeline.register<void, T>({
+    name: tool,
+    guards: [
+      budgetGuard<void, T>({
+        canCall: () => canCallTool(state, options.ignoreNavigationTime),
+        onExceeded: () => {
+          throw new WebsiteResearchError("research_budget_exhausted", "Website research budget exhausted.");
+        },
+        onAllowed: () => {
+          state.steps += 1;
+        },
+      }),
+    ],
+    run: call,
+    summarizeInput: () => inputSummary,
+    summarizeOutput,
+  });
+  try {
+    return await pipeline.invoke<void, T>(tool, undefined);
+  } finally {
+    dispose();
   }
-  state.steps += 1;
-  return runTracedTool({ tracer, step: RESEARCH_STEP, tool, inputSummary, call, summarizeOutput });
 }
 
 export async function prefetchWebsiteResearchRoot(input: {

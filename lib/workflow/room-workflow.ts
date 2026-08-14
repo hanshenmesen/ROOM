@@ -6,6 +6,11 @@ import { parseProfile } from "../agents/parser.ts";
 import { normalizeDisplayProfile } from "../display-copy.ts";
 import { resolveProfileMergeReview } from "../profile-merge.ts";
 import { inMemoryWorkflowStore } from "./in-memory-workflow-store.ts";
+import { AgentRunControls, PROFILE_AGENT_LEASE_TTL_MS } from "../agent-runtime/run-controls.ts";
+import { RoomRunContext } from "../agent-runtime/run-context.ts";
+import { sha256Hex } from "../agent-runtime/content-hash.ts";
+import { newCheckpointId, newWorkflowEventId, newWorkflowRunId } from "../ids.ts";
+import { projectMetricsFromEvents } from "./metrics-projection.ts";
 import {
   ROOM_WORKFLOW_NODES,
   ROOM_WORKFLOW_SCHEMA_VERSION,
@@ -19,6 +24,7 @@ import {
   type WorkflowSourceInput,
   type WorkflowStore,
   type WorkflowStorePersistence,
+  type WorkflowExecutionOptions,
 } from "./types.ts";
 
 type WorkflowEventDraft = WorkflowEvent extends infer Event
@@ -58,19 +64,10 @@ export class WorkflowNodeError extends Error {
   }
 }
 
-function uniqueId(prefix: string) {
-  return `${prefix}-${crypto.randomUUID()}`;
-}
-
-async function sha256(value: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function appendEvent(record: WorkflowRecord, draft: WorkflowEventDraft) {
   const event = {
     ...draft,
-    eventId: uniqueId("workflow-event"),
+    eventId: newWorkflowEventId(),
     runId: record.state.runId,
     sequence: record.events.length + 1,
     occurredAt: new Date().toISOString(),
@@ -110,12 +107,29 @@ function requireArtifact<K extends keyof RoomWorkflowArtifacts>(
 
 export const defaultRoomWorkflowHandlers: WorkflowNodeHandlers = {
   prepare_source: () => undefined,
-  extract_profile: ({ input }) => ({
-    profile: wrapArtifact("profile", normalizeDisplayProfile(parseProfile(input.text, {
-      type: input.type,
-      label: input.label,
-    }))),
+  extract_identity: () => undefined,
+  extract_inventory: ({ input }) => {
+    if (input.type !== "text" && input.type !== "url") {
+      // Deterministic mode has no LLM to read an attachment; PDF/image
+      // sources must run with mode: "agent" so `prepare_source` and
+      // `extract_inventory`'s agent handlers can process the file.
+      throw new WorkflowNodeError(
+        "deterministic_mode_unsupported_source",
+        "Deterministic mode 不支持 PDF/图片来源，请使用 mode: \"agent\"。",
+      );
+    }
+    return {
+      resumeProfile: wrapArtifact("resume-profile", normalizeDisplayProfile(parseProfile(input.text, {
+        type: input.type,
+        label: input.label,
+      }))),
+    };
+  },
+  research_website: () => undefined,
+  merge_profile: ({ state }) => ({
+    profile: wrapArtifact("profile", requireArtifact(state, "resumeProfile").data),
   }),
+  review_profile: () => undefined,
   direct_world: ({ state }) => ({
     creativeBrief: wrapArtifact("creative-brief", directWorld(requireArtifact(state, "profile").data)),
   }),
@@ -137,6 +151,7 @@ export const defaultRoomWorkflowHandlers: WorkflowNodeHandlers = {
 export type StartWorkflowOptions = {
   idempotencyKey?: string;
   autoRun?: boolean;
+  execution?: WorkflowExecutionOptions;
 };
 
 export type StartWorkflowResult = {
@@ -163,7 +178,7 @@ export class RoomWorkflowEngine {
   }
 
   async start(input: WorkflowSourceInput, options: StartWorkflowOptions = {}): Promise<StartWorkflowResult> {
-    const sourceHash = await sha256(`${input.type}\n${input.label}\n${input.text}`);
+    const sourceHash = await sha256Hex(JSON.stringify(input));
     const idempotencyKey = options.idempotencyKey?.trim();
     if (idempotencyKey) {
       const existingRunId = await this.store.findRunIdByIdempotencyKey(idempotencyKey);
@@ -175,7 +190,7 @@ export class RoomWorkflowEngine {
     }
 
     const now = new Date().toISOString();
-    const runId = uniqueId("workflow");
+    const runId = newWorkflowRunId();
     const state: RoomWorkflowState = {
       schemaVersion: ROOM_WORKFLOW_SCHEMA_VERSION,
       runId,
@@ -184,8 +199,12 @@ export class RoomWorkflowEngine {
       source: {
         type: input.type,
         label: input.label,
-        lineCount: input.text ? input.text.split(/\r?\n/).length : 0,
-        byteLength: new TextEncoder().encode(input.text).byteLength,
+        lineCount: input.type === "text" && input.text ? input.text.split(/\r?\n/).length : 0,
+        byteLength: input.attachment
+          // Approximate decoded byte length from the base64 payload without
+          // allocating the full buffer just to measure it.
+          ? Math.floor((input.attachment.data.length * 3) / 4)
+          : new TextEncoder().encode(input.text).byteLength,
       },
       completedNodes: [],
       attempts: {},
@@ -199,22 +218,34 @@ export class RoomWorkflowEngine {
     const record: WorkflowRecord = { state, input: structuredClone(input), events: [], idempotencyKey };
     appendEvent(record, { type: "run.queued" });
     await this.store.create(record);
-    if (options.autoRun !== false) await this.execute(runId, false);
+    if (options.autoRun !== false) await this.execute(runId, false, options.execution);
     return { runId, reused: false, state: await this.getState(runId) };
   }
 
-  async resume(runId: string) {
+  async resume(runId: string, execution?: WorkflowExecutionOptions) {
     const record = await this.requireRecord(runId);
     if (record.state.status === "completed") throw new WorkflowTransitionError("Completed Workflow Runs cannot be resumed.");
     if (record.state.status === "cancelled") throw new WorkflowTransitionError("Cancelled Workflow Runs cannot be resumed.");
-    if (record.state.status === "running") return record.state;
+    if (record.state.status === "running") {
+      const leaseExpiresAt = Date.parse(record.state.updatedAt) + PROFILE_AGENT_LEASE_TTL_MS;
+      if (Number.isFinite(leaseExpiresAt) && leaseExpiresAt > Date.now()) return record.state;
+    }
     if (record.state.status === "waiting_for_review") {
       throw new WorkflowTransitionError("This Workflow Run needs a review decision before it can resume.");
     }
-    if (!record.input.text.trim()) {
+    if (record.input.type === "text" && !record.input.text.trim()) {
       throw new WorkflowTransitionError("This Workflow Run's source text has been deleted by the retention policy and it can no longer be resumed.");
     }
-    await this.execute(runId, true);
+    await this.execute(runId, true, execution);
+    return this.getState(runId);
+  }
+
+  async run(runId: string, execution?: WorkflowExecutionOptions) {
+    const record = await this.requireRecord(runId);
+    if (record.state.status !== "queued") {
+      throw new WorkflowTransitionError("Only queued Workflow Runs can be started.");
+    }
+    await this.execute(runId, false, execution);
     return this.getState(runId);
   }
 
@@ -238,7 +269,7 @@ export class RoomWorkflowEngine {
     return record.events.filter((event) => event.sequence > afterSequence);
   }
 
-  async review(runId: string, resolutions: WorkflowReviewSubmission) {
+  async review(runId: string, resolutions: WorkflowReviewSubmission, execution?: WorkflowExecutionOptions) {
     let record = await this.requireRecord(runId);
     if (record.state.status !== "waiting_for_review" || !record.state.activeReview) {
       throw new WorkflowTransitionError("This Workflow Run is not waiting for review.");
@@ -262,7 +293,7 @@ export class RoomWorkflowEngine {
       resolutionCount: reviewed.userClaims.length,
     });
     await this.store.save(record);
-    await this.execute(runId, true);
+    await this.execute(runId, true, execution);
     record = await this.requireRecord(runId);
     return record.state;
   }
@@ -273,18 +304,42 @@ export class RoomWorkflowEngine {
     return record;
   }
 
-  private async execute(runId: string, resumed: boolean) {
+  private async execute(runId: string, resumed: boolean, execution?: WorkflowExecutionOptions) {
     let record = await this.requireRecord(runId);
     if (record.state.status === "cancelled" || record.state.status === "completed") return;
     record.state.status = "running";
     record.state.failure = undefined;
     if (resumed) {
-      record.state.metrics.resumedCount += 1;
       appendEvent(record, { type: "run.resumed", fromNode: nextNode(record.state) });
     } else {
       appendEvent(record, { type: "run.started" });
     }
+    record.state.metrics = projectMetricsFromEvents(record.events, record.state.metrics.agentBudgetUsage);
     await this.store.save(record);
+    const priorUsage = record.state.metrics.agentBudgetUsage;
+    // Re-wraps the incoming context's controls with an `onUsageChanged` hook
+    // that persists budget usage to the store on every `reserve()`, carrying
+    // over any usage already recorded from an earlier attempt (a resumed
+    // Run must not reset its budget). `signal` and `providerConfig` come
+    // from the same `RoomRunContext`, so this stays the one source of truth
+    // the engine and every node handler observe.
+    const activeExecution: WorkflowExecutionOptions | undefined = execution ? {
+      context: new RoomRunContext({
+        runId: execution.context.runId,
+        tracer: execution.context.tracer,
+        providerConfig: execution.context.providerConfig,
+        controls: new AgentRunControls({
+          signal: execution.context.signal,
+          budget: execution.context.controls.budget.limits,
+          initialUsage: priorUsage || execution.context.controls.budget.snapshot(),
+          onUsageChanged: async (usage) => {
+            const latest = await this.requireRecord(runId);
+            latest.state.metrics.agentBudgetUsage = usage;
+            await this.store.save(latest);
+          },
+        }),
+      }),
+    } : undefined;
 
     while (true) {
       record = await this.requireRecord(runId);
@@ -294,8 +349,8 @@ export class RoomWorkflowEngine {
       record.state.currentNode = node;
       const attempt = (record.state.attempts[node] || 0) + 1;
       record.state.attempts[node] = attempt;
-      record.state.metrics.nodeExecutions += 1;
       appendEvent(record, { type: "node.started", node, attempt });
+      record.state.metrics = projectMetricsFromEvents(record.events, record.state.metrics.agentBudgetUsage);
       await this.store.save(record);
       const started = performance.now();
       try {
@@ -305,6 +360,7 @@ export class RoomWorkflowEngine {
           attempt,
           input: structuredClone(record.input),
           state: structuredClone(record.state),
+          execution: activeExecution,
         });
         const latest = await this.requireRecord(runId);
         if (latest.state.status === "cancelled") return;
@@ -318,9 +374,8 @@ export class RoomWorkflowEngine {
           record.state.artifacts.mergeReport = wrapArtifact("profile-merge-report", output.review.report);
         }
         const latencyMs = Math.max(0, Math.round((performance.now() - started) * 100) / 100);
-        record.state.metrics.nodeLatencyMs[node] = latencyMs;
         if (!record.state.completedNodes.includes(node)) record.state.completedNodes.push(node);
-        const checkpointId = uniqueId("checkpoint");
+        const checkpointId = newCheckpointId();
         record.state.checkpoints.push({
           checkpointId,
           completedNode: node,
@@ -350,6 +405,10 @@ export class RoomWorkflowEngine {
           record.state.completedAt = new Date().toISOString();
           appendEvent(record, { type: "run.completed" });
         }
+        record.state.metrics = projectMetricsFromEvents(
+          record.events,
+          activeExecution?.context.controls.budget.snapshot() ?? record.state.metrics.agentBudgetUsage,
+        );
         await this.store.save(record);
         if (node === "complete" || output.review) return;
       } catch (error) {
@@ -365,6 +424,10 @@ export class RoomWorkflowEngine {
             : "Workflow node failed.",
         };
         appendEvent(record, { type: "run.failed", node, errorCode: code });
+        record.state.metrics = projectMetricsFromEvents(
+          record.events,
+          activeExecution?.context.controls.budget.snapshot() ?? record.state.metrics.agentBudgetUsage,
+        );
         await this.store.save(record);
         return;
       }

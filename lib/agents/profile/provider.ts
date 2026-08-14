@@ -1,17 +1,14 @@
-import type { AgentCallMeta, AgentCallResult } from "../../agent-runtime/run-types.ts";
+import type { AgentCallResult } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
-import type { AgentRunControls } from "../../agent-runtime/run-controls.ts";
+import { PROFILE_AGENT_REQUEST_TIMEOUT_MS, type AgentRunControls } from "../../agent-runtime/run-controls.ts";
 import { diagnosticDump, summarizeDiagnosticValue } from "../../agent-runtime/diagnostics.ts";
+import { callModel, ModelServiceExhaustedError, type ModelServiceProvider } from "../model-service.ts";
 import {
   DEFAULT_WEBSITE_AGENT_MODEL,
   getAgentProviderConfig,
-  isDeepSeekProvider,
-  shouldDisableThinking,
   type AgentProviderOverride,
 } from "../provider-config.ts";
 import { externalMaasFallbackModel, externalMaasHostname } from "../provider-env.ts";
-import { buildToolCallRequest } from "../provider-request.ts";
-import { estimateCallCostUsd } from "../provider-pricing.ts";
 import { providerErrorDetail } from "../provider-errors.ts";
 import { IDENTITY_DRAFT_SCHEMA, type ProfileDraftSchema } from "./schemas.ts";
 import type { ExtractionShard, MaasContentBlock, ProfileAgentOptions } from "./types.ts";
@@ -33,18 +30,6 @@ const PROFILE_AGENT_EFFORT = "low";
 // an unconfirmed P99, use one generous ceiling; DEFAULT_AGENT_RUN_BUDGET's
 // maxDurationMs is sized to allow one slow attempt plus one full retry at
 // this timeout.
-const PROFILE_AGENT_REQUEST_TIMEOUT_MS = 20 * 60_000;
-
-function estimatedTokens(input: string | MaasContentBlock[]) {
-  const characters = typeof input === "string"
-    ? input.length
-    : input.reduce((total, block) => total + (block.type === "text" ? block.text.length : 8_000), 0);
-  return Math.max(1, Math.ceil(characters / 4));
-}
-
-function estimatedCost(baseUrlOrHost: string, inputTokens: number, outputTokens: number) {
-  return estimateCallCostUsd(baseUrlOrHost, inputTokens, outputTokens);
-}
 
 function responseText(payload: unknown) {
   if (!payload || typeof payload !== "object") return "";
@@ -98,19 +83,6 @@ function responseStopReason(payload: unknown) {
   return cleanString(record.stop_reason) || cleanString(choice?.finish_reason);
 }
 
-function responseUsage(payload: unknown) {
-  if (!payload || typeof payload !== "object") return {};
-  const usage = (payload as Record<string, unknown>).usage;
-  if (!usage || typeof usage !== "object") return {};
-  const record = usage as Record<string, unknown>;
-  const inputTokens = Number(record.input_tokens ?? record.prompt_tokens);
-  const outputTokens = Number(record.output_tokens ?? record.completion_tokens);
-  return {
-    ...(Number.isFinite(inputTokens) ? { inputTokens } : {}),
-    ...(Number.isFinite(outputTokens) ? { outputTokens } : {}),
-  };
-}
-
 function parseJsonOutput(output: string) {
   const trimmed = output.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {
@@ -145,42 +117,6 @@ function providerName(baseUrl: string) {
   }
 }
 
-function metaFor(input: {
-  callId: string;
-  agent: string;
-  shard: ExtractionShard;
-  provider: string;
-  model: string;
-  mode: "json-schema" | "tool";
-  promptVersion: string;
-  startedAt: string;
-  startedMark: number;
-  attempt: number;
-  fallbackCount: number;
-  payload?: unknown;
-}): AgentCallMeta {
-  const stopReason = responseStopReason(input.payload);
-  const usage = responseUsage(input.payload);
-  return {
-    callId: input.callId,
-    agent: input.agent,
-    shard: input.shard,
-    provider: input.provider,
-    model: input.model,
-    mode: input.mode,
-    promptVersion: input.promptVersion,
-    startedAt: input.startedAt,
-    latencyMs: Math.max(0, Math.round(performance.now() - input.startedMark)),
-    ...usage,
-    ...(usage.inputTokens !== undefined || usage.outputTokens !== undefined ? {
-      estimatedCost: Number(estimatedCost(input.provider, usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
-    } : {}),
-    attempt: input.attempt,
-    fallbackCount: input.fallbackCount,
-    ...(stopReason ? { stopReason } : {}),
-  };
-}
-
 export async function callProfileModel<T>(input: {
   system: string;
   content: string | MaasContentBlock[];
@@ -213,7 +149,7 @@ export async function callProfileModel<T>(input: {
       ? [externalGatewayFallback]
       : []),
   ])];
-  const websiteProviders = websiteApiKeys.length ? [{
+  const websiteProviders: ModelServiceProvider[] = websiteApiKeys.length ? [{
     baseUrl: providerConfig.website.baseUrl,
     apiKeys: websiteApiKeys,
     models: [providerConfig.website.model || DEFAULT_WEBSITE_AGENT_MODEL],
@@ -223,7 +159,7 @@ export async function callProfileModel<T>(input: {
     authMode: providerConfig.website.authMode,
     appId: providerConfig.website.appId,
   }] : [];
-  const maasProviders = maasApiKeys.length ? [{
+  const maasProviders: ModelServiceProvider[] = maasApiKeys.length ? [{
     baseUrl: providerConfig.maas.baseUrl,
     apiKeys: maasApiKeys,
     models: maasModels,
@@ -237,224 +173,129 @@ export async function callProfileModel<T>(input: {
     ? [...websiteProviders, ...maasProviders]
     : [...maasProviders, ...websiteProviders];
   const agent = input.providerScope === "website" ? "website-profile-agent" : "profile-agent";
-  let lastResult: { response: Response; payload: unknown } | undefined;
-  let lastRequestError: unknown;
-  let sawEmptyResponse = false;
-  let fallbackCount = 0;
-  const invalidOutputDetails: string[] = [];
+  const maxOutputTokens = input.schema === IDENTITY_DRAFT_SCHEMA ? IDENTITY_MAX_OUTPUT_TOKENS : ITEMS_MAX_OUTPUT_TOKENS;
 
-  providerLoop: for (const provider of providers) {
-    const providerLabel = providerName(provider.baseUrl);
-    const deepSeek = isDeepSeekProvider(provider.baseUrl);
-    if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue;
-    // The internal-maas protocol always uses OpenAI function calling; there is no
-    // Anthropic-style output_config.format equivalent to fall back to.
-    // DeepSeek's official Anthropic endpoint supports Tool Use but ignores
-    // the JSON schema part of output_config, so retrying an empty Tool
-    // response through json-schema only adds another slow request that
-    // cannot satisfy ROOM's structured-output contract.
-    const modes: readonly ("tool" | "json-schema")[] = provider.protocol !== "anthropic" || deepSeek
-      ? ["tool"]
-      : provider.mode === "json-schema"
-      ? ["json-schema", "tool"]
-      : ["tool", "json-schema"];
-    for (const mode of modes) {
-      for (const model of provider.models) {
-        for (const apiKey of provider.apiKeys) {
-          if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue providerLoop;
-          const callId = `call-${crypto.randomUUID()}`;
-          const startedAt = new Date().toISOString();
-          const startedMark = performance.now();
-          const maxOutputTokens = input.schema === IDENTITY_DRAFT_SCHEMA ? IDENTITY_MAX_OUTPUT_TOKENS : ITEMS_MAX_OUTPUT_TOKENS;
-          const inputTokenEstimate = estimatedTokens(input.system) + estimatedTokens(input.content);
-          input.runtimeControls.budget.reserve({
-            inputTokens: inputTokenEstimate,
-            outputTokens: maxOutputTokens,
-            estimatedCostUsd: estimatedCost(provider.baseUrl, inputTokenEstimate, maxOutputTokens),
-          });
-          let result: { response: Response; payload: unknown };
-          try {
-            const request = buildToolCallRequest({
-              protocol: provider.protocol,
-              baseUrl: provider.baseUrl,
-              apiKey,
-              userEmail: provider.userEmail,
-              authMode: provider.authMode,
-              appId: provider.appId,
-              model,
-              system: input.system,
-              userContent: input.content,
-              temperature: 0,
-              maxOutputTokens,
-              toolName: "submit_profile_result",
-              toolDescription: "Submit the complete evidence-backed profile extraction result.",
-              toolSchema: input.schema,
-              jsonSchemaMode: mode === "json-schema",
-              jsonSchemaEffort: PROFILE_AGENT_EFFORT,
-              disableThinking: shouldDisableThinking(provider.baseUrl, model),
-            });
-            const response = await fetch(request.url, {
-              method: "POST",
-              headers: request.headers,
-              body: JSON.stringify(request.body),
-              signal: input.runtimeControls.requestSignal(PROFILE_AGENT_REQUEST_TIMEOUT_MS),
-            });
-            const payload = await response.json().catch(() => null) as unknown;
-            result = { response, payload };
-            lastResult = result;
-          } catch (error) {
-            lastRequestError = error;
-            const meta = metaFor({
-              callId, agent, shard: input.shard, provider: providerLabel, model, mode,
-              promptVersion: input.promptVersion, startedAt, startedMark, attempt: input.attempt, fallbackCount,
-            });
-            input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "request_failed" });
-            fallbackCount += 1;
-            const failureCount = input.runtimeControls.circuitBreaker.recordFailure(providerLabel);
-            if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue providerLoop;
-            await input.runtimeControls.boundedBackoff(failureCount);
-            continue;
-          }
-
-          const meta = metaFor({
-            callId, agent, shard: input.shard, provider: providerLabel, model, mode,
-            promptVersion: input.promptVersion, startedAt, startedMark, attempt: input.attempt, fallbackCount,
-            payload: result.payload,
-          });
-          if (result.response.ok) {
-            input.runtimeControls.circuitBreaker.recordSuccess(providerLabel);
-            const output = responseText(result.payload);
-            if (output) {
-              try {
-                const value = parseJsonOutput(output);
-                const structuralErrors = shardOutputErrors(value, input.shard, input.minimumItems);
-                if (!structuralErrors.length) {
-                  input.tracer.emit({ type: "model.completed", step: input.step, meta });
-                  return { data: value as T, meta };
-                }
-                invalidOutputDetails.push(`${input.shard} 分片结构不完整 · model=${model} · mode=${mode} · ${structuralErrors.join("; ")}`);
-                input.tracer.emit({
-                  type: "model.failed",
-                  step: input.step,
-                  meta,
-                  errorCode: "invalid_structure",
-                  diagnostic: summarizeDiagnosticValue(value),
-                });
-                // The trace only stores the structural-error summary; dump
-                // the parsed tool-call arguments server-side (structural
-                // summary by default, raw only behind the diagnostics flag)
-                // so shape mismatches can be diagnosed without guessing.
-                diagnosticDump(
-                  `[profile-agent] invalid structure from ${providerLabel}/${model} (${mode}, ${input.shard}):`,
-                  value,
-                );
-              } catch {
-                const stopReason = responseStopReason(result.payload);
-                const likelyTruncated = ["max_tokens", "length"].includes(stopReason)
-                  || !output.trimEnd().endsWith("}");
-                invalidOutputDetails.push([
-                  `${input.shard} 分片返回了无效 JSON`,
-                  `model=${model}`,
-                  `mode=${mode}`,
-                  `chars=${output.length}`,
-                  stopReason ? `stop=${stopReason}` : "",
-                  likelyTruncated ? "likely_truncated=true" : "",
-                ].filter(Boolean).join(" · "));
-                input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: "invalid_json" });
-              }
-              fallbackCount += 1;
-              continue;
-            }
-            sawEmptyResponse = true;
-            input.tracer.emit({
-              type: "model.failed",
-              step: input.step,
-              meta,
-              errorCode: "empty_response",
-              diagnostic: summarizeDiagnosticValue(result.payload),
-            });
-            // A 200 with no extractable text usually means the provider
-            // returned a shape responseText() doesn't recognize yet (e.g. a
-            // thinking-only response, or content blocks in an unexpected
-            // position). Dump the shape server-side (structural summary by
-            // default) to diagnose it.
-            diagnosticDump(
-              `[profile-agent] empty response from ${providerLabel}/${model} (${mode}):`,
-              result.payload,
-            );
-            fallbackCount += 1;
-            continue;
-          }
-          input.tracer.emit({ type: "model.failed", step: input.step, meta, errorCode: `http_${result.response.status}` });
-          if (result.response.status >= 400 && result.response.status < 500) {
-            // Provider 4xx bodies carry the exact request-validation reason;
-            // the trace deliberately stores only the status code, so log the
-            // sanitized message server-side for diagnosis.
-            console.error(
-              `[profile-agent] ${result.response.status} from ${providerLabel}/${model}:`,
-              providerErrorDetail(result.payload) || "(no message)",
-            );
-          }
-          fallbackCount += 1;
-          if ([401, 403].includes(result.response.status)) continue;
-          if (result.response.status === 429 || result.response.status >= 500) {
-            const failureCount = input.runtimeControls.circuitBreaker.recordFailure(providerLabel);
-            if (input.runtimeControls.circuitBreaker.isOpen(providerLabel)) continue providerLoop;
-            await input.runtimeControls.boundedBackoff(failureCount);
-          }
-          break;
+  try {
+    return await callModel<T>({
+      agent,
+      shard: input.shard,
+      step: input.step,
+      promptVersion: input.promptVersion,
+      templateId: `profile-${input.shard}`,
+      adapterVersion: "provider-request.v1",
+      logLabel: "profile-agent",
+      system: input.system,
+      userContent: input.content,
+      providers,
+      maxOutputTokens,
+      toolName: "submit_profile_result",
+      toolDescription: "Submit the complete evidence-backed profile extraction result.",
+      toolSchema: input.schema,
+      jsonSchemaEffort: PROFILE_AGENT_EFFORT,
+      requestTimeoutMs: PROFILE_AGENT_REQUEST_TIMEOUT_MS,
+      tracer: input.tracer,
+      runtimeControls: input.runtimeControls,
+      attempt: input.attempt,
+      handleResponse: ({ payload, model, mode, providerLabel }) => {
+        const output = responseText(payload);
+        if (!output) {
+          // A 200 with no extractable text usually means the provider
+          // returned a shape responseText() doesn't recognize yet (e.g. a
+          // thinking-only response, or content blocks in an unexpected
+          // position). Dump the shape server-side (structural summary by
+          // default) to diagnose it.
+          diagnosticDump(`[profile-agent] empty response from ${providerLabel}/${model} (${mode}):`, payload);
+          return { outcome: "retry", errorCode: "empty_response", diagnostic: summarizeDiagnosticValue(payload) };
         }
-      }
-    }
-  }
+        try {
+          const value = parseJsonOutput(output);
+          const structuralErrors = shardOutputErrors(value, input.shard, input.minimumItems);
+          if (!structuralErrors.length) return { outcome: "success", data: value as T };
+          // The trace only stores the structural-error summary; dump the
+          // parsed tool-call arguments server-side (structural summary by
+          // default, raw only behind the diagnostics flag) so shape
+          // mismatches can be diagnosed without guessing.
+          diagnosticDump(`[profile-agent] invalid structure from ${providerLabel}/${model} (${mode}, ${input.shard}):`, value);
+          return {
+            outcome: "retry",
+            errorCode: "invalid_structure",
+            diagnostic: summarizeDiagnosticValue(value),
+            detail: `${input.shard} 分片结构不完整 · model=${model} · mode=${mode} · ${structuralErrors.join("; ")}`,
+          };
+        } catch {
+          const stopReason = responseStopReason(payload);
+          const likelyTruncated = ["max_tokens", "length"].includes(stopReason) || !output.trimEnd().endsWith("}");
+          return {
+            outcome: "retry",
+            errorCode: "invalid_json",
+            detail: [
+              `${input.shard} 分片返回了无效 JSON`,
+              `model=${model}`,
+              `mode=${mode}`,
+              `chars=${output.length}`,
+              stopReason ? `stop=${stopReason}` : "",
+              likelyTruncated ? "likely_truncated=true" : "",
+            ].filter(Boolean).join(" · "),
+          };
+        }
+      },
+    });
+  } catch (error) {
+    if (!(error instanceof ModelServiceExhaustedError)) throw error;
 
-  if (!lastResult) {
-    if (lastRequestError instanceof Error) {
-      // A request-level failure here is almost always the per-request abort
-      // timeout firing; surface it as a 504 with an actionable hint instead
-      // of an opaque 502 wrapping a DOMException message.
-      const timedOut = lastRequestError instanceof DOMException
-        && ["TimeoutError", "AbortError"].includes(lastRequestError.name);
+    if (!error.lastResult) {
+      if (error.lastRequestError instanceof Error) {
+        // A request-level failure here is almost always the per-request abort
+        // timeout firing; surface it as a 504 with an actionable hint instead
+        // of an opaque 502 wrapping a DOMException message.
+        const timedOut = error.lastRequestError instanceof DOMException
+          && ["TimeoutError", "AbortError"].includes(error.lastRequestError.name);
+        throw new ProfileAgentError(
+          timedOut
+            ? "模型响应超时。该 Provider 当前响应过慢，请稍后重试，或在「配置解析服务」中切换 Provider。"
+            : `Profile Agent 请求失败：${error.lastRequestError.message}`,
+          timedOut ? 504 : 502,
+        );
+      }
+      throw new ProfileAgentError("Provider 熔断保护中，本次请求未执行。请稍后重试。", 503);
+    }
+    const { response, payload } = error.lastResult;
+    if (!response.ok) {
+      const detail = providerErrorDetail(payload);
+      // Classify provider failures so the user gets a next step instead of a
+      // bare 502.
+      if ([401, 403].includes(response.status)) {
+        throw new ProfileAgentError(
+          `Provider 拒绝了 API key（${response.status}）${detail ? `：${detail}` : ""}。请在「配置解析服务」中检查 key 是否正确、是否仍有权限。`,
+          response.status,
+        );
+      }
+      if (response.status === 429) {
+        throw new ProfileAgentError("Provider 请求限流（429）。请稍后重试。", 429);
+      }
+      if (response.status >= 500) {
+        throw new ProfileAgentError(
+          `Provider 服务暂时不可用（${response.status}）。请稍后重试，或切换其他 Provider。`,
+          503,
+        );
+      }
+      throw new ProfileAgentError(`Profile Agent 请求失败（${response.status}）${detail ? `：${detail}` : ""}`, 502);
+    }
+    const invalidOutputDetails = error.retryOutcomes
+      .filter((outcome) => outcome.errorCode === "invalid_structure" || outcome.errorCode === "invalid_json")
+      .map((outcome) => outcome.detail)
+      .filter((detail): detail is string => Boolean(detail));
+    if (invalidOutputDetails.length) {
       throw new ProfileAgentError(
-        timedOut
-          ? "模型响应超时。该 Provider 当前响应过慢，请稍后重试，或在「配置解析服务」中切换 Provider。"
-          : `Profile Agent 请求失败：${lastRequestError.message}`,
-        timedOut ? 504 : 502,
+        "模型多次返回不完整的数据，自动重试后仍失败。请切换 Provider 重试，或精简输入内容。",
+        502,
+        invalidOutputDetails.slice(-4),
       );
     }
-    throw new ProfileAgentError("Provider 熔断保护中，本次请求未执行。请稍后重试。", 503);
-  }
-  const { response, payload } = lastResult;
-  if (!response.ok) {
-    const detail = providerErrorDetail(payload);
-    // Classify provider failures so the user gets a next step instead of a
-    // bare 502.
-    if ([401, 403].includes(response.status)) {
-      throw new ProfileAgentError(
-        `Provider 拒绝了 API key（${response.status}）${detail ? `：${detail}` : ""}。请在「配置解析服务」中检查 key 是否正确、是否仍有权限。`,
-        response.status,
-      );
+    const sawEmptyResponse = error.retryOutcomes.some((outcome) => outcome.errorCode === "empty_response");
+    if (sawEmptyResponse) {
+      throw new ProfileAgentError("模型返回了空内容，通常是 Provider 兼容性问题。请切换 Provider 重试。", 502);
     }
-    if (response.status === 429) {
-      throw new ProfileAgentError("Provider 请求限流（429）。请稍后重试。", 429);
-    }
-    if (response.status >= 500) {
-      throw new ProfileAgentError(
-        `Provider 服务暂时不可用（${response.status}）。请稍后重试，或切换其他 Provider。`,
-        503,
-      );
-    }
-    throw new ProfileAgentError(`Profile Agent 请求失败（${response.status}）${detail ? `：${detail}` : ""}`, 502);
+    throw new ProfileAgentError("Profile Agent 返回了空内容。", 502);
   }
-  if (invalidOutputDetails.length) {
-    throw new ProfileAgentError(
-      "模型多次返回不完整的数据，自动重试后仍失败。请切换 Provider 重试，或精简输入内容。",
-      502,
-      invalidOutputDetails.slice(-4),
-    );
-  }
-  if (sawEmptyResponse) {
-    throw new ProfileAgentError("模型返回了空内容，通常是 Provider 兼容性问题。请切换 Provider 重试。", 502);
-  }
-  throw new ProfileAgentError("Profile Agent 返回了空内容。", 502);
 }

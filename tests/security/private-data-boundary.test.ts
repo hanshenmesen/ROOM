@@ -60,6 +60,22 @@ test("per-client concurrency keys are hashed and leases are bounded", async () =
   second();
 });
 
+test("concurrency leases release their own slot when completions are out of order", () => {
+  clearConcurrencyLeasesForTests();
+  const first = tryAcquireConcurrencyLease("out-of-order-client", 2);
+  const second = tryAcquireConcurrencyLease("out-of-order-client", 2);
+  assert.ok(first);
+  assert.ok(second);
+  second();
+  assert.equal(concurrencyLeaseMetrics().activeLeases, 1);
+  const replacement = tryAcquireConcurrencyLease("out-of-order-client", 2);
+  assert.ok(replacement);
+  first();
+  assert.equal(concurrencyLeaseMetrics().activeLeases, 1);
+  replacement();
+  assert.equal(concurrencyLeaseMetrics().activeLeases, 0);
+});
+
 test("unreleased leases lapse after their TTL instead of leaking slots", () => {
   clearConcurrencyLeasesForTests();
   // Simulate a crashed isolate: acquire without ever releasing, with a TTL

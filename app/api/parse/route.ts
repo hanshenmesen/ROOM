@@ -9,13 +9,12 @@ import {
 } from "@/lib/agents/profile-agent";
 import { summarizeAgentRun } from "@/lib/agent-runtime/trace-summary";
 import { registerAgentRunSignal } from "@/lib/agent-runtime/run-cancellation";
-import { AgentBudgetExceededError } from "@/lib/agent-runtime/run-controls";
+import { AgentBudgetExceededError, AgentRunControls } from "@/lib/agent-runtime/run-controls";
 import { createAgentTracer, type AgentTracer } from "@/lib/agent-runtime/tracer";
 import type { ExtractedMedia } from "@/lib/extract-webpage";
-import { PublicWebError, validatePublicUrl, validatePublicUrlResolution } from "@/lib/public-web";
+import { validatePublicUrl } from "@/lib/public-web";
 import { preparsePdf } from "@/lib/pdf-preparse";
 import { mergeProfilesWithReport } from "@/lib/profile-merge";
-import { readBrowserAgentConfigHeaders } from "@/lib/browser-agent-config";
 import { providerCapabilitiesFor } from "@/lib/agents/provider-capabilities";
 import { getAgentProviderConfig, type AgentProviderOverride } from "@/lib/agents/provider-config";
 import {
@@ -27,6 +26,7 @@ import {
 import type { ParsedProfile } from "@/lib/types";
 import { privacySafeRequestKey, tryAcquireConcurrencyLease } from "@/lib/agent-runtime/concurrency-limiter";
 import { createWebsiteResearchModelPlanner } from "@/lib/agents/website/planner";
+import { readRequestAgentProviderConfig } from "@/lib/agents/request-provider-config";
 
 export const runtime = "edge";
 
@@ -64,6 +64,7 @@ type WebsiteAgentTask = {
   providerConfig?: AgentProviderOverride;
   prefetch: Promise<{ value?: WebsiteResearchPrefetch; error?: string; errorStatus?: number }>;
   signal: AbortSignal;
+  runtimeControls: AgentRunControls;
 };
 
 function publicErrorStatus(error: unknown) {
@@ -84,65 +85,12 @@ function bytesToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
-async function requestProviderConfig(request: Request): Promise<AgentProviderOverride | undefined> {
-  const config = readBrowserAgentConfigHeaders(request.headers);
-  if (!config) return undefined;
-  if (config.maasApiKey.length > 1_024 || config.websiteApiKey.length > 1_024) {
-    throw new ProfileAgentError("API Key 长度不合法。", 400);
-  }
-  if (config.maasModel.length > 200 || config.websiteModel.length > 200) {
-    throw new ProfileAgentError("模型名称过长。", 400);
-  }
-  const validateGatewayFields = (userEmail: string, appId: string, label: string) => {
-    if (userEmail.length > 320 || /[\r\n]/.test(userEmail) || (userEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail))) {
-      throw new ProfileAgentError(`${label} 企业邮箱格式不合法。`, 400);
-    }
-    if (appId.length > 128 || (appId && !/^[A-Za-z0-9._:-]+$/.test(appId))) {
-      throw new ProfileAgentError(`${label} App ID 格式不合法。`, 400);
-    }
-  };
-  validateGatewayFields(config.maasUserEmail, config.maasAppId, "主服务");
-  validateGatewayFields(config.websiteUserEmail, config.websiteAppId, "Website Agent");
-  const safeBaseUrl = (value: string, label: string) => {
-    try {
-      const url = validatePublicUrl(value);
-      if (url.protocol !== "https:" || url.search || url.hash) throw new Error("unsafe provider URL");
-      return url.href.replace(/\/$/, "");
-    } catch {
-      throw new ProfileAgentError(`${label} 必须是公开的 HTTPS 地址。`, 400);
-    }
-  };
-  const safeConfig = {
-    ...config,
-    maasBaseUrl: safeBaseUrl(config.maasBaseUrl, "MAAS Base URL"),
-    websiteBaseUrl: safeBaseUrl(config.websiteBaseUrl, "Website Agent Base URL"),
-  };
-  try {
-    await Promise.all([
-      ...(safeConfig.maasApiKey
-        ? [validatePublicUrlResolution(safeConfig.maasBaseUrl, { signal: request.signal })]
-        : []),
-      ...(safeConfig.websiteApiKey
-        ? [validatePublicUrlResolution(safeConfig.websiteBaseUrl, { signal: request.signal })]
-        : []),
-    ]);
-  } catch (error) {
-    console.error("[parse] provider DNS validation failed:", error instanceof Error ? `${error.name}: ${error.message}` : error);
-    // Distinguish an unavailable DNS validator (transient, retryable) from a
-    // provider URL that genuinely resolves to a non-public network.
-    if (error instanceof PublicWebError && error.status >= 500) {
-      throw new ProfileAgentError("Provider Base URL 的 DNS 校验服务暂时不可用，请稍后重试。", 502);
-    }
-    throw new ProfileAgentError("Provider Base URL 的 DNS 地址不是可验证的公开网络。", 400);
-  }
-  return safeConfig;
-}
-
 function startWebsiteAgent(
   website: string,
   providerConfig: AgentProviderOverride | undefined,
   tracer: AgentTracer,
   signal: AbortSignal,
+  runtimeControls: AgentRunControls,
 ): WebsiteAgentTask {
   const prefetch = prefetchWebsiteResearchRoot({ rootUrl: website, tracer, signal }).then(
     (value) => ({ value }),
@@ -151,7 +99,7 @@ function startWebsiteAgent(
       errorStatus: publicErrorStatus(error),
     }),
   );
-  return { website, providerConfig, prefetch, signal };
+  return { website, providerConfig, prefetch, signal, runtimeControls };
 }
 
 async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | undefined, tracer: AgentTracer): Promise<WebsiteAgentResult> {
@@ -171,6 +119,7 @@ async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | 
         providerConfig: task.providerConfig,
         tracer,
         signal: task.signal,
+        runtimeControls: task.runtimeControls,
       }),
       submitter: async ({ text, label, sourceId, media }) => (await extractProfileWithAgentRun(text, {
         id: sourceId,
@@ -184,6 +133,7 @@ async function runWebsiteAgent(task: WebsiteAgentTask, profile: ParsedProfile | 
         tracer,
         stepPrefix: "website",
         signal: task.signal,
+        runtimeControls: task.runtimeControls,
       })).profile,
     });
     return {
@@ -207,11 +157,18 @@ async function enrichFromWebsite(
   providerConfig?: AgentProviderOverride,
   tracer?: AgentTracer,
   signal?: AbortSignal,
+  runtimeControls?: AgentRunControls,
 ) {
   if (!tracer) throw new ProfileAgentError("Agent Trace 未初始化。", 500);
   const task = pendingTask?.website === website
     ? pendingTask
-    : startWebsiteAgent(website, providerConfig, tracer, signal || AbortSignal.timeout(24_000));
+    : startWebsiteAgent(
+        website,
+        providerConfig,
+        tracer,
+        signal || AbortSignal.timeout(24_000),
+        runtimeControls || new AgentRunControls({ signal }),
+      );
   const websiteResult = await runWebsiteAgent(task, profile, tracer);
   if (websiteResult.profile && websiteResult.pageUrl) {
     tracer.emit({ type: "step.started", step: "profile.merge", attempt: 1 });
@@ -253,13 +210,20 @@ async function enrichFromPersonalWebsite(
   providerConfig?: AgentProviderOverride,
   tracer?: AgentTracer,
   signal?: AbortSignal,
+  runtimeControls?: AgentRunControls,
 ) {
   const website = profile.personalWebsite;
   if (!website) return { profile, enrichment: { attempted: false, succeeded: false } };
-  return enrichFromWebsite(profile, originalLabel, website, pendingTask, providerConfig, tracer, signal);
+  return enrichFromWebsite(profile, originalLabel, website, pendingTask, providerConfig, tracer, signal, runtimeControls);
 }
 
-async function parseJson(request: Request, tracer: AgentTracer, providerConfig: AgentProviderOverride | undefined, signal: AbortSignal) {
+async function parseJson(
+  request: Request,
+  tracer: AgentTracer,
+  providerConfig: AgentProviderOverride | undefined,
+  signal: AbortSignal,
+  runtimeControls: AgentRunControls,
+) {
   const body = await request.json() as ParseJsonBody;
   if (body.text !== undefined && typeof body.text !== "string") {
     throw new ProfileAgentError("text 必须是字符串。", 400);
@@ -285,7 +249,11 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig: 
     if (website) {
       tracer.emit({ type: "artifact.created", step: "source.prepare", name: "website-root.json", schemaVersion: "website-root.v1" });
       tracer.emit({ type: "step.completed", step: "source.prepare" });
-      const result = await runWebsiteAgent(startWebsiteAgent(website, providerConfig, tracer, signal), undefined, tracer);
+      const result = await runWebsiteAgent(
+        startWebsiteAgent(website, providerConfig, tracer, signal, runtimeControls),
+        undefined,
+        tracer,
+      );
       if (!result.profile) throw new ProfileAgentError(result.error || "个人网站研究失败。", result.errorStatus || 502);
       return {
         profile: result.profile,
@@ -308,9 +276,10 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig: 
     tracer,
     stepPrefix: source.type === "url" ? "website" : "profile",
     signal,
+    runtimeControls,
     ...(shouldFollowWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, signal);
+        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, signal, runtimeControls);
       },
     } : {}),
   });
@@ -318,10 +287,24 @@ async function parseJson(request: Request, tracer: AgentTracer, providerConfig: 
   if (!shouldFollowWebsite) {
     return { profile, enrichment: { attempted: false, succeeded: false } };
   }
-  return enrichFromPersonalWebsite(profile, source.label || "Uploaded source", websiteTask, providerConfig, tracer, signal);
+  return enrichFromPersonalWebsite(
+    profile,
+    source.label || "Uploaded source",
+    websiteTask,
+    providerConfig,
+    tracer,
+    signal,
+    runtimeControls,
+  );
 }
 
-async function parseFile(request: Request, tracer: AgentTracer, providerConfig: AgentProviderOverride | undefined, signal: AbortSignal) {
+async function parseFile(
+  request: Request,
+  tracer: AgentTracer,
+  providerConfig: AgentProviderOverride | undefined,
+  signal: AbortSignal,
+  runtimeControls: AgentRunControls,
+) {
   tracer.emit({ type: "step.started", step: "source.prepare", attempt: 1 });
   const form = await request.formData();
   const file = form.get("file");
@@ -341,7 +324,7 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig: 
     }
   }
   let websiteTask: WebsiteAgentTask | undefined = explicitWebsite
-    ? startWebsiteAgent(explicitWebsite, providerConfig, tracer, signal)
+    ? startWebsiteAgent(explicitWebsite, providerConfig, tracer, signal, runtimeControls)
     : undefined;
   const agentOptions = {
     providerScope: "resume" as const,
@@ -349,9 +332,10 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig: 
     tracer,
     stepPrefix: "profile" as const,
     signal,
+    runtimeControls,
     ...(shouldFollowWebsite && !explicitWebsite ? {
       onPersonalWebsite: (website: string) => {
-        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, signal);
+        websiteTask ||= startWebsiteAgent(website, providerConfig, tracer, signal, runtimeControls);
       },
     } : {}),
   };
@@ -408,11 +392,11 @@ async function parseFile(request: Request, tracer: AgentTracer, providerConfig: 
     throw new ProfileAgentError("当前支持 PDF、JPG、PNG、GIF、WebP 和常见文本/网页数据文件。", 415);
   }
   if (explicitWebsite) {
-    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig, tracer, signal);
+    return enrichFromWebsite(profile, file.name, explicitWebsite, websiteTask, providerConfig, tracer, signal, runtimeControls);
   }
   return !shouldFollowWebsite
     ? { profile, enrichment: { attempted: false, succeeded: false } }
-    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig, tracer, signal);
+    : enrichFromPersonalWebsite(profile, file.name, websiteTask, providerConfig, tracer, signal, runtimeControls);
 }
 
 function requestedRunId(request: Request) {
@@ -442,10 +426,11 @@ export async function POST(request: Request) {
   // signal, ending the run and releasing the lease immediately.
   const registration = registerAgentRunSignal(tracer.runId, request.signal);
   try {
-    const providerConfig = await requestProviderConfig(request);
+    const providerConfig = await readRequestAgentProviderConfig(request);
+    const runtimeControls = new AgentRunControls({ signal: registration.signal });
     const result = contentType.includes("multipart/form-data")
-      ? await parseFile(request, tracer, providerConfig, registration.signal)
-      : await parseJson(request, tracer, providerConfig, registration.signal);
+      ? await parseFile(request, tracer, providerConfig, registration.signal, runtimeControls)
+      : await parseJson(request, tracer, providerConfig, registration.signal, runtimeControls);
     tracer.complete();
     const run = tracer.snapshot()!;
     return NextResponse.json({ ...result, run, trace: summarizeAgentRun(run.events) });

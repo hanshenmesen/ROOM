@@ -1,15 +1,7 @@
 import { AgentRunControls } from "../../agent-runtime/run-controls.ts";
-import type { AgentCallMeta } from "../../agent-runtime/run-types.ts";
 import type { AgentTracer } from "../../agent-runtime/tracer.ts";
-import {
-  getAgentProviderConfig,
-  isDeepSeekProvider,
-  shouldDisableThinking,
-  type AgentProviderOverride,
-} from "../provider-config.ts";
-import { buildToolCallRequest } from "../provider-request.ts";
-import { estimateCallCostUsd } from "../provider-pricing.ts";
-import { providerErrorDetail } from "../provider-errors.ts";
+import { callModel, ModelServiceExhaustedError, type ModelServiceProvider } from "../model-service.ts";
+import { getAgentProviderConfig, type AgentProviderOverride } from "../provider-config.ts";
 import type {
   WebsiteResearchMissingField,
   WebsiteResearchPlannerDecision,
@@ -49,21 +41,7 @@ type WebsiteResearchPlanner = (
   observation: WebsiteResearchPlannerObservation,
 ) => Promise<Omit<WebsiteResearchPlannerDecision, "iteration" | "source">>;
 
-function estimatedTokens(value: string) {
-  return Math.max(1, Math.ceil(value.length / 4));
-}
-
-function estimatedCost(baseUrl: string, inputTokens: number, outputTokens: number) {
-  return estimateCallCostUsd(baseUrl, inputTokens, outputTokens);
-}
-
-function providerName(baseUrl: string) {
-  try {
-    return new URL(baseUrl).hostname;
-  } catch {
-    return "custom-provider";
-  }
-}
+type PlannerDecisionOutput = Omit<WebsiteResearchPlannerDecision, "iteration" | "source">;
 
 function responseText(payload: unknown) {
   if (!payload || typeof payload !== "object") return "";
@@ -100,29 +78,7 @@ function responseText(payload: unknown) {
   return "";
 }
 
-function responseUsage(payload: unknown) {
-  if (!payload || typeof payload !== "object") return {};
-  const usage = (payload as Record<string, unknown>).usage;
-  if (!usage || typeof usage !== "object") return {};
-  const record = usage as Record<string, unknown>;
-  const inputTokens = Number(record.input_tokens ?? record.prompt_tokens);
-  const outputTokens = Number(record.output_tokens ?? record.completion_tokens);
-  return {
-    ...(Number.isFinite(inputTokens) ? { inputTokens } : {}),
-    ...(Number.isFinite(outputTokens) ? { outputTokens } : {}),
-  };
-}
-
-function responseStopReason(payload: unknown) {
-  if (!payload || typeof payload !== "object") return undefined;
-  const record = payload as Record<string, unknown>;
-  const choices = Array.isArray(record.choices) ? record.choices : [];
-  const choice = choices[0] && typeof choices[0] === "object" ? choices[0] as Record<string, unknown> : undefined;
-  const reason = record.stop_reason ?? choice?.finish_reason;
-  return typeof reason === "string" ? reason.slice(0, 100) : undefined;
-}
-
-function parseDecision(output: string, observation: WebsiteResearchPlannerObservation) {
+function parseDecision(output: string, observation: WebsiteResearchPlannerObservation): PlannerDecisionOutput {
   const cleaned = output.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   const value = JSON.parse(cleaned) as Record<string, unknown>;
   if (!value || !["continue", "submit"].includes(String(value.action))) throw new Error("invalid planner action");
@@ -148,47 +104,19 @@ function parseDecision(output: string, observation: WebsiteResearchPlannerObserv
   };
 }
 
-function modelMeta(input: {
-  callId: string;
-  provider: string;
-  model: string;
-  mode: "json-schema" | "tool";
-  startedAt: string;
-  startedMark: number;
-  payload?: unknown;
-}): AgentCallMeta {
-  const usage = responseUsage(input.payload);
-  return {
-    callId: input.callId,
-    agent: "website-research-planner",
-    provider: input.provider,
-    model: input.model,
-    mode: input.mode,
-    promptVersion: PLANNER_PROMPT_VERSION,
-    startedAt: input.startedAt,
-    latencyMs: Math.max(0, Math.round(performance.now() - input.startedMark)),
-    ...usage,
-    ...(usage.inputTokens !== undefined || usage.outputTokens !== undefined ? {
-      estimatedCost: Number(estimatedCost(input.provider, usage.inputTokens || 0, usage.outputTokens || 0).toFixed(6)),
-    } : {}),
-    attempt: 1,
-    fallbackCount: 0,
-    ...(responseStopReason(input.payload) ? { stopReason: responseStopReason(input.payload) } : {}),
-  };
-}
-
 export function createWebsiteResearchModelPlanner(input: {
   providerConfig?: AgentProviderOverride;
   tracer: AgentTracer;
   signal?: AbortSignal;
+  runtimeControls?: AgentRunControls;
 }): WebsiteResearchPlanner | undefined {
   const config = getAgentProviderConfig(input.providerConfig);
-  const providers = [
-    ...(config.website.apiKeys.length ? [{ ...config.website, scope: "website" }] : []),
-    ...(config.maas.apiKeys.length ? [{ ...config.maas, scope: "maas" }] : []),
+  const providers: ModelServiceProvider[] = [
+    ...(config.website.apiKeys.length ? [{ ...config.website, models: [config.website.model] }] : []),
+    ...(config.maas.apiKeys.length ? [{ ...config.maas, models: [config.maas.model] }] : []),
   ];
   if (!providers.length) return undefined;
-  const controls = new AgentRunControls({
+  const controls = input.runtimeControls || new AgentRunControls({
     signal: input.signal,
     budget: { maxModelCalls: 6, maxInputTokens: 30_000, maxOutputTokens: 16_000, maxEstimatedCostUsd: 1 },
   });
@@ -202,88 +130,41 @@ export function createWebsiteResearchModelPlanner(input: {
       "Return only the schema-defined decision through the required tool or JSON schema.",
     ].join(" ");
     const content = JSON.stringify(observation);
-    let lastError: unknown;
-    let fallbackCount = 0;
-    for (const provider of providers) {
-      const providerLabel = providerName(provider.baseUrl);
-      const deepSeek = isDeepSeekProvider(provider.baseUrl);
-      const modes = provider.protocol !== "anthropic" || deepSeek
-        ? ["tool"] as const
-        : provider.mode === "tool"
-        ? ["tool", "json-schema"] as const
-        : ["json-schema", "tool"] as const;
-      for (const mode of modes) {
-        for (const apiKey of provider.apiKeys) {
-          const callId = `call-${crypto.randomUUID()}`;
-          const startedAt = new Date().toISOString();
-          const startedMark = performance.now();
-          const inputTokenEstimate = estimatedTokens(system) + estimatedTokens(content);
-          controls.budget.reserve({
-            inputTokens: inputTokenEstimate,
-            outputTokens: MAX_OUTPUT_TOKENS,
-            estimatedCostUsd: estimatedCost(provider.baseUrl, inputTokenEstimate, MAX_OUTPUT_TOKENS),
-          });
+    try {
+      const result = await callModel<PlannerDecisionOutput>({
+        agent: "website-research-planner",
+        step: PLANNER_STEP,
+        promptVersion: PLANNER_PROMPT_VERSION,
+        templateId: "website-planner-decision",
+        adapterVersion: "provider-request.v1",
+        logLabel: "website-planner",
+        system,
+        userContent: content,
+        providers,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        toolName: "choose_website_research_action",
+        toolDescription: "Choose the next bounded website research action.",
+        toolSchema: DECISION_SCHEMA,
+        jsonSchemaEffort: "low",
+        requestTimeoutMs: 30_000,
+        tracer: input.tracer,
+        runtimeControls: controls,
+        handleResponse: ({ payload }) => {
           try {
-            const request = buildToolCallRequest({
-              protocol: provider.protocol,
-              baseUrl: provider.baseUrl,
-              apiKey,
-              userEmail: provider.userEmail,
-              authMode: provider.authMode,
-              appId: provider.appId,
-              model: provider.model,
-              system,
-              userContent: content,
-              temperature: 0,
-              maxOutputTokens: MAX_OUTPUT_TOKENS,
-              toolName: "choose_website_research_action",
-              toolDescription: "Choose the next bounded website research action.",
-              toolSchema: DECISION_SCHEMA,
-              jsonSchemaMode: mode === "json-schema",
-              jsonSchemaEffort: "low",
-              disableThinking: shouldDisableThinking(provider.baseUrl, provider.model),
-            });
-            const response = await fetch(request.url, {
-              method: "POST",
-              headers: request.headers,
-              body: JSON.stringify(request.body),
-              signal: controls.requestSignal(30_000),
-            });
-            const payload = await response.json().catch(() => null) as unknown;
-            const meta = { ...modelMeta({
-              callId, provider: providerLabel, model: provider.model, mode, startedAt, startedMark, payload,
-            }), fallbackCount };
-            if (!response.ok) {
-              input.tracer.emit({ type: "model.failed", step: PLANNER_STEP, meta, errorCode: `http_${response.status}` });
-              const detail = providerErrorDetail(payload);
-              if (response.status >= 400 && response.status < 500) {
-                console.error(`[website-planner] ${response.status} from ${providerLabel}/${provider.model}:`, detail || "(no message)");
-              }
-              lastError = new Error(`planner provider returned ${response.status}${detail ? `: ${detail}` : ""}`);
-              fallbackCount += 1;
-              continue;
-            }
-            try {
-              const decision = parseDecision(responseText(payload), observation);
-              input.tracer.emit({ type: "model.completed", step: PLANNER_STEP, meta });
-              return decision;
-            } catch (error) {
-              input.tracer.emit({ type: "model.failed", step: PLANNER_STEP, meta, errorCode: "invalid_plan" });
-              lastError = error;
-              fallbackCount += 1;
-            }
+            return { outcome: "success", data: parseDecision(responseText(payload), observation) };
           } catch (error) {
-            const meta = { ...modelMeta({
-              callId, provider: providerLabel, model: provider.model, mode, startedAt, startedMark,
-            }), fallbackCount };
-            input.tracer.emit({ type: "model.failed", step: PLANNER_STEP, meta, errorCode: "request_failed" });
-            lastError = error;
-            fallbackCount += 1;
+            return {
+              outcome: "retry",
+              errorCode: "invalid_plan",
+              detail: error instanceof Error ? error.message : "invalid planner output",
+            };
           }
-        }
-      }
+        },
+      });
+      return result.data;
+    } catch (error) {
+      throw error instanceof ModelServiceExhaustedError ? error.lastError : error;
     }
-    throw lastError instanceof Error ? lastError : new Error("website planner provider failed");
   };
 }
 

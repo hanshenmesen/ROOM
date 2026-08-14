@@ -34,7 +34,7 @@ function metadataRow(runId: string, overrides: Record<string, unknown> = {}) {
   const now = new Date().toISOString();
   return {
     runId,
-    schemaVersion: "room-workflow-state.v2",
+    schemaVersion: "room-workflow-state.v3",
     status: "queued",
     sourceHash: "c".repeat(64),
     sourceType: "text",
@@ -49,7 +49,7 @@ test("D1 metadata store round-trips run rows through the real migration", { ...s
   const store = createStore();
   assert.equal(await store.getRun("workflow-d1-missing"), undefined);
 
-  const row = metadataRow("workflow-d1-0001", { idempotencyKey: "d1-idem-0001", currentNode: "extract_profile" });
+  const row = metadataRow("workflow-d1-0001", { idempotencyKey: "d1-idem-0001", currentNode: "extract_identity" });
   await store.insertRun(row);
   const loaded = await store.getRun("workflow-d1-0001");
   assert.deepEqual(loaded, row);
@@ -115,9 +115,9 @@ test("D1 metadata store persists event-sourced projections and deletes cascades"
       occurredAt: now,
     }],
     artifacts: [{
-      artifactId: "workflow-d1-0006:extract_profile:profile",
+      artifactId: "workflow-d1-0006:merge_profile:profile",
       runId: "workflow-d1-0006",
-      node: "extract_profile",
+      node: "merge_profile",
       artifactType: "profile",
       schemaVersion: "profile.v1",
       storageKey: "workflow/v1/runs/workflow-d1-0006/state.json",
@@ -178,10 +178,10 @@ test("D1-backed durable store resumes across instances and keeps bodies out of D
   let attempts = 0;
   const handlers = {
     ...defaultRoomWorkflowHandlers,
-    extract_profile: async (context: Parameters<typeof defaultRoomWorkflowHandlers.extract_profile>[0]) => {
+    extract_inventory: async (context: Parameters<typeof defaultRoomWorkflowHandlers.extract_inventory>[0]) => {
       attempts += 1;
       if (attempts === 1) throw new (await import("../lib/workflow/room-workflow.ts")).WorkflowNodeError("simulated_crash", "Simulated crash.");
-      return defaultRoomWorkflowHandlers.extract_profile(context);
+      return defaultRoomWorkflowHandlers.extract_inventory(context);
     },
   };
 
@@ -198,7 +198,7 @@ test("D1-backed durable store resumes across instances and keeps bodies out of D
   );
   const resumed = await engineB.resume(started.runId);
   assert.equal(resumed.status, "completed");
-  assert.equal(resumed.checkpoints.length, 6);
+  assert.equal(resumed.checkpoints.length, 10);
 
   // Every D1 table is metadata-only: no résumé content anywhere in the tables.
   const dump = [

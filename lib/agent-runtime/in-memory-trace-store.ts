@@ -1,4 +1,7 @@
+import { newEventId } from "../ids.ts";
 import type { AgentRunEvent, AgentRunSnapshot } from "./run-types.ts";
+import { PROFILE_AGENT_LEASE_TTL_MS } from "./run-controls.ts";
+import type { TraceStore } from "./trace-store.ts";
 
 const MAX_RUNS = 100;
 const STORE_KEY = Symbol.for("room.agent-runtime.trace-store.v1");
@@ -24,7 +27,7 @@ function statusFor(events: AgentRunEvent[]) {
 // longest a live run can stay silent is bounded by the run budget
 // (40 min), so anything quiet for longer is declared stale on read and
 // closed with a terminal event exactly once.
-const STALE_RUN_TTL_MS = 45 * 60_000;
+const STALE_RUN_TTL_MS = PROFILE_AGENT_LEASE_TTL_MS;
 
 function sweepStaleRuns(state: StoreState) {
   const now = Date.now();
@@ -35,14 +38,14 @@ function sweepStaleRuns(state: StoreState) {
     events.push({
       type: "run.failed",
       errorCode: "stale",
-      eventId: `event-${crypto.randomUUID()}`,
+      eventId: newEventId(),
       occurredAt: new Date(now).toISOString(),
       runId,
     });
   }
 }
 
-export class InMemoryTraceStore {
+export class InMemoryTraceStore implements TraceStore {
   append(event: AgentRunEvent) {
     const state = sharedState();
     const events = state.get(event.runId) || [];
@@ -70,6 +73,12 @@ export class InMemoryTraceStore {
       completedAt: completed?.occurredAt,
       events: structuredClone(events),
     };
+  }
+
+  /** Events for one run after (exclusive) a given index, in emission order. */
+  eventsAfter(runId: string, index: number): AgentRunEvent[] {
+    const events = sharedState().get(runId) || [];
+    return structuredClone(events.slice(Math.max(0, index)));
   }
 
   /** Bounded snapshot window (most recent runs first) for cross-run aggregation. */

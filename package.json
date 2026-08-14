@@ -26,6 +26,8 @@
     "eval:fixtures": "node scripts/generate-profile-eval-fixtures.mjs",
     "eval:fixtures:update": "node scripts/generate-profile-eval-fixtures.mjs --write",
     "rag:sync": "node scripts/sync-reference-rag.mjs",
+    "schema:check": "node scripts/generate-json-schemas.mjs",
+    "schema:generate": "node scripts/generate-json-schemas.mjs --write",
     "eval:parser": "node scripts/evaluate-profile-models.mjs",
     "smoke:provider": "node scripts/provider-smoke.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
@@ -39,7 +41,8 @@
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "three": "^0.185.1",
-    "unpdf": "^1.8.0"
+    "unpdf": "^1.8.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

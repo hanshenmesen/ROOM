@@ -2,7 +2,7 @@
 
 ## Boundary
 
-ROOM's Website Research Agent is a hybrid Tool Agent: a model planner chooses the next page from an exact allowlisted candidate set or decides to submit, while deterministic code owns URL authorization, tool dispatch, budgets, evidence validation, and fallback. The existing Profile LLM owns semantic extraction from the inspected corpus. This prevents untrusted page text from naming tools, expanding scope, or changing hard stopping policy.
+ROOM's Website Research Agent is a hybrid Tool Agent: a model planner chooses the next page from an exact allowlisted candidate set or decides to submit, while deterministic code owns URL authorization, tool dispatch, budgets, source-grounding validation, and fallback. Grounding confirms that an excerpt exists on an inspected page; it is not an independent truth check. The existing Profile LLM owns semantic extraction from the inspected corpus. This prevents untrusted page text from naming tools, expanding scope, or changing hard stopping policy.
 
 The implementation deliberately does not describe link ranking, HTML inspection, or Claim validation as LLM Agents. They are atomic tools controlled by one bounded research loop. If planning fails or selects a URL outside the supplied candidates, the loop records `deterministic-fallback` and uses missing-field ranking.
 
@@ -33,7 +33,7 @@ For résumé imports, the Identity shard may discover the homepage before other 
 | `inspect_page` | Convert HTML into canonical Profile evidence text | page URL, depth | title, line count |
 | `extract_media` | Keep bounded non-decorative media metadata | page URL | media count |
 | `submit_profile` | Submit the combined inspected corpus to the Profile Agent | page count, character count | Profile ID, item count |
-| `validate_claim` | Resolve Claim locators and exact excerpts back to a page | field, page URL, locator, evidence count | supported boolean |
+| `validate_claim` | Resolve Claim locators and exact excerpts back to a page (provenance only, not truth verification) | field, page URL, locator, evidence count | supported boolean |
 
 Tool inputs and outputs have fixed schemas and runtime validation. Trace never contains HTML/text bodies, Claim values, evidence excerpts, prompts, API keys, cookies, or Authorization headers.
 

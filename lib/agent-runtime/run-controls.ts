@@ -14,12 +14,22 @@ export type AgentRunBudgetUsage = {
   elapsedMs: number;
 };
 
+/**
+ * One source of truth for the longest supported Profile Agent run.
+ *
+ * Provider requests, stale-run detection, and concurrency leases derive from
+ * these values so a live request can never outlast the lease that protects it.
+ */
+export const PROFILE_AGENT_REQUEST_TIMEOUT_MS = 20 * 60_000;
+export const PROFILE_AGENT_RUN_TIMEOUT_MS = 40 * 60_000;
+export const PROFILE_AGENT_RUN_GRACE_MS = 5 * 60_000;
+export const PROFILE_AGENT_LEASE_TTL_MS = PROFILE_AGENT_RUN_TIMEOUT_MS + PROFILE_AGENT_RUN_GRACE_MS;
+
 // Generating a full 16k-token structured extraction through a proxied
 // gateway (e.g. Xiaohongshu's internal MAAS gateway) has been observed to
 // take well past 120s for the denser "items" shard alone. Rather than tune
 // a fragile threshold against an unconfirmed P99, the profile agent's
-// per-request timeout is a generous 20 minutes (see
-// PROFILE_AGENT_REQUEST_TIMEOUT_MS in lib/agents/profile/provider.ts), so
+// per-request timeout is a generous 20 minutes, so
 // this wall-clock budget must be at least 2x that to leave room for one
 // slow attempt plus one full retry.
 export const DEFAULT_AGENT_RUN_BUDGET: AgentRunBudgetLimits = {
@@ -27,7 +37,7 @@ export const DEFAULT_AGENT_RUN_BUDGET: AgentRunBudgetLimits = {
   maxInputTokens: 600_000,
   maxOutputTokens: 160_000,
   maxEstimatedCostUsd: 20,
-  maxDurationMs: 40 * 60_000,
+  maxDurationMs: PROFILE_AGENT_RUN_TIMEOUT_MS,
 };
 
 export type AgentBudgetReason = "model_calls" | "input_tokens" | "output_tokens" | "estimated_cost" | "duration";
@@ -45,18 +55,23 @@ export class AgentBudgetExceededError extends Error {
 
 export class AgentRunBudget {
   readonly limits: AgentRunBudgetLimits;
-  private readonly startedAt = performance.now();
-  private modelCalls = 0;
-  private inputTokens = 0;
-  private outputTokens = 0;
-  private estimatedCostUsd = 0;
+  private readonly startedAt: number;
+  private modelCalls: number;
+  private inputTokens: number;
+  private outputTokens: number;
+  private estimatedCostUsd: number;
 
-  constructor(limits: Partial<AgentRunBudgetLimits> = {}) {
+  constructor(limits: Partial<AgentRunBudgetLimits> = {}, initialUsage: Partial<AgentRunBudgetUsage> = {}) {
     this.limits = { ...DEFAULT_AGENT_RUN_BUDGET, ...limits };
+    this.startedAt = performance.now() - Math.max(0, initialUsage.elapsedMs || 0);
+    this.modelCalls = Math.max(0, initialUsage.modelCalls || 0);
+    this.inputTokens = Math.max(0, initialUsage.inputTokens || 0);
+    this.outputTokens = Math.max(0, initialUsage.outputTokens || 0);
+    this.estimatedCostUsd = Math.max(0, initialUsage.estimatedCostUsd || 0);
   }
 
   reserve(input: { inputTokens: number; outputTokens: number; estimatedCostUsd: number }) {
-    if (performance.now() - this.startedAt >= this.limits.maxDurationMs) {
+    if (this.remainingDurationMs() <= 0) {
       throw new AgentBudgetExceededError("duration");
     }
     if (this.modelCalls + 1 > this.limits.maxModelCalls) throw new AgentBudgetExceededError("model_calls");
@@ -80,6 +95,10 @@ export class AgentRunBudget {
       estimatedCostUsd: Number(this.estimatedCostUsd.toFixed(6)),
       elapsedMs: Math.max(0, Math.round(performance.now() - this.startedAt)),
     };
+  }
+
+  remainingDurationMs() {
+    return Math.max(0, this.limits.maxDurationMs - (performance.now() - this.startedAt));
   }
 }
 
@@ -120,26 +139,52 @@ export class AgentRunControls {
   readonly budget: AgentRunBudget;
   readonly circuitBreaker: ProviderCircuitBreaker;
   readonly signal?: AbortSignal;
+  private readonly onUsageChanged?: (usage: AgentRunBudgetUsage) => void | Promise<void>;
+  private usagePersistence = Promise.resolve();
 
   constructor(input: {
     budget?: Partial<AgentRunBudgetLimits>;
     signal?: AbortSignal;
     circuitFailureThreshold?: number;
+    initialUsage?: Partial<AgentRunBudgetUsage>;
+    onUsageChanged?: (usage: AgentRunBudgetUsage) => void | Promise<void>;
   } = {}) {
-    this.budget = new AgentRunBudget(input.budget);
+    this.budget = new AgentRunBudget(input.budget, input.initialUsage);
     this.circuitBreaker = new ProviderCircuitBreaker(input.circuitFailureThreshold);
     this.signal = input.signal;
+    this.onUsageChanged = input.onUsageChanged;
+  }
+
+  async reserve(input: { inputTokens: number; outputTokens: number; estimatedCostUsd: number }) {
+    const usage = this.budget.reserve(input);
+    if (this.onUsageChanged) {
+      // Model shards may reserve in parallel. Serialize persistence so an
+      // older snapshot can never overwrite a newer one before requests start.
+      this.usagePersistence = this.usagePersistence.then(() => this.onUsageChanged!(usage));
+      await this.usagePersistence;
+    }
+    return usage;
   }
 
   requestSignal(timeoutMs: number) {
     this.signal?.throwIfAborted();
-    const timeout = AbortSignal.timeout(timeoutMs);
+    const remainingDurationMs = this.budget.remainingDurationMs();
+    if (remainingDurationMs <= 0) throw new AgentBudgetExceededError("duration");
+    // A request that starts near the end of a Run must not outlive the Run
+    // budget (and, by extension, the concurrency lease protecting it).
+    const timeout = AbortSignal.timeout(Math.max(1, Math.ceil(Math.min(timeoutMs, remainingDurationMs))));
     return this.signal ? AbortSignal.any([this.signal, timeout]) : timeout;
   }
 
   async boundedBackoff(failureCount: number) {
     this.signal?.throwIfAborted();
-    const delayMs = Math.min(400, 50 * (2 ** Math.max(0, failureCount - 1)));
+    const remainingDurationMs = this.budget.remainingDurationMs();
+    if (remainingDurationMs <= 0) throw new AgentBudgetExceededError("duration");
+    const delayMs = Math.max(1, Math.ceil(Math.min(
+      remainingDurationMs,
+      400,
+      50 * (2 ** Math.max(0, failureCount - 1)),
+    )));
     await new Promise<void>((resolve, reject) => {
       const onAbort = () => {
         clearTimeout(timeout);

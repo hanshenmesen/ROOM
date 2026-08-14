@@ -1,13 +1,14 @@
 import { RoomWorkflowEngine } from "./room-workflow.ts";
 import { resolveWorkflowStore } from "./resolve-store.ts";
 import { inMemoryWorkflowStore } from "./in-memory-workflow-store.ts";
+import { agentRoomWorkflowHandlers } from "./agent-workflow-handlers.ts";
 
 const ENGINE_KEY = Symbol.for("room.workflow.engine.v1");
 const ENGINE_PROMISE_KEY = Symbol.for("room.workflow.engine.promise.v1");
 
 function sharedEngine() {
   const root = globalThis as typeof globalThis & { [ENGINE_KEY]?: RoomWorkflowEngine };
-  root[ENGINE_KEY] ||= new RoomWorkflowEngine();
+  root[ENGINE_KEY] ||= new RoomWorkflowEngine(undefined, agentRoomWorkflowHandlers);
   return root[ENGINE_KEY];
 }
 
@@ -28,7 +29,7 @@ export async function getRoomWorkflowEngine(): Promise<RoomWorkflowEngine> {
   root[ENGINE_PROMISE_KEY] ||= (async () => {
     const store = await resolveWorkflowStore();
     if (store === inMemoryWorkflowStore) return sharedEngine();
-    return new RoomWorkflowEngine(store);
+    return new RoomWorkflowEngine(store, agentRoomWorkflowHandlers);
   })();
   return root[ENGINE_PROMISE_KEY];
 }

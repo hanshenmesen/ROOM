@@ -85,3 +85,28 @@ export function providerCapabilitiesFor(baseUrl: string, model: string, protocol
   if (protocol === "openai") return OPENAI_CHAT_COMPLETIONS;
   return CLAUDE_COMPATIBLE;
 }
+
+/**
+ * Structured-output mode fallback order for one provider call attempt.
+ *
+ * Non-Anthropic protocols (`openai`, `internal-maas`) and DeepSeek's official
+ * endpoint only ever speak OpenAI-style function calling / Anthropic Tool
+ * Use -- there is no `output_config.format` equivalent to fall back to, so
+ * they get a single-element `["tool"]` order. Anthropic-protocol providers
+ * try the configured preference first, then the other mode, so a provider
+ * that silently ignores `output_config` still has one more attempt before
+ * the call site gives up.
+ *
+ * Extracted from the near-identical provider-iteration loops in the website
+ * planner and the profile agent provider, which had independently derived
+ * the same table (written with inverted conditions, but producing the same
+ * order) -- exactly the kind of drift risk a single source of truth removes.
+ */
+export function routeProviderModes(input: {
+  protocol: ProviderProtocol;
+  mode: "json-schema" | "tool";
+  deepSeek: boolean;
+}): readonly ("tool" | "json-schema")[] {
+  if (input.protocol !== "anthropic" || input.deepSeek) return ["tool"];
+  return input.mode === "json-schema" ? ["json-schema", "tool"] : ["tool", "json-schema"];
+}

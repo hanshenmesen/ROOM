@@ -1,3 +1,4 @@
+import { newToolCallId } from "../ids.ts";
 import type { AgentToolSummary } from "./run-types.ts";
 import type { AgentTracer } from "./tracer.ts";
 
@@ -24,7 +25,7 @@ export async function runTracedTool<T>(input: {
   call: () => Promise<T> | T;
   summarizeOutput: (output: T) => AgentToolSummary;
 }) {
-  const toolCallId = `tool-call-${crypto.randomUUID()}`;
+  const toolCallId = newToolCallId();
   const startedAt = new Date().toISOString();
   const inputSummary = boundedSummary(input.inputSummary);
   input.tracer.emit({

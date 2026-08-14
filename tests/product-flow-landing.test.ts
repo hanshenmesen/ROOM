@@ -8,6 +8,7 @@ const studioSource = readFileSync(new URL("../components/RoomStudio.tsx", import
 const parseRouteSource = readFileSync(new URL("../app/api/parse/route.ts", import.meta.url), "utf8");
 const reviewSource = readFileSync(new URL("../components/ProfileReviewPanel.tsx", import.meta.url), "utf8");
 const tracePanelSource = readFileSync(new URL("../components/AgentTracePanel.tsx", import.meta.url), "utf8");
+const workflowRunHookSource = readFileSync(new URL("../components/use-workflow-run.ts", import.meta.url), "utf8");
 
 test("the landing is rebuilt from independently positioned PPT artwork", () => {
   for (const asset of [
@@ -87,12 +88,21 @@ test("website and resume sources wait for one explicit generate action", () => {
   assert.match(studioSource, /function upload\([\s\S]*setSourceFile\(file\);[\s\S]*确认资料后点击下方生成/);
   assert.doesNotMatch(studioSource, /function upload\([^}]+readFile/);
   assert.match(studioSource, /if \(sourceFile\) \{[\s\S]*readFile\(sourceFile, website \|\| undefined\)/);
-  assert.match(studioSource, /if \(website\) form\.set\("website", website\)/);
-  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\(explicitWebsite, providerConfig, tracer, signal\)/);
-  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig, tracer, signal\)/);
-  assert.match(studioSource, /parseTextWithAgent\("", value, "url", \[\], value, true\)/);
-  assert.doesNotMatch(studioSource.match(/async function extractUrl\(\)[\s\S]*?async function readFile/)?.[0] || "", /\/api\/extract/);
-  assert.match(parseRouteSource, /source\.type === "url"[\s\S]*runWebsiteAgent\(startWebsiteAgent\(website, providerConfig, tracer, signal\)/);
+  // Explicit website support now flows through the Run API (anonymous local
+  // Run recovery): text uploads pass it to createTextRun(), PDF/image
+  // uploads pass it to createFileRun()'s multipart form, which still sets
+  // the same "website" field the legacy /api/parse route reads.
+  assert.match(studioSource, /await createTextRun\(\{[\s\S]*website \}\)/);
+  assert.match(workflowRunHookSource, /if \(input\.website\) form\.set\("website", input\.website\)/);
+  assert.match(parseRouteSource, /explicitWebsite[\s\S]*startWebsiteAgent\([\s\S]*explicitWebsite,[\s\S]*providerConfig,[\s\S]*tracer,[\s\S]*signal,[\s\S]*runtimeControls,[\s\S]*\)/);
+  assert.match(parseRouteSource, /enrichFromWebsite\(profile, file\.name, explicitWebsite, websiteTask, providerConfig, tracer, signal, runtimeControls\)/);
+  // extractUrl() now creates a Run and persists its runId before starting
+  // it (anonymous local Run recovery step 1), instead of one synchronous
+  // /api/parse call.
+  assert.match(studioSource, /createTextRun\(\{ text: value, label: value, sourceType: "url", followWebsite: true, headers \}\)/);
+  assert.match(studioSource, /setActiveWorkflowRunId\(created\.runId\)/);
+  assert.doesNotMatch(studioSource.match(/async function extractUrl\(\)[\s\S]*?function isTextUpload/)?.[0] || "", /\/api\/extract/);
+  assert.match(parseRouteSource, /source\.type === "url"[\s\S]*runWebsiteAgent\([\s\S]*startWebsiteAgent\(website, providerConfig, tracer, signal, runtimeControls\)/);
 });
 
 test("providers without document-block support get line-numbered text evidence instead of page references", () => {
@@ -106,7 +116,12 @@ test("conflicting Agent claims stop at an evidence-backed human checkpoint", () 
   assert.match(parseRouteSource, /mergeProfilesWithReport/);
   assert.match(parseRouteSource, /mergeReport\.reviewRequired/);
   assert.match(studioSource, /<ProfileReviewPanel report=\{profileMergeReport\}/);
-  assert.match(studioSource, /resolveProfileMergeReview\(profileMergeReport, resolutions\)/);
+  // Confirming a review now submits the Run's checkpointed decisions to the
+  // server (POST /api/runs/:runId/review) instead of resolving the merge
+  // report purely client-side, so a later resume never re-runs the
+  // extraction/merge nodes that already produced it.
+  assert.match(studioSource, /await submitReview\(runId, resolutions\)/);
+  assert.match(workflowRunHookSource, /`\/api\/runs\/\$\{encodeURIComponent\(runId\)\}\/review`/);
   assert.match(reviewSource, /查看证据/);
   assert.match(reviewSource, /我来填写正确值/);
   assert.match(reviewSource, /不公开这个字段/);

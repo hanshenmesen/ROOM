@@ -28,7 +28,7 @@ function sampleRecord(runId = "workflow-test-0001"): WorkflowRecord {
   const now = new Date().toISOString();
   return {
     state: {
-      schemaVersion: "room-workflow-state.v2",
+      schemaVersion: "room-workflow-state.v3",
       runId,
       status: "queued",
       sourceHash: "a".repeat(64),
@@ -81,30 +81,30 @@ test("durable runs resume across store instances, simulating a process restart",
   let attempts = 0;
   const flakyHandlers: WorkflowNodeHandlers = {
     ...defaultRoomWorkflowHandlers,
-    extract_profile: async (context) => {
+    extract_inventory: async (context) => {
       attempts += 1;
       if (attempts === 1) throw new WorkflowNodeError("simulated_crash", "Simulated process crash.");
-      return defaultRoomWorkflowHandlers.extract_profile(context);
+      return defaultRoomWorkflowHandlers.extract_inventory(context);
     },
   };
 
   const engineA = new RoomWorkflowEngine(new DurableWorkflowStore(metadata, objects), flakyHandlers);
   const started = await engineA.start({ type: "text", label: "Durable résumé", text: sampleResume });
   assert.equal(started.state.status, "failed");
-  assert.deepEqual(started.state.completedNodes, ["prepare_source"]);
+  assert.deepEqual(started.state.completedNodes, ["prepare_source", "extract_identity"]);
 
   // A brand-new store and engine over the same backends stands in for a fresh
   // process (or Worker isolate) after a deploy or restart.
   const engineB = new RoomWorkflowEngine(new DurableWorkflowStore(metadata, objects), flakyHandlers);
   const recovered = await engineB.getState(started.runId);
   assert.equal(recovered.status, "failed");
-  assert.equal(recovered.attempts.extract_profile, 1);
+  assert.equal(recovered.attempts.extract_inventory, 1);
 
   const resumed = await engineB.resume(started.runId);
   assert.equal(resumed.status, "completed");
   assert.equal(resumed.attempts.prepare_source, 1);
-  assert.equal(resumed.attempts.extract_profile, 2);
-  assert.equal(resumed.checkpoints.length, 6);
+  assert.equal(resumed.attempts.extract_inventory, 2);
+  assert.equal(resumed.checkpoints.length, 10);
   assert.equal(resumed.metrics.resumedCount, 1);
 
   const events = await engineB.getEvents(started.runId);
@@ -154,10 +154,14 @@ test("event-sourced projection rebuilds steps, events, and artifacts", async () 
   assert.ok(record);
   const projection = projectRun(record!);
 
-  assert.equal(projection.steps.length, 6);
+  assert.equal(projection.steps.length, 10);
   assert.deepEqual(projection.steps.map((step) => step.node), [
     "prepare_source",
-    "extract_profile",
+    "extract_identity",
+    "extract_inventory",
+    "research_website",
+    "merge_profile",
+    "review_profile",
     "direct_world",
     "compile_world",
     "check_world",
@@ -173,7 +177,7 @@ test("event-sourced projection rebuilds steps, events, and artifacts", async () 
 
   assert.deepEqual(
     projection.artifacts.map((artifact) => artifact.artifactType).sort(),
-    ["check-report", "creative-brief", "profile", "world"].sort(),
+    ["check-report", "creative-brief", "profile", "resume-profile", "world"].sort(),
   );
   assert.ok(projection.artifacts.every((artifact) => artifact.storageKey?.endsWith("/state.json")));
 });

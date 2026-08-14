@@ -27,6 +27,6 @@ Any candidate must run in the Cloudflare Worker/Edge environment, preserve curre
 
 ## Phase 3 evidence — 2026-08-05
 
-The local engine now demonstrates explicit state, ordered events, Idempotency Key deduplication, cancellation, per-node attempts, artifact checkpoints, and recovery from the first incomplete node. A failure injected after `prepare_source` resumes at `extract_profile` without executing the completed node again.
+The local engine now demonstrates explicit state, ordered events, Idempotency Key deduplication, cancellation, per-node attempts, artifact checkpoints, and recovery from the first incomplete node. The live text/URL graph checkpoints Identity, Inventory, Website Research, Merge, and Review independently; for example, an Inventory failure resumes without executing a completed Identity node again.
 
-This evidence does not cross the adoption gate. The active store is in-memory, there is no human interrupt or branching repair graph, and the current six-node path remains simpler as typed TypeScript than as a framework graph. Re-evaluate after the durable D1/R2 adapter and a real branching or human-review requirement exist.
+This evidence does not cross the adoption gate. A D1/R2 adapter and one human Review interrupt now exist, but the deployed configuration still uses the in-memory store and the ten-node graph remains linear apart from that single interrupt. The typed local engine is still simpler than a framework migration. Re-evaluate when durable branching repair loops, multiple interacting interrupts, or replay are required in production.

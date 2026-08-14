@@ -4,17 +4,18 @@
 
 ROOM is a hybrid Agent system. LLM Agents handle ambiguous semantic extraction; deterministic software owns validation, reference ranking, world compilation, safety checks, storage, and rendering.
 
-Every boundary after a model call uses a validated, versioned artifact. Raw model output never reaches the renderer or mutates another step's artifact directly.
+Every boundary after a model call uses a structurally validated, source-grounded, versioned artifact. Raw model output never reaches the renderer or mutates another step's artifact directly. Source grounding only proves that a field came from the submitted résumé or an inspected portfolio page; ROOM treats those sources as user-provided truth and does not independently verify the real-world truth of a Claim.
 
 ## Current pipeline
 
 ```mermaid
 flowchart LR
     A["Résumé / public portfolio"] --> B["Source preparation"]
-    B --> C["Profile Agent: identity + inventory shards"]
+    B --> C1["Identity checkpoint"]
+    C1 --> C2["Inventory checkpoint"]
     B --> D["Model Planner + bounded Website Tool Loop"]
     D --> E["Website Profile Agent"]
-    C --> F["Profile validation + normalization"]
+    C2 --> F["Profile assembly + normalization"]
     E --> G["Claim-aware deterministic merge"]
     F --> G
     G --> R["MergeReport · profile-merge-report.v1"]
@@ -30,7 +31,8 @@ flowchart LR
     M --> N["CheckReport · check-report.v1"]
     N --> O["Three.js runtime"]
 
-    C -.-> T["Agent Trace"]
+    C1 -.-> T["Agent Trace"]
+    C2 -.-> T
     E -.-> T
     F -.-> T
     I -.-> T
@@ -43,11 +45,11 @@ flowchart LR
 
 ### Profile Agent
 
-The Profile Agent runs evidence-backed identity and inventory shards. It may choose between configured providers, modes, models, and bounded repair attempts. Its output must pass structural validation and profile normalization before becoming `ParsedProfile`.
+The Profile Agent runs source-grounded identity and inventory shards as separate recoverable Workflow nodes. It may choose between configured providers, modes, models, and bounded repair attempts. Its output must pass structural validation and profile normalization before becoming `ParsedProfile`. This verifies provenance against the supplied source, not résumé authenticity.
 
 ### Website Profile Agent
 
-The Website Research Agent is a hybrid Tool Agent. After each inspected page, a model planner receives a bounded Observation and chooses either an exact policy-approved candidate URL or `submit`. This creates a Plan→Tool→Observation→Replan loop without allowing the model to invent tool names, URLs, hosts, or budgets. Invalid output and Provider failure fall back to deterministic missing-field ranking. The control plane runs bounded `fetch_page`, `list_links`, `inspect_page`, `extract_media`, `validate_claim`, and `submit_profile` tools. The semantic Profile Agent sees only the inspected, size-bounded page corpus and must produce evidence-backed output.
+The Website Research Agent is a hybrid Tool Agent. After each inspected page, a model planner receives a bounded Observation and chooses either an exact policy-approved candidate URL or `submit`. This creates a Plan→Tool→Observation→Replan loop without allowing the model to invent tool names, URLs, hosts, or budgets. Invalid output and Provider failure fall back to deterministic missing-field ranking. The control plane runs bounded `fetch_page`, `list_links`, `inspect_page`, `extract_media`, `validate_claim`, and `submit_profile` tools. Here `validate_claim` resolves locators and excerpts back to an inspected page; it does not fact-check the page. The semantic Profile Agent sees only the inspected, size-bounded page corpus and must produce source-grounded output.
 
 Résumé parsing preserves early concurrency: once the Identity shard discovers a personal homepage, ROOM prefetches only its root page. Additional pages are selected after the complete résumé Profile reveals which fields are missing. A website-only intake goes directly through the same multi-page loop. See [Website Research Agent](./WEBSITE_RESEARCH_AGENT.md).
 
@@ -58,7 +60,7 @@ Portrait art generation and companion Q&A call models, but they are not pipeline
 ## Deterministic services
 
 - **Source preparation:** upload limits, URL safety, PDF pre-parsing, media extraction, and source labeling.
-- **Profile validation and merge:** evidence-backed Claims, schema checks, deduplication, explicit source decisions, conflict detection, and user-confirmed locks. String length is not a confidence proxy.
+- **Profile validation and merge:** source-grounded Claims, schema checks, deduplication, explicit source decisions, conflict detection, and user-confirmed locks. It does not perform external truth verification. String length is not a confidence proxy.
 - **Human Review:** exposes both candidate values and their source excerpts for high-risk conflicts. User decisions are recorded as `extractionMethod: "user"` / `origin: "user-confirmed"` and cannot be overwritten by a later Agent merge.
 - **Creative Retrieval:** bilingual lexical recall, metadata filtering, weighted reranking, and a purpose-specific License Guard over a curated reference catalog. This is not currently semantic RAG or an LLM Agent; vector retrieval is gated on catalog scale and measured Recall. See [Creative Retrieval](./CREATIVE_RETRIEVAL.md).
 - **World Orchestrator:** maps validated profile content and a creative brief into stable rooms, exhibits, surfaces, and interactions.
@@ -73,6 +75,10 @@ Persisted baselines and future checkpoints use `VersionedArtifactEnvelope<T>` wi
 
 | Artifact | Version |
 | --- | --- |
+| Identity checkpoint | `profile-identity.v1` |
+| Inventory checkpoint | `profile-inventory.v1` |
+| Résumé profile checkpoint | `profile.v1` |
+| Website Research checkpoint | `website-research.v1` |
 | Parsed profile | `profile.v1` |
 | Profile merge report | `profile-merge-report.v1` |
 | Creative brief | `creative-brief.v1` |
@@ -89,9 +95,9 @@ Each Website Research tool call records a unique Tool Call ID, tool name, bounde
 
 The creation UI polls the redacted Run every 500 ms and exposes an expandable Trace timeline. Its summary includes model/tool counts, retries, tokens, latency, artifacts, and estimated cost; event details show only bounded metadata. See [Agent observability](./AGENT_OBSERVABILITY.md).
 
-The framework-neutral `RoomWorkflowEngine` records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, review interrupts, and checkpoint resume. A node may return a `ProfileMergeReport`; required conflicts move the Run to `waiting_for_review`. Applying review decisions replaces only the Profile Artifact and resumes at the first incomplete node. Public Run snapshots expose Artifact metadata and only the evidence needed for an active review, never the source body or full Artifact body.
+The framework-neutral `RoomWorkflowEngine` records ordered events, node attempts, artifact-version checkpoints, cancellation, Idempotency Key reuse, review interrupts, and checkpoint resume. Identity, Inventory, Website Research, Merge, and Review are independent nodes, so a retry begins at the first incomplete node. A node may return a `ProfileMergeReport`; required conflicts move the Run to `waiting_for_review`. Applying review decisions replaces only the Profile Artifact and resumes at the first incomplete node. Public Run snapshots expose Artifact metadata and only the evidence needed for an active review, never the source body or full Artifact body.
 
-Profile model shards share one pre-call budget for model calls, estimated input tokens, reserved output tokens, estimated cost, and wall-clock duration. The same Run also shares a Provider circuit breaker and bounded backoff state. Incoming request cancellation is combined with Provider and webpage timeouts. Budget exhaustion is a redacted Trace event and cannot silently start another fallback call.
+Profile model shards share one Run budget for model calls, estimated input tokens, reserved output tokens, estimated cost, and active wall-clock duration. Usage is checkpointed and restored on resume. Provider request timeouts are capped by the Run's remaining duration, and the concurrency lease is longer than the maximum Run duration. The same active execution also shares a Provider circuit breaker and bounded backoff state. Incoming request cancellation is combined with Provider and webpage timeouts. Budget exhaustion is a redacted Trace event and cannot silently start another fallback call.
 
 Untrusted source-authored instructions are quarantined before parsing and LLM submission while preserving source line numbers. Public-web requests validate URL syntax, every redirect, and resolved A/AAAA addresses. Companion citations are verified against actual Profile Item evidence, and Companion context is a public-field allowlist. See [Agent security](./AGENT_SECURITY.md).
 

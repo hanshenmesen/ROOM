@@ -5,9 +5,8 @@ import {
   type PetPersonality,
 } from "../profile-space-customization.ts";
 import { normalizeRoomCompanionName } from "../room-companion.ts";
-import { getAgentProviderConfig, shouldDisableThinking, type AgentProviderOverride } from "./provider-config.ts";
-import { buildToolCallRequest } from "./provider-request.ts";
-import { estimateCallCostUsd } from "./provider-pricing.ts";
+import { getAgentProviderConfig, type AgentProviderOverride } from "./provider-config.ts";
+import { callModel, ModelServiceExhaustedError, type ModelServiceProvider } from "./model-service.ts";
 import { providerErrorDetail } from "./provider-errors.ts";
 import { AgentRunControls, type AgentRunBudgetLimits } from "../agent-runtime/run-controls.ts";
 
@@ -286,56 +285,72 @@ export async function answerPetQaQuestion(
     budget: { maxModelCalls: 3, maxOutputTokens: 9_000, ...runtimeOptions.budget },
   });
   const safeBaseUrl = assertSafePetQaBaseUrl(config.baseUrl);
-  let lastResult: { response: Response; payload: unknown } | undefined;
-  for (const apiKey of config.apiKeys) {
-    const inputTokens = Math.ceil((system.length + content.length) / 4);
-    runtimeControls.budget.reserve({
-      inputTokens,
-      // Headroom for thinking-mode providers whose reasoning counts
-      // toward max_tokens (DeepSeek V4 defaults to thinking).
-      outputTokens: 4_000,
-      estimatedCostUsd: estimateCallCostUsd(config.baseUrl, inputTokens, 4_000),
-    });
-    const request = buildToolCallRequest({
-      protocol: config.protocol,
-      baseUrl: safeBaseUrl,
-      apiKey,
-      userEmail: config.userEmail,
-      authMode: config.authMode,
-      appId: config.appId,
-      model: config.model,
+  const providers: ModelServiceProvider[] = [{
+    baseUrl: safeBaseUrl,
+    apiKeys: config.apiKeys,
+    models: [config.model],
+    mode: config.mode,
+    protocol: config.protocol,
+    userEmail: config.userEmail,
+    authMode: config.authMode,
+    appId: config.appId,
+  }];
+
+  try {
+    const result = await callModel<PetQaAnswer>({
+      agent: "pet-qa",
+      step: "pet-qa.answer",
+      promptVersion: "pet-qa.v1",
+      templateId: "pet-qa-answer",
+      adapterVersion: "provider-request.v1",
+      logLabel: "pet-qa",
       system,
       userContent: content,
-      temperature: 0,
+      providers,
+      // Headroom for thinking-mode providers whose reasoning counts
+      // toward max_tokens (DeepSeek V4 defaults to thinking).
       maxOutputTokens: 4_000,
       toolName: "submit_pet_qa_answer",
       toolDescription: "Submit the profile-grounded pet QA answer.",
       toolSchema: PET_QA_SCHEMA,
-      jsonSchemaMode: config.mode === "json-schema",
-      disableThinking: shouldDisableThinking(config.baseUrl, config.model),
+      requestTimeoutMs: 60_000,
+      runtimeControls,
+      // Pet QA is a per-question chat call with no Run scope: it does not
+      // participate in Run tracing, matching its previous behavior (this
+      // call site never emitted trace events).
+      handleResponse: ({ payload }) => {
+        try {
+          const parsed = parseJsonOutput(responseText(payload));
+          const citations = validatePetQaCitations(profile, parsed.citations);
+          if (parsed.citations.length && !citations.length) {
+            return {
+              outcome: "success",
+              data: {
+                answer: "这条回答的引用无法通过公开 Profile 验证，所以我不能把它当作真实经历告诉你。",
+                citations: [],
+              },
+            };
+          }
+          return { outcome: "success", data: { ...parsed, citations } };
+        } catch (error) {
+          return {
+            outcome: "retry",
+            errorCode: "invalid_json",
+            detail: error instanceof Error ? error.message : "宠物 QA 没有返回有效 JSON。",
+          };
+        }
+      },
     });
-    const response = await fetch(request.url, {
-      method: "POST",
-      headers: request.headers,
-      body: JSON.stringify(request.body),
-      signal: runtimeControls.requestSignal(60_000),
-    });
-    const payload = await response.json().catch(() => null) as unknown;
-    lastResult = { response, payload };
-    if (response.ok) {
-      const parsed = parseJsonOutput(responseText(payload));
-      const citations = validatePetQaCitations(profile, parsed.citations);
-      if (parsed.citations.length && !citations.length) {
-        return {
-          answer: "这条回答的引用无法通过公开 Profile 验证，所以我不能把它当作真实经历告诉你。",
-          citations: [],
-        };
+    return result.data;
+  } catch (error) {
+    if (!(error instanceof ModelServiceExhaustedError)) throw error;
+    if (!error.lastResult) {
+      if (error.lastRequestError instanceof Error) {
+        throw new PetQaError(`宠物 QA 请求失败：${error.lastRequestError.message}`, 502);
       }
-      return { ...parsed, citations };
+      throw new PetQaError("宠物 QA 请求未执行。", 502);
     }
-    if (![401, 403].includes(response.status)) break;
+    const detail = providerDetail(error.lastResult.payload);
+    throw new PetQaError(`宠物 QA 请求失败（${error.lastResult.response.status}）${detail ? `：${detail}` : ""}`, 502);
   }
-  if (!lastResult) throw new PetQaError("宠物 QA 请求未执行。", 502);
-  const detail = providerDetail(lastResult.payload);
-  throw new PetQaError(`宠物 QA 请求失败（${lastResult.response.status}）${detail ? `：${detail}` : ""}`, 502);
 }

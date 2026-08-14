@@ -1,3 +1,6 @@
+import type { z } from "zod";
+import type { CheckIssueSchema, CheckReportSchema } from "../schemas/check-report.ts";
+
 export type ContentFamily =
   | "publication"
   | "talk"
@@ -251,31 +254,14 @@ export interface WorldPlan {
   metrics: WorldMetrics;
 }
 
-export interface CheckIssue {
-  id: string;
-  category:
-    | "content"
-    | "overlap"
-    | "interaction"
-    | "performance"
-    | "navigation";
-  severity: "error" | "warning" | "info";
-  message: string;
-  entityIds: string[];
-  suggestion: string;
-}
-
-export interface CheckReport {
-  passed: boolean;
-  score: number;
-  summary: string;
-  checks: Array<{
-    name: string;
-    passed: boolean;
-    detail: string;
-  }>;
-  issues: CheckIssue[];
-}
+// `CheckIssue`/`CheckReport` are `z.infer` aliases onto `schemas/check-report.ts`'s
+// `CheckIssueSchema`/`CheckReportSchema` (the single source of truth --
+// see that module's doc comment), not hand-written interfaces: this file
+// stays free of any zod runtime import (only `import type` above, fully
+// erased) while every consumer of `CheckIssue`/`CheckReport` keeps working
+// unchanged.
+export type CheckIssue = z.infer<typeof CheckIssueSchema>;
+export type CheckReport = z.infer<typeof CheckReportSchema>;
 
 export interface AgentTrace {
   id: string;

@@ -1,4 +1,5 @@
 import type { CheckReport, ParsedProfile, WorldPlan } from "./types.ts";
+import { CheckReportSchema } from "../schemas/check-report.ts";
 
 export function validateProfile(profile: ParsedProfile) {
   const errors: string[] = [];
@@ -70,8 +71,13 @@ export function validateWorld(world: WorldPlan) {
   return errors;
 }
 
+// Delegates to `CheckReportSchema` (see `schemas/check-report.ts`) instead
+// of re-checking a couple of fields by hand: the Zod schema is the single
+// source of truth for what a valid Check Report looks like, so this
+// function can never drift from `CheckReportSchema`'s own constraints
+// (score range, minimum check count, issue shape, ...).
 export function validateReport(report: CheckReport) {
-  return report.score >= 0 && report.score <= 100 && report.checks.length >= 5
-    ? []
-    : ["invalid checker report"];
+  const result = CheckReportSchema.safeParse(report);
+  if (result.success) return [];
+  return result.error.issues.map((issue) => `${issue.path.join(".") || "report"}: ${issue.message}`);
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { publicWorkflowSnapshot } from "@/lib/workflow/public-snapshot";
 import { WorkflowNotFoundError, WorkflowTransitionError } from "@/lib/workflow/room-workflow";
 import { getRoomWorkflowEngine } from "@/lib/workflow/singleton";
+import { cancelAgentRunById } from "@/lib/agent-runtime/run-cancellation";
 
 export const runtime = "edge";
 
@@ -15,6 +16,7 @@ export async function POST(
   }
   try {
     const engine = await getRoomWorkflowEngine();
+    cancelAgentRunById(runId);
     return NextResponse.json({ run: publicWorkflowSnapshot(await engine.cancel(runId), engine.persistence) }, {
       headers: { "cache-control": "no-store" },
     });

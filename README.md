@@ -177,7 +177,7 @@ Identity and inventory Agents ─────→ bounded Website Research Agent
                  Three.js runtime + grounded QA
 ```
 
-Raw model output never reaches the renderer. Each model result must pass structural validation, evidence validation, normalization, and deterministic merge rules before it becomes a versioned artifact. See [Agent architecture](./docs/ARCHITECTURE.md) and the [hybrid Agent boundary ADR](./docs/adr/0001-hybrid-agent-boundary.md).
+Raw model output never reaches the renderer. Each model result must pass structural validation, source-grounding validation, normalization, and deterministic merge rules before it becomes a versioned artifact. Grounding proves provenance to the submitted résumé or inspected portfolio; ROOM does not independently verify whether those source statements are true. See [Agent architecture](./docs/ARCHITECTURE.md) and the [hybrid Agent boundary ADR](./docs/adr/0001-hybrid-agent-boundary.md).
 
 ## Product and runtime highlights
 
@@ -186,7 +186,7 @@ Raw model output never reaches the renderer. Each model result must pass structu
 - Parallel identity and inventory extraction with bounded repair and fallback loops.
 - Page-aware PDF preprocessing and line/page evidence locators.
 - Plan → Tool → Observation → Replan website research with same-host and navigation budgets.
-- Evidence-backed claim merging and explicit user review for high-risk conflicts.
+- Source-grounded claim merging and explicit user review for high-risk source conflicts.
 - Cancellation, shared token/cost/time budgets, circuit breaking, bounded backoff, and concurrency leases.
 - Redacted per-run traces and cross-run metrics for model calls, tools, retries, latency, tokens, and estimated cost.
 
