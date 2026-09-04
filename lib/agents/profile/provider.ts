@@ -24,10 +24,10 @@ const ITEMS_MAX_OUTPUT_TOKENS = 16_000;
 const PROFILE_AGENT_EFFORT = "low";
 // Per-request abort timeout, shared by every shard. A 120s cap was observed
 // aborting healthy in-flight "items" shard calls (16k-token structured
-// extraction through Xiaohongshu's internal MAAS gateway can legitimately
-// take well past 120s), which then forced a retry that blew through the
-// overall run budget. Rather than tune a fragile per-shard threshold against
-// an unconfirmed P99, use one generous ceiling; DEFAULT_AGENT_RUN_BUDGET's
+// extraction through the internal MAAS gateway can legitimately take well
+// past 120s), which then forced a retry that blew through the overall run
+// budget. Rather than tune a fragile per-shard threshold against an
+// unconfirmed P99, use one generous ceiling; DEFAULT_AGENT_RUN_BUDGET's
 // maxDurationMs is sized to allow one slow attempt plus one full retry at
 // this timeout.
 

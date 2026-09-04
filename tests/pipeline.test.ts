@@ -198,7 +198,6 @@ test("academic homepage extraction keeps semantic sections and maps real project
         </div>
         <h1>🎖 Honors and Awards</h1><ul><li>2026 Top Intern</li></ul>
         <h1>📖 Educations</h1><ul><li>2025 – 2028, Ph.D., UCAS</li></ul>
-        <h1>💻 Internships</h1><ul><li>2026, Xiaohongshu, Data Engineer Agent R&amp;D</li></ul>
         <a href="https://scholar.google.com/citations?user=abc">Google Scholar</a>
       </section></article>
     </body></html>`;

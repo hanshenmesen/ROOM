@@ -26,11 +26,10 @@ export const PROFILE_AGENT_RUN_GRACE_MS = 5 * 60_000;
 export const PROFILE_AGENT_LEASE_TTL_MS = PROFILE_AGENT_RUN_TIMEOUT_MS + PROFILE_AGENT_RUN_GRACE_MS;
 
 // Generating a full 16k-token structured extraction through a proxied
-// gateway (e.g. Xiaohongshu's internal MAAS gateway) has been observed to
-// take well past 120s for the denser "items" shard alone. Rather than tune
-// a fragile threshold against an unconfirmed P99, the profile agent's
-// per-request timeout is a generous 20 minutes, so
-// this wall-clock budget must be at least 2x that to leave room for one
+// gateway has been observed to take well past 120s for the denser "items"
+// shard alone. Rather than tune a fragile threshold against an unconfirmed
+// P99, the profile agent's per-request timeout is a generous 20 minutes,
+// so this wall-clock budget must be at least 2x that to leave room for one
 // slow attempt plus one full retry.
 export const DEFAULT_AGENT_RUN_BUDGET: AgentRunBudgetLimits = {
   maxModelCalls: 16,

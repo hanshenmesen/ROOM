@@ -87,10 +87,9 @@ export function shouldDisableThinking(baseUrl: string, model = "") {
  * frequently paste DeepSeek's OpenAI-style base URL (https://api.deepseek.com
  * or .../v1); on that host ROOM must always call /anthropic (the only
  * format it speaks) and default to tool mode (its output_config.format is
- * unsupported). The Xiaohongshu internal MAAS gateway host is detected as
- * its own protocol and passed through unchanged (its URL is already
- * correct as typed). All other hosts pass through unchanged on the
- * Anthropic protocol.
+ * unsupported). The internal MAAS gateway host is detected as its own
+ * protocol and passed through unchanged (its URL is already correct as
+ * typed). All other hosts pass through unchanged on the Anthropic protocol.
  */
 function normalizeProviderBaseUrl(
   rawBaseUrl: string,
